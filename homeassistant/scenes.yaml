@@ -11,6 +11,12 @@
   entities:
     light.salon: { state: "on", brightness: 90, color_temp_kelvin: 2400 }
     light.cuisine: { state: "on", brightness: 60, color_temp_kelvin: 2400 }
+- id: focus
+  name: Focus
+  entities:
+    light.salon: { state: "on", brightness: 210, color_temp_kelvin: 4200 }
+    light.cuisine: { state: "off" }
+    light.chambre: { state: "off" }
 - id: chillos
   name: Chillos
   entities:

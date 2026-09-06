@@ -18,7 +18,7 @@ flowchart TB
         subgraph hass["Home Assistant"]
             sel["input_select.playlist<br/>la liste des playlists"]
             pp["script.play_playlist<br/>seule table nom → URI"]
-            moods["script.mood_*<br/>cinema · detente · fete<br/>chillos · off"]
+            moods["script.mood_*<br/>cinema · detente · focus<br/>chillos · off"]
             scenes["scene.*<br/>l'état des lumières"]
             auto["automation<br/>bouton mural"]
         end
@@ -118,7 +118,6 @@ quelle.
 | Chambre (Music Assistant) | `media_player.ma_chambre` | à vérifier |
 | Bouton mural (ZHA) | `device_id` dans `automations.yaml` | **gabarit** |
 | Playlist Chillos | table de `script.play_playlist` | définie |
-| Ambiance Fête | `script.mood_fete` | **n'existe pas** |
 
 Les vrais noms sont dans Paramètres → Appareils et services → Entités.
 

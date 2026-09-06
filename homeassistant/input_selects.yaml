@@ -11,5 +11,4 @@ playlist:
   options:
     - Détente
     - Chillos
-    # - Fête       ← à décommenter quand son URI sera dans scripts.yaml,
-    #                et script.mood_fete reste à écrire
+    - Focus
