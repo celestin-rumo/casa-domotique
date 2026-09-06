@@ -4,14 +4,18 @@ Domotique maison : home cinéma, musique multiroom et lumières pilotés par un 
 
 - `app/` — l'application (voir son README pour le build natif)
 - `homeassistant/` — scènes, scripts et automatisations à copier sur le Pi (`/config`)
-- `docs/` — schéma et liste des entity_id
+- `docs/` — [le schéma complet](docs/architecture.md) et [comment tester sans Pi](docs/TESTING.md)
 
 ## Démarrage rapide
 
+Sans Raspberry Pi, sans ampoule et sans enceinte :
+
 ```bash
-git clone git@github.com:celestin-rumo/casa-domotique.git && cd casa-domotique/app
-npm install && cp .env.example .env
+docker compose -f docker-compose.dev.yml up     # Home Assistant sur :8123
+cd app && npm install && cp .env.example .env   # y coller l'URL et un jeton
 npm run dev
 ```
 
-Puis `npx cap add ios` ou `android` pour l'app native.
+La procédure complète, avec les vérifications à faire à chaque étape, est dans
+[`docs/TESTING.md`](docs/TESTING.md). Puis `npx cap add ios` ou `android` pour
+l'app native.

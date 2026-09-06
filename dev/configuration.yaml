@@ -1,0 +1,96 @@
+# Home Assistant de développement. Ce fichier n'existe que pour le poste de
+# dev : sur le Pi, c'est homeassistant/configuration.yaml qui sert.
+#
+# Il inclut les vrais fichiers du dépôt, montés sur /config/casa, et ajoute
+# de fausses ampoules pour que light.salon existe sans qu'aucune ampoule
+# soit branchée.
+default_config:
+
+http:
+  cors_allowed_origins:
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+    - capacitor://localhost
+    - http://localhost
+
+# --- les fichiers du dépôt, tels quels ---
+input_select: !include casa/input_selects.yaml
+scene: !include casa/scenes.yaml
+script: !include casa/scripts.yaml
+# Pas d'automations ici : le seul trigger du dépôt est un bouton mural ZHA,
+# et son device_id n'existe pas sans la clé Zigbee. Home Assistant refuserait
+# de charger le bloc.
+# automation: !include casa/automations.yaml
+
+# --- de quoi porter l'état de trois ampoules qui n'existent pas ---
+input_boolean:
+  salon_on:
+    name: Salon allumé
+  cuisine_on:
+    name: Cuisine allumée
+  chambre_on:
+    name: Chambre allumée
+
+input_number:
+  salon_niveau:
+    name: Salon niveau
+    min: 0
+    max: 255
+    initial: 200
+  cuisine_niveau:
+    name: Cuisine niveau
+    min: 0
+    max: 255
+    initial: 150
+  chambre_niveau:
+    name: Chambre niveau
+    min: 0
+    max: 255
+    initial: 120
+
+# --- light.salon, light.cuisine, light.chambre : allumage et intensité ---
+light:
+  - platform: template
+    lights:
+      salon:
+        friendly_name: Salon
+        value_template: "{{ is_state('input_boolean.salon_on', 'on') }}"
+        level_template: "{{ states('input_number.salon_niveau') | int(0) }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target: { entity_id: input_boolean.salon_on }
+        turn_off:
+          service: input_boolean.turn_off
+          target: { entity_id: input_boolean.salon_on }
+        set_level:
+          service: input_number.set_value
+          target: { entity_id: input_number.salon_niveau }
+          data: { value: "{{ brightness }}" }
+      cuisine:
+        friendly_name: Cuisine
+        value_template: "{{ is_state('input_boolean.cuisine_on', 'on') }}"
+        level_template: "{{ states('input_number.cuisine_niveau') | int(0) }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target: { entity_id: input_boolean.cuisine_on }
+        turn_off:
+          service: input_boolean.turn_off
+          target: { entity_id: input_boolean.cuisine_on }
+        set_level:
+          service: input_number.set_value
+          target: { entity_id: input_number.cuisine_niveau }
+          data: { value: "{{ brightness }}" }
+      chambre:
+        friendly_name: Chambre
+        value_template: "{{ is_state('input_boolean.chambre_on', 'on') }}"
+        level_template: "{{ states('input_number.chambre_niveau') | int(0) }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target: { entity_id: input_boolean.chambre_on }
+        turn_off:
+          service: input_boolean.turn_off
+          target: { entity_id: input_boolean.chambre_on }
+        set_level:
+          service: input_number.set_value
+          target: { entity_id: input_number.chambre_niveau }
+          data: { value: "{{ brightness }}" }

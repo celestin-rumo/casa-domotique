@@ -1,0 +1,39 @@
+# Faire tourner la maison sans la maison : Home Assistant et Music Assistant
+# sur le poste de dev, sans Raspberry Pi, sans ampoule et sans enceinte.
+#
+#   docker compose -f docker-compose.dev.yml up
+#   → http://localhost:8123  (créer un compte au premier démarrage)
+#
+# Le dossier homeassistant/ du dépôt est monté en LECTURE SEULE sur
+# /config/casa : Home Assistant écrit sa base et ses secrets dans un volume
+# à lui, jamais dans le dépôt.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: casa-hass
+    ports:
+      - "8123:8123"
+    environment:
+      - TZ=Europe/Zurich
+    volumes:
+      - hass-config:/config
+      - ./homeassistant:/config/casa:ro
+      - ./dev/configuration.yaml:/config/configuration.yaml:ro
+    restart: unless-stopped
+
+  # Music Assistant tourne aussi bien sur un portable que sur un Pi.
+  # Il reste à l'ajouter comme intégration dans Home Assistant :
+  # Paramètres > Appareils et services > Ajouter > Music Assistant,
+  # serveur http://music-assistant:8095
+  music-assistant:
+    image: ghcr.io/music-assistant/server:latest
+    container_name: casa-music
+    ports:
+      - "8095:8095"
+    volumes:
+      - music-data:/data
+    restart: unless-stopped
+
+volumes:
+  hass-config:
+  music-data:
