@@ -16,6 +16,7 @@ cd app && npm install && cp .env.example .env   # y coller l'URL et un jeton
 npm run dev
 ```
 
-La procédure complète, avec les vérifications à faire à chaque étape, est dans
-[`docs/TESTING.md`](docs/TESTING.md). Puis `npx cap add ios` ou `android` pour
-l'app native.
+[`docs/TESTING.md`](docs/TESTING.md) découpe la mise en route en trois étapes —
+tout faux sur le portable, puis le Pi avec du matériel encore faux, puis tout
+réel — chacune n'ajoutant qu'une source de panne. Puis `npx cap add ios` ou
+`android` pour l'app native.
