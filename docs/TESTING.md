@@ -93,9 +93,9 @@ Dans `.env` : `VITE_HA_URL=http://localhost:8123` et le jeton de 1.3. Puis
 `npm run dev`.
 
 Attendu : les cinq ambiances, les trois lumières qui réagissent pour de vrai,
-et **une seule playlist dans la liste** — Détente. Chillos et Fête n'y sont pas
-tant que leur URI n'est pas renseignée : une entrée sans adresse serait un
-bouton qui ne joue rien.
+et **deux playlists dans la liste** — Détente et Chillos. Fête n'y est pas tant
+que son URI n'est pas renseignée : une entrée sans adresse serait un bouton qui
+ne joue rien.
 
 ## 1.6 Le son, sans compte Spotify
 

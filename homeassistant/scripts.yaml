@@ -17,8 +17,10 @@ play_playlist:
   variables:
     playlists:
       Détente: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"
-      # Spotify > la playlist > Partager > Copier le lien, puis spotify:playlist:<id>
-      # Chillos: "spotify:playlist:REMPLACER_PAR_PLAYLIST_CHILLOS"
+      Chillos: "spotify:playlist:0mQbGXAlmsI3T2Vyfa0IVd"
+      # Spotify > la playlist > Partager > Copier le lien, puis garder le seul
+      # identifiant : le ?si= du lien copié est un jeton de partage lié au
+      # compte, il n'a rien à faire ici.
       # Fête: "spotify:playlist:REMPLACER_PAR_PLAYLIST_FETE"
   sequence:
     # Un nom inconnu s'arrête ici plutôt que d'envoyer un media_id vide.

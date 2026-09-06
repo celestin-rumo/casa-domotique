@@ -10,5 +10,6 @@ playlist:
   icon: mdi:playlist-music
   options:
     - Détente
-    # - Chillos    ← décommenter une fois l'URI collée dans scripts.yaml
-    # - Fête       ← idem, et script.mood_fete reste à écrire
+    - Chillos
+    # - Fête       ← à décommenter quand son URI sera dans scripts.yaml,
+    #                et script.mood_fete reste à écrire

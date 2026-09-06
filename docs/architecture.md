@@ -117,7 +117,7 @@ quelle.
 | Cuisine (Music Assistant) | `media_player.ma_cuisine` | liée |
 | Chambre (Music Assistant) | `media_player.ma_chambre` | à vérifier |
 | Bouton mural (ZHA) | `device_id` dans `automations.yaml` | **gabarit** |
-| Playlist Chillos | table de `script.play_playlist` | **à coller** |
+| Playlist Chillos | table de `script.play_playlist` | définie |
 | Ambiance Fête | `script.mood_fete` | **n'existe pas** |
 
 Les vrais noms sont dans Paramètres → Appareils et services → Entités.
