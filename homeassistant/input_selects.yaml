@@ -1,0 +1,14 @@
+# Les playlists proposées par l'app. Elle lit cette liste par le
+# subscribeEntities qu'elle fait déjà : ajouter une entrée ici la fait
+# apparaître sur le natel sans reconstruire ni réinstaller l'app.
+#
+# N'y mettre qu'un nom dont l'URI est renseignée dans la table `playlists`
+# de script.play_playlist (scripts.yaml). Une entrée sans URI serait un
+# bouton qui ne joue rien.
+playlist:
+  name: Playlist
+  icon: mdi:playlist-music
+  options:
+    - Détente
+    # - Chillos    ← décommenter une fois l'URI collée dans scripts.yaml
+    # - Fête       ← idem, et script.mood_fete reste à écrire

@@ -38,6 +38,13 @@ export async function setVolume(entityId: string, level: number) {
   });
 }
 
+// Le script joue la playlist ET met à jour input_select.playlist ; c'est cet
+// écho, reçu par subscribeEntities, qui confirme le choix — pas cet appel.
+export async function playPlaylist(name: string, player: string) {
+  const conn = await connect();
+  await callService(conn, "script", "play_playlist", { name, player });
+}
+
 export async function toggleLight(entityId: string) {
   const conn = await connect();
   await callService(conn, "light", "toggle", { entity_id: entityId });

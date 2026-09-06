@@ -37,6 +37,14 @@ h1 { margin: 0; font-size: 34px; font-weight: 500; letter-spacing: -0.02em; }
 .volume label { display: block; color: var(--muted); margin-bottom: 8px; }
 .volume input { width: 100%; accent-color: var(--accent); }
 
+.playlists { display: grid; gap: 8px; }
+.playlists button {
+  padding: 16px 18px; border-radius: 14px; border: 0; text-align: left;
+  background: var(--panel); color: var(--muted); font: inherit; font-size: 16px; cursor: pointer;
+  transition: color .2s, box-shadow .2s;
+}
+.playlists button.on { color: var(--ink); box-shadow: inset 4px 0 0 var(--accent); }
+
 .lights { display: grid; gap: 8px; }
 .lights button {
   padding: 16px 18px; border-radius: 14px; border: 0; text-align: left;

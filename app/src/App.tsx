@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { HassEntities } from "home-assistant-js-websocket";
-import { onEntities, activateScene, setVolume, toggleLight } from "./ha";
-import { MOODS, PLAYER, LIGHTS } from "./config";
+import { onEntities, activateScene, setVolume, toggleLight, playPlaylist } from "./ha";
+import { MOODS, PLAYER, LIGHTS, PLAYLIST_SELECT } from "./config";
 import { setupNative, tap } from "./native";
 
 export default function App() {
@@ -23,6 +23,10 @@ export default function App() {
 
   const player = entities[PLAYER];
   const volume = player?.attributes.volume_level ?? 0;
+
+  // Les options du helper : la liste se modifie sur le Pi, pas dans ce fichier.
+  const select = entities[PLAYLIST_SELECT];
+  const playlists: string[] = select?.attributes.options ?? [];
 
   async function mood(id: string) {
     tap();
@@ -70,6 +74,23 @@ export default function App() {
           onChange={(e) => setVolume(PLAYER, Number(e.target.value))}
         />
       </section>
+
+      {playlists.length > 0 && (
+        <section className="playlists">
+          {playlists.map((name) => (
+            <button
+              key={name}
+              className={select?.state === name ? "on" : ""}
+              onClick={() => {
+                tap();
+                playPlaylist(name, PLAYER);
+              }}
+            >
+              {name}
+            </button>
+          ))}
+        </section>
+      )}
 
       <section className="lights">
         {LIGHTS.map((id) => {

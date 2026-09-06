@@ -10,3 +10,8 @@ export const MOODS = [
 export const PLAYER = "media_player.ma_salon";
 
 export const LIGHTS = ["light.salon", "light.cuisine", "light.chambre"];
+
+// La liste des playlists n'est pas ici : elle vit sur le Pi, dans
+// input_selects.yaml, et arrive par le subscribeEntities que fait déjà ha.ts.
+// En ajouter une ne demande donc pas de reconstruire l'app.
+export const PLAYLIST_SELECT = "input_select.playlist";

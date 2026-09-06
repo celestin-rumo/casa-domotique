@@ -1,3 +1,40 @@
+# La seule table nom -> URI. Les ambiances l'appellent au lieu de porter
+# chacune son adresse, et l'app appelle ce script avec le nom choisi.
+# Les mêmes noms sont proposés dans input_selects.yaml.
+play_playlist:
+  alias: Jouer une playlist
+  mode: restart
+  fields:
+    name:
+      description: Le nom tel qu'il apparaît dans input_select.playlist
+      example: Détente
+    player:
+      description: L'enceinte ou le groupe qui joue
+      example: media_player.ma_salon
+    radio_mode:
+      description: Se servir de la playlist comme graine plutôt que la jouer telle quelle
+      example: false
+  variables:
+    playlists:
+      Détente: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"
+      # Spotify > la playlist > Partager > Copier le lien, puis spotify:playlist:<id>
+      # Chillos: "spotify:playlist:REMPLACER_PAR_PLAYLIST_CHILLOS"
+      # Fête: "spotify:playlist:REMPLACER_PAR_PLAYLIST_FETE"
+  sequence:
+    # Un nom inconnu s'arrête ici plutôt que d'envoyer un media_id vide.
+    - condition: template
+      value_template: "{{ name in playlists }}"
+    - service: music_assistant.play_media
+      target: { entity_id: "{{ player }}" }
+      data:
+        media_id: "{{ playlists[name] }}"
+        media_type: playlist
+        radio_mode: "{{ radio_mode | default(false) }}"
+    # C'est cet écho qui confirme le choix côté app, pas la réponse au service.
+    - service: input_select.select_option
+      target: { entity_id: input_select.playlist }
+      data: { option: "{{ name }}" }
+
 mood_cinema:
   alias: Mood Cinéma
   sequence:
@@ -15,11 +52,10 @@ mood_detente:
     - service: media_player.join
       target: { entity_id: media_player.ma_salon }
       data: { group_members: [media_player.ma_cuisine] }
-    - service: music_assistant.play_media
-      target: { entity_id: media_player.ma_salon }
+    - service: script.play_playlist
       data:
-        media_id: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"
-        media_type: playlist
+        name: Détente
+        player: media_player.ma_salon
         radio_mode: true
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_salon }
@@ -33,13 +69,11 @@ mood_chillos:
     - service: media_player.join
       target: { entity_id: media_player.ma_chambre }
       data: { group_members: [media_player.ma_salon] }
-    - service: music_assistant.play_media
-      target: { entity_id: media_player.ma_chambre }
+    # pas de radio_mode : une playlist choisie se joue telle quelle
+    - service: script.play_playlist
       data:
-        # Spotify > la playlist > Partager > Copier le lien, puis spotify:playlist:<id>
-        media_id: "spotify:playlist:REMPLACER_PAR_PLAYLIST_CHILLOS"
-        media_type: playlist
-        # pas de radio_mode : une playlist choisie se joue telle quelle
+        name: Chillos
+        player: media_player.ma_chambre
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_chambre }
       data: { volume_level: 0.18 }

@@ -8,6 +8,7 @@ http:
     - capacitor://localhost      # app iOS
     - http://localhost           # app Android
 
+input_select: !include input_selects.yaml
 scene: !include scenes.yaml
 script: !include scripts.yaml
 automation: !include automations.yaml
