@@ -25,6 +25,25 @@ mood_detente:
       target: { entity_id: media_player.ma_salon }
       data: { volume_level: 0.25 }
 
+mood_chillos:
+  alias: Mood Chillos
+  sequence:
+    - service: scene.turn_on
+      target: { entity_id: scene.chillos }
+    - service: media_player.join
+      target: { entity_id: media_player.ma_chambre }
+      data: { group_members: [media_player.ma_salon] }
+    - service: music_assistant.play_media
+      target: { entity_id: media_player.ma_chambre }
+      data:
+        # Spotify > la playlist > Partager > Copier le lien, puis spotify:playlist:<id>
+        media_id: "spotify:playlist:REMPLACER_PAR_PLAYLIST_CHILLOS"
+        media_type: playlist
+        # pas de radio_mode : une playlist choisie se joue telle quelle
+    - service: media_player.volume_set
+      target: { entity_id: media_player.ma_chambre }
+      data: { volume_level: 0.18 }
+
 mood_off:
   alias: Tout éteindre
   sequence:

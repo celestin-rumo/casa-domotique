@@ -3,6 +3,7 @@ export const MOODS = [
   { id: "script.mood_cinema", label: "Cinéma", hue: "#c0392b" },
   { id: "script.mood_detente", label: "Détente", hue: "#e8b86d" },
   { id: "script.mood_fete", label: "Fête", hue: "#8e44ad" },
+  { id: "script.mood_chillos", label: "Chillos", hue: "#b0455f" },
   { id: "script.mood_off", label: "Tout éteindre", hue: "#5a5652" },
 ];
 
