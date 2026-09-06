@@ -6,3 +6,4 @@ app/ios/App/Pods/
 app/android/.gradle/
 app/android/build/
 app/android/app/build/
+*.tsbuildinfo
