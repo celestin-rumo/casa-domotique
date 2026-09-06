@@ -1,0 +1,10 @@
+- id: bouton_mural_cinema
+  alias: Bouton mural → Cinéma
+  trigger:
+    - platform: device
+      domain: zha
+      type: remote_button_short_press
+      subtype: turn_on
+      device_id: REMPLACER_PAR_ID_DU_BOUTON
+  action:
+    - service: script.mood_cinema

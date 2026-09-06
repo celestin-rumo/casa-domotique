@@ -1,0 +1,48 @@
+:root {
+  --bg: #14110f;
+  --ink: #f2e9dc;
+  --muted: #8a827a;
+  --panel: #1f1b18;
+  --accent: #e8b86d;
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); }
+main {
+  max-width: 480px; margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 24px) 20px 40px;
+  display: grid; gap: 28px;
+}
+header { display: flex; align-items: baseline; justify-content: space-between; }
+h1 { margin: 0; font-size: 34px; font-weight: 500; letter-spacing: -0.02em; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.dot.ok { background: #6cbf7a; }
+.dot.erreur { background: #d9534f; }
+.error { color: #d9534f; margin: 0; }
+
+.moods { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.moods button {
+  --hue: var(--accent);
+  height: 120px; border-radius: 20px; border: 0; cursor: pointer;
+  background: var(--panel); color: var(--ink); font: inherit; font-size: 19px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+  transition: box-shadow .2s, background .2s;
+}
+.moods button.on {
+  background: color-mix(in oklab, var(--hue) 35%, var(--panel));
+  box-shadow: 0 0 0 2px var(--hue), 0 12px 40px -10px var(--hue);
+}
+
+.volume label { display: block; color: var(--muted); margin-bottom: 8px; }
+.volume input { width: 100%; accent-color: var(--accent); }
+
+.lights { display: grid; gap: 8px; }
+.lights button {
+  padding: 16px 18px; border-radius: 14px; border: 0; text-align: left;
+  background: var(--panel); color: var(--muted); font: inherit; font-size: 16px; cursor: pointer;
+}
+.lights button.on { color: var(--ink); box-shadow: inset 4px 0 0 var(--accent); }
+
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

@@ -1,0 +1,13 @@
+# Extrait à fusionner dans le configuration.yaml du Pi.
+default_config:
+
+http:
+  cors_allowed_origins:
+    - http://localhost:5173
+    - http://192.168.1.50:5173   # PC de dev
+    - capacitor://localhost      # app iOS
+    - http://localhost           # app Android
+
+scene: !include scenes.yaml
+script: !include scripts.yaml
+automation: !include automations.yaml

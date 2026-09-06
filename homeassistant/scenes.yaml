@@ -1,0 +1,19 @@
+# Paramètres → Automatisations et scènes → Scènes crée ces entrées automatiquement.
+# Exemple manuel :
+- id: cinema
+  name: Cinéma
+  entities:
+    light.salon: { state: "on", brightness: 15, rgb_color: [120, 20, 20] }
+    light.cuisine: { state: "off" }
+    media_player.lg_tv: { state: "on" }
+- id: detente
+  name: Détente
+  entities:
+    light.salon: { state: "on", brightness: 90, color_temp_kelvin: 2400 }
+    light.cuisine: { state: "on", brightness: 60, color_temp_kelvin: 2400 }
+- id: tout_eteindre
+  name: Tout éteindre
+  entities:
+    light.salon: { state: "off" }
+    light.cuisine: { state: "off" }
+    light.chambre: { state: "off" }
