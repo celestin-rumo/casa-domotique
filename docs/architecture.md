@@ -127,36 +127,16 @@ Les vrais noms sont dans Paramètres → Appareils et services → Entités.
 Home Assistant et Music Assistant tournent aussi bien dans deux conteneurs sur
 un portable. `dev/configuration.yaml` inclut les fichiers du dépôt et ajoute
 trois fausses ampoules, de sorte que `light.salon` existe sans qu'aucune
-ampoule soit branchée.
+ampoule soit branchée, et `dev/music/` sert de bibliothèque locale pour
+entendre quelque chose sans compte Spotify.
 
 ```bash
 docker compose -f docker-compose.dev.yml up
-# http://localhost:8123 — créer un compte au premier démarrage
 ```
 
-Puis, pour l'app :
-
-```bash
-cd app && npm install && cp .env.example .env
-# VITE_HA_URL=http://localhost:8123
-# VITE_HA_TOKEN=<Profil > Sécurité > Jetons d'accès de longue durée>
-npm run dev
-```
-
-Ce qui marche tout de suite : les lumières, les scènes, la moitié « lumière »
-de chaque ambiance, `input_select.playlist`, et toute l'interface de l'app.
-
-Ce qui demande deux clics de plus : le son. Music Assistant tourne dans le
-conteneur voisin mais reste à ajouter comme intégration — Paramètres →
-Appareils et services → Ajouter → Music Assistant, serveur
-`http://music-assistant:8095` — puis un compte Spotify dans Music Assistant.
-Sans cela, les services `music_assistant.*` n'existent pas et la moitié
-« son » des ambiances échoue.
-
-Ce qui ne marchera jamais sans matériel : le bouton mural, qui est un appareil
-Zigbee. Son automatisation est volontairement exclue du fichier de dev, parce
-que Home Assistant refuse de charger un trigger dont le `device_id` n'existe
-pas.
+La procédure complète, avec à chaque couche la commande qui prouve qu'elle
+marche, est dans [TESTING.md](TESTING.md) — elle n'est pas répétée ici, pour
+qu'il n'y ait qu'un endroit à tenir à jour.
 
 Le dépôt n'est jamais écrit par Home Assistant : `homeassistant/` est monté en
 lecture seule sur `/config/casa`, et la base, les journaux et les secrets vont

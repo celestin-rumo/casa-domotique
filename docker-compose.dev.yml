@@ -22,9 +22,13 @@ services:
     restart: unless-stopped
 
   # Music Assistant tourne aussi bien sur un portable que sur un Pi.
-  # Il reste à l'ajouter comme intégration dans Home Assistant :
+  # Son intégration Home Assistant ne se configure QUE par l'interface — elle
+  # n'a pas de forme YAML, donc elle ne peut pas vivre dans ce dépôt :
   # Paramètres > Appareils et services > Ajouter > Music Assistant,
-  # serveur http://music-assistant:8095
+  # serveur http://music-assistant:8095   (voir docs/TESTING.md)
+  #
+  # dev/music est monté comme bibliothèque locale : de quoi entendre quelque
+  # chose sans compte Spotify.
   music-assistant:
     image: ghcr.io/music-assistant/server:latest
     container_name: casa-music
@@ -32,6 +36,12 @@ services:
       - "8095:8095"
     volumes:
       - music-data:/data
+      - ./dev/music:/media:ro
+    # La découverte réseau (Sonos, Chromecast) a besoin du réseau de l'hôte.
+    # Inutile pour le lecteur intégré du navigateur ; à décommenter le jour où
+    # de vraies enceintes doivent être trouvées, sous Linux uniquement — et
+    # alors Home Assistant joint Music Assistant sur http://localhost:8095.
+    # network_mode: host
     restart: unless-stopped
 
 volumes:

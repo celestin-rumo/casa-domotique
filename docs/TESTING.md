@@ -110,18 +110,69 @@ Les origines de développement sont déjà autorisées dans `dev/configuration.y
 ajoutez-la à `cors_allowed_origins` et redémarrez le conteneur — sinon le
 navigateur bloque la connexion WebSocket sans rien dire d'explicite.
 
-## 6. Le son, si vous en voulez
+## 6. Le son, sans compte Spotify
 
-Music Assistant tourne dans le conteneur voisin mais reste à brancher :
+L'intégration Music Assistant **ne se configure pas en YAML** : c'est une
+« config entry », elle vit dans le `.storage/` de Home Assistant, qui est son
+état interne. Elle ne peut donc pas être livrée dans ce dépôt — ces quatre
+étapes sont à faire une fois, à la main.
 
-1. Home Assistant → Paramètres → Appareils et services → **Ajouter une
-   intégration** → Music Assistant.
-2. Serveur : `http://music-assistant:8095`.
-3. Dans Music Assistant, ajouter un fournisseur **Spotify** et s'y connecter.
-4. Les lecteurs apparaissent en `media_player.*`. Leurs noms ne seront pas
-   `ma_salon` / `ma_cuisine` / `ma_chambre` sans enceintes réelles : adapter
-   `app/src/config.ts` et `homeassistant/scripts.yaml`, ou s'en tenir aux
-   lumières.
+`dev/music/` est monté sur `/media` dans Music Assistant et contient
+`signal-de-test.wav`, trois secondes de notes montantes. De quoi entendre que
+la chaîne marche sans ouvrir de compte nulle part. Déposez-y vos propres
+fichiers si vous préférez.
+
+**a. Brancher Music Assistant à Home Assistant**
+
+Paramètres → Appareils et services → Ajouter une intégration → Music
+Assistant. Serveur : `http://music-assistant:8095` — c'est le nom du service
+dans le compose, les deux conteneurs partagent un réseau.
+
+**b. Donner de la musique à Music Assistant**
+
+<http://localhost:8095> → Paramètres → Fournisseurs de musique → ajouter un
+fournisseur **Filesystem**, dossier `/media`. Lancer l'indexation :
+`signal-de-test.wav` doit apparaître dans la bibliothèque.
+
+**c. Un lecteur, sans enceinte**
+
+Music Assistant a un lecteur intégré qui joue dans l'onglet du navigateur.
+Une fois activé, il remonte dans Home Assistant comme une entité
+`media_player.*`.
+
+**d. Le renommer — c'est l'étape qui fait tout marcher**
+
+Ce lecteur portera un nom automatique. Home Assistant → Paramètres → Entités →
+le sélectionner → Paramètres → **changer l'ID d'entité** en
+`media_player.ma_salon`.
+
+À partir de là, `scripts.yaml`, `config.ts` et les ambiances fonctionnent
+**sans être modifiés** : ils visent `media_player.ma_salon`, et c'est
+maintenant ce lecteur. C'est plus propre que d'éditer le dépôt pour le dev
+et de risquer de committer la modification.
+
+**e. Entendre quelque chose**
+
+`script.play_playlist` traduit un *nom* en URI, et les URI de la table sont
+des playlists Spotify — sans compte Spotify, aucune ne résout. Pour un essai
+local, trouvez d'abord un `media_id` que Music Assistant accepte : Outils de
+développement → Actions → `music_assistant.play_media`, cible
+`media_player.ma_salon`, et essayez le nom du morceau. Le lecteur du
+navigateur doit jouer.
+
+Une fois ce `media_id` connu, ajoutez-le à la table de `script.play_playlist` :
+
+```yaml
+  variables:
+    playlists:
+      Test: "<le media_id qui a marché>"
+      Détente: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"
+```
+
+et le nom `Test` dans `input_selects.yaml`. Rechargez le YAML : « Test »
+apparaît dans l'app, et l'appuyer joue le fichier. **Vous venez de faire le
+tour complet** — ajouter une playlist, deux lignes sur le Pi, aucune
+reconstruction de l'app.
 
 ## Ce qui ne marchera jamais sans matériel
 
