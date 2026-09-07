@@ -3,18 +3,28 @@ import {
   createLongLivedTokenAuth,
   subscribeEntities,
   callService,
+  ERR_CONNECTION_LOST,
   type Connection,
   type HassEntities,
 } from "home-assistant-js-websocket";
 
-const URL = import.meta.env.VITE_HA_URL as string;
+export const HA_URL = import.meta.env.VITE_HA_URL as string;
 const TOKEN = import.meta.env.VITE_HA_TOKEN as string;
+
+// Ce qu'on nomme quand ça ne répond pas : l'hôte, jamais « le serveur ».
+export const HOTE = (() => {
+  try {
+    return new URL(HA_URL).host;
+  } catch {
+    return HA_URL;
+  }
+})();
 
 let connection: Connection | null = null;
 
 export async function connect(): Promise<Connection> {
   if (connection) return connection;
-  const auth = createLongLivedTokenAuth(URL, TOKEN);
+  const auth = createLongLivedTokenAuth(HA_URL, TOKEN);
   connection = await createConnection({ auth });
   return connection;
 }
@@ -22,6 +32,41 @@ export async function connect(): Promise<Connection> {
 // Reçoit toutes les entités et leurs mises à jour en temps réel.
 export function onEntities(cb: (entities: HassEntities) => void) {
   return connect().then((conn) => subscribeEntities(conn, cb));
+}
+
+export type Liaison = "connexion" | "ok" | "perdu" | "erreur";
+
+// La librairie se reconnecte toute seule ; ce qu'elle ne fait pas, c'est le
+// dire. Sans ces écouteurs, le point reste vert natel débranché du Wi-Fi.
+export function onLiaison(cb: (etat: Liaison) => void) {
+  return connect().then((conn) => {
+    const perdu = () => cb("perdu");
+    const ok = () => cb("ok");
+    conn.addEventListener("disconnected", perdu);
+    conn.addEventListener("reconnect-error", perdu);
+    conn.addEventListener("ready", ok);
+    return () => {
+      conn.removeEventListener("disconnected", perdu);
+      conn.removeEventListener("reconnect-error", perdu);
+      conn.removeEventListener("ready", ok);
+    };
+  });
+}
+
+// Un service qui échoue rejette soit avec un simple numéro d'erreur de la
+// librairie, soit avec la réponse entière de Home Assistant — l'enveloppe
+// { type, success, error: { code, message } }, vérifié en coupant le Pi,
+// et non le seul { code, message }. On en tire une phrase.
+export function messageDe(e: unknown): string {
+  if (e === ERR_CONNECTION_LOST) return "connexion perdue";
+  if (typeof e === "number") return `erreur ${e}`;
+  const err = (e && typeof e === "object" && "error" in e ? (e as { error: unknown }).error : e) as
+    | { code?: unknown; message?: unknown }
+    | null
+    | undefined;
+  if (err && typeof err === "object" && err.message) return String(err.message);
+  if (err && typeof err === "object" && err.code) return `erreur ${String(err.code)}`;
+  return String(e);
 }
 
 export async function activateScene(entityId: string) {
@@ -48,4 +93,47 @@ export async function playPlaylist(name: string, player: string) {
 export async function toggleLight(entityId: string) {
   const conn = await connect();
   await callService(conn, "light", "toggle", { entity_id: entityId });
+}
+
+export type ReglageLumiere = {
+  brightness?: number; // 1–255
+  color_temp_kelvin?: number;
+  hs_color?: [number, number];
+};
+
+// Régler sans allumer n'existe pas dans Home Assistant : turn_on avec un
+// réglage, c'est le réglage. L'ampoule s'allume si elle ne l'était pas.
+export async function setLight(entityId: string, reglage: ReglageLumiere) {
+  const conn = await connect();
+  await callService(conn, "light", "turn_on", { entity_id: entityId, ...reglage });
+}
+
+export async function mediaPlayPause(entityId: string) {
+  const conn = await connect();
+  await callService(conn, "media_player", "media_play_pause", { entity_id: entityId });
+}
+
+export async function mediaNext(entityId: string) {
+  const conn = await connect();
+  await callService(conn, "media_player", "media_next_track", { entity_id: entityId });
+}
+
+// Le chef du groupe reçoit les membres ; une pièce qui cesse d'écouter se
+// retire elle-même. C'est la sémantique de media_player.join / unjoin.
+export async function joinPlayers(chef: string, membres: string[]) {
+  const conn = await connect();
+  await callService(conn, "media_player", "join", { entity_id: chef, group_members: membres });
+}
+
+export async function unjoinPlayer(entityId: string) {
+  const conn = await connect();
+  await callService(conn, "media_player", "unjoin", { entity_id: entityId });
+}
+
+// L'aller-retour WebSocket, en millisecondes — ce que l'écran Réglages affiche.
+export async function latence(): Promise<number> {
+  const conn = await connect();
+  const debut = performance.now();
+  await conn.ping();
+  return Math.round(performance.now() - debut);
 }

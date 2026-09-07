@@ -45,6 +45,15 @@ mood_cinema:
     - service: media_player.select_source
       target: { entity_id: media_player.sonos_beam }
       data: { source: TV }
+    # L'écho qui confirme l'ambiance côté app, comme play_playlist écrit
+    # input_select.playlist. En dernier, donc absent si une étape a échoué :
+    # l'app revient alors en arrière en nommant le script. `this` est le
+    # script lui-même, d'où une étape identique dans les cinq ambiances —
+    # l'ancre YAML ci-dessous la réutilise sans rien recopier.
+    - &ambiance_confirmee
+      service: input_select.select_option
+      target: { entity_id: input_select.mood }
+      data: { option: "{{ this.entity_id }}" }
 
 mood_detente:
   alias: Mood Détente
@@ -62,6 +71,7 @@ mood_detente:
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_salon }
       data: { volume_level: 0.25 }
+    - *ambiance_confirmee
 
 mood_focus:
   alias: Mood Focus
@@ -79,6 +89,7 @@ mood_focus:
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_salon }
       data: { volume_level: 0.15 }
+    - *ambiance_confirmee
 
 mood_chillos:
   alias: Mood Chillos
@@ -96,6 +107,7 @@ mood_chillos:
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_chambre }
       data: { volume_level: 0.18 }
+    - *ambiance_confirmee
 
 mood_off:
   alias: Tout éteindre
@@ -104,3 +116,4 @@ mood_off:
       target: { entity_id: scene.tout_eteindre }
     - service: media_player.media_stop
       target: { entity_id: all }
+    - *ambiance_confirmee

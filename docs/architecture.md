@@ -7,16 +7,19 @@ Tout ce que fait cette installation, et où chaque chose tourne.
 ```mermaid
 flowchart TB
     subgraph natel["Natel — React + Vite + Capacitor"]
-        app["App.tsx<br/>ambiances, volume, lumières, playlists"]
+        app["App.tsx + vues/<br/>Ambiances · Pièces · Écoute · Réglages"]
+        maison["maison.tsx<br/>l'état, et agir() qui nomme les refus"]
         hats["ha.ts<br/>WebSocket + appels de service"]
         cfg["config.ts<br/>les entity_id"]
-        app --> hats
+        app --> maison
+        maison --> hats
         app --> cfg
     end
 
     subgraph pi["Raspberry Pi"]
         subgraph hass["Home Assistant"]
             sel["input_select.playlist<br/>la liste des playlists"]
+            cur["input_select.mood<br/>l'ambiance courante"]
             pp["script.play_playlist<br/>seule table nom → URI"]
             moods["script.mood_*<br/>cinema · detente · focus<br/>chillos · off"]
             scenes["scene.*<br/>l'état des lumières"]
@@ -38,6 +41,8 @@ flowchart TB
     moods --> pp
     sel -. "options lues par l'app" .-> hats
     pp -- "écrit le choix" --> sel
+    moods -- "écrit l'écho, en dernier" --> cur
+    cur -. "confirme le bouton" .-> hats
     auto --> moods
 
     scenes -- "Zigbee · ZHA" --> hue
@@ -71,6 +76,18 @@ sequenceDiagram
 
 Si l'écho n'arrive pas, l'affichage revient à son état précédent **en nommant
 l'entité** qui n'a pas répondu, jamais par un message anonyme.
+
+Pour une lumière ou une playlist, l'écho est l'état de l'entité elle-même.
+Pour une ambiance, rien ne le porte naturellement — un script s'exécute et
+retombe à `off` — d'où `input_select.mood`, que chaque `script.mood_*` écrit
+**en dernière étape** avec son propre `entity_id`. En dernière, donc absent si
+une étape a échoué : une ambiance dont le son n'est pas parti ne se confirme
+pas, et l'app le dit au bout de six secondes plutôt que de laisser le bouton
+allumé. Un refus immédiat de Home Assistant fait la même chose sans attendre.
+
+La perte du Pi se dit aussi : la librairie se reconnecte seule, et l'app écoute
+`disconnected` / `ready` pour passer le point à l'ambre en nommant l'hôte, puis
+le remettre au vert.
 
 ## Les playlists
 
@@ -116,6 +133,7 @@ quelle.
 | Salon (Music Assistant) | `media_player.ma_salon` | liée |
 | Cuisine (Music Assistant) | `media_player.ma_cuisine` | liée |
 | Chambre (Music Assistant) | `media_player.ma_chambre` | à vérifier |
+| Ambiance courante | `input_select.mood` | définie (`input_selects.yaml`) |
 | Bouton mural (ZHA) | `device_id` dans `automations.yaml` | **gabarit** |
 | Playlist Chillos | table de `script.play_playlist` | définie |
 

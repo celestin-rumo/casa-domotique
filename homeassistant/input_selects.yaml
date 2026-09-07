@@ -12,3 +12,22 @@ playlist:
     - Détente
     - Chillos
     - Focus
+
+# L'ambiance courante. Chaque script mood_* l'écrit en DERNIÈRE étape, et
+# c'est cet écho, reçu par le WebSocket, qui allume le bouton dans l'app — pas
+# le clic (docs/architecture.md, « Le trajet d'un appui »). Une ambiance dont
+# le son a échoué ne s'y inscrit donc pas, et l'app le dit.
+#
+# Les options sont les entity_id des scripts : l'app les compare tels quels,
+# aucune table de correspondance à tenir. « aucune » est l'état du premier
+# démarrage, avant qu'une ambiance ait été choisie.
+mood:
+  name: Ambiance
+  icon: mdi:palette
+  options:
+    - aucune
+    - script.mood_cinema
+    - script.mood_detente
+    - script.mood_focus
+    - script.mood_chillos
+    - script.mood_off
