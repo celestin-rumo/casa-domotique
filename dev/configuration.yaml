@@ -6,12 +6,21 @@
 # soit branchée.
 default_config:
 
-http:
-  cors_allowed_origins:
-    - http://localhost:5173
-    - http://127.0.0.1:5173
-    - capacitor://localhost
-    - http://localhost
+# Pas de bloc « http: » ici, pour deux raisons.
+#
+# 1. L'app n'en a pas besoin. src/ha.ts ne parle à Home Assistant que par
+#    WebSocket, et un navigateur n'applique pas le CORS aux WebSockets.
+#    createLongLivedTokenAuth ne fait aucune requête HTTP : le jeton part
+#    dans le message d'authentification, pas dans un appel REST.
+#
+# 2. Depuis HA 2026.x, « http: » en YAML est déprécié (retiré en 2027.2). Le
+#    bloc est importé une fois dans .storage/, à l'essai : sans confirmation
+#    dans l'interface sous cinq minutes, Home Assistant revient à sa
+#    configuration précédente ET REDÉMARRE — un redémarrage surprise au
+#    milieu de la première prise en main. Ensuite le YAML est ignoré pour
+#    toujours, en silence.
+#
+# Si un jour l'app fait de vrais appels REST : Paramètres → Système → Réseau.
 
 # --- les fichiers du dépôt, tels quels ---
 input_select: !include casa/input_selects.yaml
@@ -49,48 +58,72 @@ input_number:
     initial: 120
 
 # --- light.salon, light.cuisine, light.chambre : allumage et intensité ---
-light:
-  - platform: template
-    lights:
-      salon:
-        friendly_name: Salon
-        value_template: "{{ is_state('input_boolean.salon_on', 'on') }}"
-        level_template: "{{ states('input_number.salon_niveau') | int(0) }}"
+# Les entités template vivent sous la clé « template: ». L'ancienne forme,
+# « light: - platform: template », n'est plus acceptée depuis HA 2026.x : elle
+# ne fait pas échouer le démarrage, elle laisse une ligne d'erreur dans les
+# logs et les trois ampoules n'existent tout simplement pas. C'est le cas que
+# l'étape 1.2 de docs/TESTING.md sert à attraper.
+#
+# Le nom donne l'entity_id : « Salon » → light.salon.
+#
+# set_level rallume AUSSI le booléen, et ce n'est pas une redondance : quand
+# light.turn_on reçoit une luminosité, Home Assistant exécute set_level à la
+# place de turn_on, jamais les deux. Sans cette seconde ligne, le niveau monte
+# et l'ampoule reste éteinte — or toutes les scènes précisent une luminosité,
+# donc aucune ambiance n'allumerait quoi que ce soit.
+#
+# La couleur n'est pas simulée : les scènes en demandent, mais seuls
+# l'allumage et l'intensité se vérifient ici. Le rendu couleur est de toute
+# façon une affaire d'étape 3, où on regarde la pièce plutôt que l'écran.
+template:
+  - light:
+      - name: Salon
+        unique_id: casa_dev_salon
+        state: "{{ is_state('input_boolean.salon_on', 'on') }}"
+        level: "{{ states('input_number.salon_niveau') | int(0) }}"
         turn_on:
-          service: input_boolean.turn_on
+          action: input_boolean.turn_on
           target: { entity_id: input_boolean.salon_on }
         turn_off:
-          service: input_boolean.turn_off
+          action: input_boolean.turn_off
           target: { entity_id: input_boolean.salon_on }
         set_level:
-          service: input_number.set_value
-          target: { entity_id: input_number.salon_niveau }
-          data: { value: "{{ brightness }}" }
-      cuisine:
-        friendly_name: Cuisine
-        value_template: "{{ is_state('input_boolean.cuisine_on', 'on') }}"
-        level_template: "{{ states('input_number.cuisine_niveau') | int(0) }}"
+          - action: input_number.set_value
+            target: { entity_id: input_number.salon_niveau }
+            data: { value: "{{ brightness }}" }
+          - action: input_boolean.turn_on
+            target: { entity_id: input_boolean.salon_on }
+
+      - name: Cuisine
+        unique_id: casa_dev_cuisine
+        state: "{{ is_state('input_boolean.cuisine_on', 'on') }}"
+        level: "{{ states('input_number.cuisine_niveau') | int(0) }}"
         turn_on:
-          service: input_boolean.turn_on
+          action: input_boolean.turn_on
           target: { entity_id: input_boolean.cuisine_on }
         turn_off:
-          service: input_boolean.turn_off
+          action: input_boolean.turn_off
           target: { entity_id: input_boolean.cuisine_on }
         set_level:
-          service: input_number.set_value
-          target: { entity_id: input_number.cuisine_niveau }
-          data: { value: "{{ brightness }}" }
-      chambre:
-        friendly_name: Chambre
-        value_template: "{{ is_state('input_boolean.chambre_on', 'on') }}"
-        level_template: "{{ states('input_number.chambre_niveau') | int(0) }}"
+          - action: input_number.set_value
+            target: { entity_id: input_number.cuisine_niveau }
+            data: { value: "{{ brightness }}" }
+          - action: input_boolean.turn_on
+            target: { entity_id: input_boolean.cuisine_on }
+
+      - name: Chambre
+        unique_id: casa_dev_chambre
+        state: "{{ is_state('input_boolean.chambre_on', 'on') }}"
+        level: "{{ states('input_number.chambre_niveau') | int(0) }}"
         turn_on:
-          service: input_boolean.turn_on
+          action: input_boolean.turn_on
           target: { entity_id: input_boolean.chambre_on }
         turn_off:
-          service: input_boolean.turn_off
+          action: input_boolean.turn_off
           target: { entity_id: input_boolean.chambre_on }
         set_level:
-          service: input_number.set_value
-          target: { entity_id: input_number.chambre_niveau }
-          data: { value: "{{ brightness }}" }
+          - action: input_number.set_value
+            target: { entity_id: input_number.chambre_niveau }
+            data: { value: "{{ brightness }}" }
+          - action: input_boolean.turn_on
+            target: { entity_id: input_boolean.chambre_on }

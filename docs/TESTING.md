@@ -41,11 +41,25 @@ une app qui se connecte parfaitement et n'affiche aucune playlist, sans le
 moindre indice.
 
 ```bash
-docker compose -f docker-compose.dev.yml logs homeassistant | grep -iE "error|invalid config"
+docker compose -f docker-compose.dev.yml logs homeassistant \
+  | grep -E "ERROR|Invalid config" \
+  | grep -vE "music_assistant|media_player\.ma_|never retrieved"
 ```
 
-Aucune ligne citant `scenes.yaml`, `scripts.yaml` ou `input_selects.yaml` = tout
-est chargé.
+Aucune ligne = tout est chargé. Une ligne citant `template`, `scenes.yaml`,
+`scripts.yaml` ou `input_selects.yaml` = un bloc a disparu.
+
+`restart` conserve les logs des démarrages précédents : après avoir corrigé un
+YAML, l'erreur d'avant reste visible et fait croire qu'elle persiste. Ajoutez
+`--since "$(docker inspect -f '{{.State.StartedAt}}' casa-hass)"` à `logs`
+pour ne lire que le démarrage courant — c'est ce que fait `dev/verifier.py`.
+
+Le second `grep -v` retire un bruit attendu : dès qu'une ambiance a été
+déclenchée, sa moitié « son » échoue avec `Action music_assistant.play_media
+not found`, suivi d'une trace Python d'une soixantaine de lignes. C'est normal
+jusqu'à l'étape 1.6 — les lumières sont appliquées en position 1 du script,
+avant que la musique n'échoue en position 3. Ne cherchez pas de panne dans
+cette trace, il n'y en a pas.
 
 ## 1.3 Un compte et un jeton
 
@@ -59,6 +73,12 @@ est chargé.
 TOKEN=collez_le_jeton_ici
 H="Authorization: Bearer $TOKEN"
 ```
+
+Ces deux variables ne vivent que dans ce terminal. Un `401` sur les commandes
+qui suivent, c'est presque toujours un nouveau terminal où `H` n'existe plus :
+`echo "$H"` doit afficher le jeton. Une fois `app/.env` rempli (1.5), le plus
+sûr est d'y puiser :
+`H="Authorization: Bearer $(grep VITE_HA_TOKEN app/.env | cut -d= -f2)"`.
 
 ```bash
 # les fausses ampoules existent
@@ -97,6 +117,39 @@ et **trois playlists dans la liste** — Détente, Chillos et Focus. Un nom
 n'apparaît que si son URI est dans la table de `script.play_playlist` : une
 entrée sans adresse serait un bouton qui ne joue rien.
 
+Un appui sur une ambiance l'allume tout de suite, contour qui respire, jusqu'à
+l'écho de `input_select.mood`. Sans Music Assistant, **Détente, Focus et
+Chillos reviennent en arrière après six secondes** avec une ligne qui nomme le
+script — leur son a échoué avant l'écho, c'est l'état réel. Cinéma et Tout
+éteindre se confirment. Si un bouton restait allumé sans écho, ce serait le
+défaut, pas l'inverse.
+
+Quatre onglets. **Pièces** : chaque lumière a son interrupteur et son
+intensité ; « Avancé » n'apparaît que si l'ampoule sait faire du blanc réglable
+ou de la couleur — les fausses ampoules ne savent que l'intensité, donc pas
+d'« Avancé » avant l'étape 3. **Écoute** dit « Enceinte absente » avec
+`media_player.ma_salon` en toutes lettres tant que 1.6 n'est pas fait.
+**Réglages** liste chaque entité de `config.ts` avec ce que le Pi en dit :
+« liée » ou « absente » vient de Home Assistant, pas d'une pastille écrite à la
+main — c'est là qu'on voit d'un coup d'œil ce qui reste à brancher.
+
+Coupez le conteneur (`docker stop casa-hass`) : le point passe à l'ambre et
+nomme l'hôte. Relancez-le : il repasse au vert tout seul.
+
+Si `npm run dev` s'arrête sur `ENOSPC: System limit for number of file
+watchers reached`, ce n'est pas le projet : c'est la machine. Regardez d'abord
+les *instances*, pas les watchers — c'est presque toujours celle-là qui sature
+quand plusieurs projets tournent en parallèle.
+
+```bash
+cat /proc/sys/fs/inotify/max_user_instances                     # souvent 128
+find /proc/*/fd -lname anon_inode:inotify 2>/dev/null | wc -l   # combien sont prises
+sudo sysctl -w fs.inotify.max_user_instances=512                # jusqu'au reboot
+```
+
+Pour que ça tienne : `fs.inotify.max_user_instances=512` dans
+`/etc/sysctl.d/99-inotify.conf`.
+
 ## 1.6 Le son, sans compte Spotify
 
 L'intégration Music Assistant **ne se configure pas en YAML**. C'est une
@@ -108,13 +161,23 @@ manuelles, une fois.
 secondes de notes montantes — de quoi entendre que la chaîne joue sans ouvrir
 de compte nulle part. Déposez-y vos fichiers si vous préférez.
 
-**a.** Home Assistant → Paramètres → Appareils et services → Ajouter une
-intégration → **Music Assistant**, serveur `http://music-assistant:8095`
-(le nom du service dans le compose ; les deux conteneurs partagent un réseau).
+Music Assistant a **deux adresses, à ne pas échanger** :
 
-**b.** <http://localhost:8095> → Paramètres → Fournisseurs de musique →
-**Filesystem**, dossier `/media`. Indexer : `signal-de-test.wav` doit
-apparaître.
+| Qui parle | Adresse | Pourquoi |
+|---|---|---|
+| Votre navigateur | `http://localhost:8095` | le port publié sur la machine |
+| Home Assistant | `http://music-assistant:8095` | le nom du service dans le compose, résolu par le DNS interne de Docker — **inconnu de votre machine**, donc inutilisable dans un navigateur |
+
+Depuis le natel ou un autre poste, `localhost` désigne cet appareil-là :
+mettez l'IP du poste de dev (`hostname -I`).
+
+**a.** Home Assistant → Paramètres → Appareils et services → Ajouter une
+intégration → **Music Assistant**, serveur `http://music-assistant:8095`.
+
+**b.** <http://localhost:8095> — le premier passage ouvre l'assistant de
+configuration (`/setup`) ; le terminer. Puis Paramètres → Fournisseurs de
+musique → **Filesystem**, dossier `/media`. Indexer : `signal-de-test.wav`
+doit apparaître.
 
 **c.** Activer le lecteur intégré de Music Assistant, qui joue dans l'onglet du
 navigateur. Il remonte alors dans Home Assistant comme une entité
@@ -140,6 +203,26 @@ Ajoutez un nom dans `homeassistant/input_selects.yaml`, rechargez (Outils de
 développement → YAML), et regardez-le apparaître **dans l'app sans l'avoir
 reconstruite**. C'est la propriété pour laquelle la liste vit sur le Pi plutôt
 que dans le build.
+
+## 1.8 Tout ce qui précède, en une commande
+
+```bash
+python3 dev/verifier.py
+```
+
+Rejoue 1.2, 1.4, 1.5 et 1.7 avec le jeton de `app/.env` : logs du démarrage
+courant, existence des entités que `config.ts` référence, playlists reçues et
+chacune avec son URI, les cinq ambiances comparées à `scenes.yaml`, l'ajout à
+chaud, et le build de l'app avec le jeton dedans. Sortie 0 si tout passe.
+
+Le script ne contient aucune liste : il lit `scripts.yaml` pour savoir quelle
+scène chaque ambiance allume, et `scenes.yaml` pour ce que cette scène doit
+faire. Changer une luminosité ou ajouter une ambiance ne demande donc pas de
+le modifier — et s'il diverge de Home Assistant, c'est que le dépôt et le Pi
+ne disent plus la même chose, ce qui est précisément l'information voulue.
+
+Il déclenche vraiment les ambiances : lancé sur le Pi à l'étape 3, il allumera
+l'appartement.
 
 ## Ce que l'étape 1 ne peut pas prouver
 
@@ -171,24 +254,58 @@ remplaçant `localhost` par `homeassistant.local` ou l'IP du Pi. Si
 `homeassistant.local` ne répond pas, c'est le mDNS : utilisez l'IP, et notez-le
 — le natel aura le même problème.
 
-## 2.2 Autoriser l'origine du natel
+## 2.2 Le CORS ne vous concerne pas
 
-Le piège le plus coûteux de cette étape. `npm run dev` affiche une URL réseau,
-mais elle n'est **pas** dans `cors_allowed_origins`. Le navigateur bloque alors
-la connexion WebSocket **sans message explicite** : ça ressemble à une app
-cassée.
+Une version précédente de ce document demandait ici d'ajouter l'URL réseau du
+poste de dev dans `cors_allowed_origins`. C'était inutile, et le bloc `http:`
+a été retiré des deux `configuration.yaml`. Deux raisons, vérifiées :
 
-Ajoutez-la dans `dev/configuration.yaml` :
+- **L'app ne fait aucune requête HTTP vers Home Assistant.** `src/ha.ts` ne
+  parle que par WebSocket, et un navigateur n'applique pas le CORS aux
+  WebSockets. `createLongLivedTokenAuth` ne déclenche pas d'appel REST : le
+  jeton part dans le message d'authentification. Home Assistant, de son côté,
+  ne vérifie pas l'origine sur `/api/websocket`.
+- **`http:` en YAML est déprécié** depuis HA 2026.x, retiré en 2027.2. Pire
+  qu'inutile : le bloc est importé une fois dans `.storage/` *à l'essai*, et
+  sans confirmation dans l'interface sous cinq minutes, Home Assistant revient
+  à sa configuration précédente **et redémarre**. On tombe donc sur un
+  redémarrage inexpliqué au milieu de la première prise en main, puis le YAML
+  est ignoré pour toujours, en silence.
 
-```yaml
-http:
-  cors_allowed_origins:
-    - http://192.168.1.42:5173   # l'IP de votre poste de dev
+Si un jour l'app fait de vrais appels REST, le réglage est dans l'interface :
+Paramètres → Système → Réseau.
+
+Le vrai piège de cette étape est ailleurs : l'URL que `npm run dev` affiche
+doit être l'**URL réseau**, pas `localhost` — sur le natel, `localhost`
+désigne le natel.
+
+## 2.3 L'app comme un site — le chemin court
+
+Avant de sortir Xcode : l'app est une PWA, et le compose sait la servir.
+Sur le Pi, avec dans `app/.env` l'adresse du Pi **telle que le natel la
+voit** (`VITE_HA_URL=http://192.168.1.50:8123`, pas `localhost`) :
+
+```bash
+docker compose --env-file app/.env -f docker-compose.dev.yml up --build -d app
 ```
 
-puis `docker compose -f docker-compose.dev.yml restart homeassistant`.
+Le conteneur construit l'app lui-même — ni Node ni npm sur le Pi — et la sert
+sur `http://IP-du-Pi:8088`. Sur le natel : ouvrir cette adresse, puis
+**Partager → Sur l'écran d'accueil** (iOS) ou **⋮ → Ajouter à l'écran
+d'accueil** (Android). Plein écran, icône, pas de barre d'adresse. Changer
+quelque chose, c'est relancer cette commande ; le natel recharge, rien à
+réinstaller.
 
-## 2.3 L'app native
+Ce que ça ne fait pas : l'haptique et la barre d'état (`native.ts` les saute
+hors Capacitor), et le cache hors-ligne — le service worker exige HTTPS, or
+le Pi est en HTTP. Sans le Pi, la page ne s'ouvre pas ; avec lui, c'est
+l'app.
+
+Le jeton est dans les fichiers servis, en clair : quiconque ouvre la page sur
+le Wi-Fi pilote la maison. C'est le même jeton que dans l'`.apk`, mais ici il
+suffit d'une adresse. Ne jamais exposer `:8088` hors du réseau local.
+
+## 2.4 L'app native
 
 ```bash
 cd app
@@ -287,7 +404,26 @@ docker compose -f docker-compose.dev.yml down -v
 
 ---
 
-Cette pile est neuve et n'a pas encore été démarrée de bout en bout.
-`docker-compose.dev.yml` est validé par `docker compose config` et les YAML du
-dépôt se relisent sans erreur ; attendez-vous à un ajustement au premier
-démarrage — l'étape 1.2 est là pour le rendre visible immédiatement.
+## Ce qui a réellement été exécuté
+
+L'étape 1 a été jouée de bout en bout le 7 septembre 2026, sur Home Assistant
+2026.9.1. Vérifiés pour de vrai : les logs propres (1.2), les quatre appels
+`curl` de 1.4, les cinq ambiances qui donnent aux trois lumières exactement les
+états de `scenes.yaml`, la connexion WebSocket de l'app avec un jeton longue
+durée, les trois playlists reçues, et l'ajout à chaud de 1.7.
+
+Le premier démarrage a fait tomber trois choses, toutes corrigées depuis :
+
+1. **`light: - platform: template` n'est plus accepté.** Les trois fausses
+   ampoules n'existaient pas — exactement la panne silencieuse que l'étape 1.2
+   sert à attraper, et la démonstration qu'elle mérite d'exister.
+2. **Le bloc `http:`** déclenchait un redémarrage inexpliqué cinq minutes
+   après le premier boot (voir 2.2). Retiré.
+3. **`set_level` n'allumait pas la lampe.** Quand `light.turn_on` reçoit une
+   luminosité, Home Assistant exécute `set_level` *à la place* de `turn_on`,
+   jamais les deux : le niveau montait, l'ampoule restait éteinte. Comme toutes
+   les scènes précisent une luminosité, aucune ambiance n'allumait rien. Les
+   `set_level` de `dev/configuration.yaml` rallument donc aussi le booléen.
+
+Non vérifiés à ce jour : la partie son (1.6, qui demande les quatre étapes
+manuelles de Music Assistant), et les étapes 2 et 3 dans leur entier.

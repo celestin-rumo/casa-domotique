@@ -1,12 +1,11 @@
 # Extrait à fusionner dans le configuration.yaml du Pi.
 default_config:
 
-http:
-  cors_allowed_origins:
-    - http://localhost:5173
-    - http://192.168.1.50:5173   # PC de dev
-    - capacitor://localhost      # app iOS
-    - http://localhost           # app Android
+# Pas de bloc « http: » : l'app ne parle que par WebSocket, et le CORS ne
+# s'applique pas aux WebSockets. « http: » en YAML est de toute façon déprécié
+# depuis HA 2026.x (retiré en 2027.2) — il s'importe une fois dans .storage/ à
+# l'essai, puis se révoque tout seul avec un redémarrage si personne ne le
+# confirme. Le réglage se fait désormais dans Paramètres → Système → Réseau.
 
 input_select: !include input_selects.yaml
 scene: !include scenes.yaml
