@@ -14,9 +14,14 @@ Sans Raspberry Pi, sans ampoule et sans enceinte :
 docker compose -f docker-compose.dev.yml up     # Home Assistant sur :8123
 cd app && npm install && cp .env.example .env   # y coller l'URL et un jeton
 npm run dev
+python3 ../dev/verifier.py                      # rejoue toute l'étape 1
 ```
 
 [`docs/TESTING.md`](docs/TESTING.md) découpe la mise en route en trois étapes —
 tout faux sur le portable, puis le Pi avec du matériel encore faux, puis tout
-réel — chacune n'ajoutant qu'une source de panne. Puis `npx cap add ios` ou
-`android` pour l'app native.
+réel — chacune n'ajoutant qu'une source de panne.
+
+Sur le natel, le chemin court est l'app **comme un site** : le compose la
+construit et la sert sur `http://IP-du-Pi:8088`, à épingler sur l'écran
+d'accueil (voir 2.3). `npx cap add ios` ou `android` restent là pour l'app
+native, avec l'haptique.

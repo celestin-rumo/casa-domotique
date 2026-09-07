@@ -44,6 +44,28 @@ services:
     # network_mode: host
     restart: unless-stopped
 
+  # L'app comme un site, sur :8088 — le natel l'ouvre et l'épingle à l'écran
+  # d'accueil. Le conteneur construit l'app lui-même : ni Node ni npm sur
+  # le Pi. L'URL et le jeton sont figés au build, donc passés en arguments ;
+  # docker compose les lit dans app/.env avec --env-file :
+  #
+  #   docker compose --env-file app/.env -f docker-compose.dev.yml up --build -d app
+  #
+  # VITE_HA_URL doit être l'adresse du Pi TELLE QUE LE NATEL LA VOIT
+  # (http://192.168.x.x:8123), pas localhost — sur le natel, localhost c'est
+  # le natel. Le jeton est dans les fichiers servis : quiconque ouvre la page
+  # sur le Wi-Fi pilote la maison. Ne pas exposer ce port hors du réseau local.
+  app:
+    build:
+      context: ./app
+      args:
+        VITE_HA_URL: ${VITE_HA_URL:-http://homeassistant.local:8123}
+        VITE_HA_TOKEN: ${VITE_HA_TOKEN:-}
+    container_name: casa-app
+    ports:
+      - "8088:80"
+    restart: unless-stopped
+
 volumes:
   hass-config:
   music-data:
