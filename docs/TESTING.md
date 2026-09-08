@@ -301,6 +301,13 @@ hors Capacitor), et le cache hors-ligne — le service worker exige HTTPS, or
 le Pi est en HTTP. Sans le Pi, la page ne s'ouvre pas ; avec lui, c'est
 l'app.
 
+Sauf sur `localhost`, que le navigateur tient pour sûr : là, le service
+worker **s'enregistre** et sert l'app depuis son cache. Après une
+reconstruction, le premier chargement montre encore l'ancienne version — la
+nouvelle est récupérée derrière et arrive au chargement suivant. Si un
+changement semble ne pas être pris : recharger une seconde fois, ou tester
+depuis un autre appareil, où il n'y a pas de service worker.
+
 Le jeton est dans les fichiers servis, en clair : quiconque ouvre la page sur
 le Wi-Fi pilote la maison. C'est le même jeton que dans l'`.apk`, mais ici il
 suffit d'une adresse. Ne jamais exposer `:8088` hors du réseau local.

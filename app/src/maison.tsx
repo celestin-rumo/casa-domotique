@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { HassEntities } from "home-assistant-js-websocket";
 import { onEntities, onLiaison, activateScene, messageDe, type Liaison } from "./ha";
-import { MOOD_SELECT, ECHO_DELAI_MS } from "./config";
+import { MOODS, MOOD_SELECT, ECHO_DELAI_MS } from "./config";
 import { setupNative, tap } from "./native";
 
 // Entité → phrase. Une faute reste affichée sur sa carte jusqu'à ce qu'une
@@ -70,11 +70,15 @@ export function MaisonProvider({ children }: { children: ReactNode }) {
 
   const courante = entities[MOOD_SELECT]?.state;
 
-  // L'écho : l'ambiance en attente est devenue la courante.
+  // L'écho : l'ambiance en attente est devenue la courante. Une ambiance
+  // confirmée efface les fautes des autres — une note « Focus n'a pas
+  // répondu » sous une grille où Tout éteindre vient d'être confirmé ne
+  // renseigne plus, elle encombre.
   useEffect(() => {
     if (attente && courante === attente) {
       setAttente(null);
       setConfirmee(attente);
+      setFautes((f) => MOODS.reduce((reste, m) => sans(reste, m.id), f));
     }
   }, [attente, courante]);
 
