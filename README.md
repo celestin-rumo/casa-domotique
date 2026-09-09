@@ -1,9 +1,12 @@
 # ha-moods
 
-Domotique maison : home cinéma, musique multiroom et lumières pilotés par un Raspberry Pi (Home Assistant + Music Assistant), avec une app natel React + Capacitor.
+Domotique maison : home cinéma, musique multiroom, lumières, un réveil en lever de soleil et un assistant vocal, pilotés par un Raspberry Pi (Home Assistant + Music Assistant + Wyoming), avec une app natel React + Capacitor.
 
+- `docker-compose.dev.yml` — la pile sur le poste de dev : fausses ampoules, son en fichier local
+- `pi/configuration.yaml` — la configuration du Pi, qui tourne sous Home Assistant OS
+- `docker-compose.pi.yml` — un Pi sous Docker plutôt que Home Assistant OS, pour qui en a besoin (voir TESTING.md 2.8)
 - `app/` — l'application (voir son README pour le build natif)
-- `homeassistant/` — scènes, scripts et automatisations à copier sur le Pi (`/config`)
+- `homeassistant/` — scènes, scripts et automatisations à copier sur le Pi (`/config`) ; `packages/` porte le réveil et la météo, `custom_sentences/fr/` ce que la voix entend et comprend
 - `docs/` — [le schéma complet](docs/architecture.md) et [comment tester sans Pi](docs/TESTING.md)
 
 ## Démarrage rapide
@@ -11,7 +14,7 @@ Domotique maison : home cinéma, musique multiroom et lumières pilotés par un 
 Sans Raspberry Pi, sans ampoule et sans enceinte :
 
 ```bash
-docker compose -f docker-compose.dev.yml up     # Home Assistant sur :8123
+docker compose -f docker-compose.dev.yml up     # Home Assistant sur :8123, Music Assistant, whisper, piper
 cd app && npm install && cp .env.example .env   # y coller l'URL et un jeton
 npm run dev
 python3 ../dev/verifier.py                      # rejoue toute l'étape 1

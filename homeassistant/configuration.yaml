@@ -1,4 +1,15 @@
-# Extrait à fusionner dans le configuration.yaml du Pi.
+# AUCUNE INSTALLATION N'UTILISE CE FICHIER. Il n'est gardé que comme
+# référence : la forme qu'aurait la configuration si ce dossier devenait
+# tel quel le /config de Home Assistant, d'où les `!include` sans préfixe.
+#
+# Ce que font les deux installations réelles, elles, c'est garder le dépôt
+# dans un sous-dossier que Home Assistant n'écrit jamais, et l'inclure
+# depuis `pi/configuration.yaml` :
+#
+#   Home Assistant OS   /config/casa est un lien vers ce dossier (TESTING.md 2.2)
+#   Docker              ce dossier est monté en lecture seule sur /config/casa
+#
+# Ce fichier peut donc être supprimé sans rien casser.
 default_config:
 
 # Pas de bloc « http: » : l'app ne parle que par WebSocket, et le CORS ne
@@ -6,6 +17,12 @@ default_config:
 # depuis HA 2026.x (retiré en 2027.2) — il s'importe une fois dans .storage/ à
 # l'essai, puis se révoque tout seul avec un redémarrage si personne ne le
 # confirme. Le réglage se fait désormais dans Paramètres → Système → Réseau.
+
+# Un « package » par fonction transverse : packages/reveil.yaml porte ses
+# helpers, ses scripts, son automatisation et ses phrases vocales ensemble,
+# au lieu d'une ligne dans chacun des fichiers ci-dessous.
+homeassistant:
+  packages: !include_dir_named packages
 
 input_select: !include input_selects.yaml
 scene: !include scenes.yaml

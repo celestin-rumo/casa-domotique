@@ -21,12 +21,18 @@ flowchart TB
             sel["input_select.playlist<br/>la liste des playlists"]
             cur["input_select.mood<br/>l'ambiance courante"]
             pp["script.play_playlist<br/>seule table nom → URI"]
-            moods["script.mood_*<br/>cinema · detente · focus<br/>chillos · off"]
+            moods["script.mood_*<br/>cinema · detente · focus<br/>chillos · calin · off"]
             scenes["scene.*<br/>l'état des lumières"]
             auto["automation<br/>bouton mural"]
+            reveil["packages/reveil.yaml<br/>heure · actif · durée<br/>script.reveil → lever de soleil"]
+            meteo["packages/meteo.yaml<br/>sensor.meteosuisse"]
+            assist["Assist<br/>custom_sentences/fr + intent_script"]
         end
         mass["Music Assistant"]
+        voix["speech-to-phrase · whisper<br/>piper · openwakeword (Wyoming)"]
     end
+    sat["Satellite vocal<br/>Voice PE · ESP32"]
+    msuisse["MétéoSuisse"]
 
     hue["5 ampoules Hue<br/>+ bouton mural"]
     tv["TV LG · webOS"]
@@ -52,6 +58,16 @@ flowchart TB
     pp --> mass
     mass -- "réseau" --> era
     mass --> spotify
+
+    hats -- "écrit heure · actif · durée" --> reveil
+    reveil -- "light.chambre, marche par marche" --> hue
+    reveil -- "script.play_playlist, volume qui monte" --> pp
+    sat -- "audio" --> assist
+    assist --> voix
+    assist -- "ReglerReveil · ArreterReveil" --> reveil
+    assist -- "MeteoDuJour" --> meteo
+    assist -- "LancerAmbiance" --> moods
+    meteo -- "REST, par NPA" --> msuisse
 ```
 
 ## Le trajet d'un appui
@@ -121,6 +137,71 @@ le passe à `true` — la playlist sert de graine et la lecture part ailleurs
 après quelques titres. Chillos ne le passe pas, donc sa playlist se joue telle
 quelle.
 
+## Le réveil
+
+Tout le réveil tient dans `homeassistant/packages/reveil.yaml` — un *package*
+Home Assistant, fusionné avec le reste par la clé `packages:` des deux
+`configuration.yaml`. Ses réglages sont trois helpers, parce que l'app les
+écrit depuis le natel et que le Pi les garde au redémarrage ; le YAML ne porte
+que des valeurs par défaut.
+
+```mermaid
+flowchart LR
+    app["App · carte Réveil"] -- "set_datetime · turn_on · set_value" --> h["input_datetime.reveil_heure<br/>input_boolean.reveil_actif<br/>input_number.reveil_duree"]
+    voix["« réveille-moi à sept heures »"] -- "intent ReglerReveil" --> h
+    h -- "à l'heure, si actif" --> auto["automation.reveil_lever_de_soleil"]
+    auto --> r["script.reveil"]
+    r -- "toutes les 30 s, 2000 K → 4000 K" --> l["light.chambre"]
+    r -. "script.turn_on, sans attendre" .-> m["script.reveil_musique"]
+    m -- "à mi-chemin, 3 % → 20 %" --> pp["script.play_playlist"]
+    stop["« je suis debout »<br/>ou le bouton de l'app"] --> s["script.reveil_stop"]
+    s -- "turn_off" --> r
+    s -- "turn_off + media_stop" --> m
+```
+
+La musique n'est **pas** dans `script.reveil`. Il la confie à
+`script.reveil_musique` par un `script.turn_on`, qui rend la main tout de suite
+et dont les erreurs ne remontent pas. C'est l'inverse des ambiances, où le son
+qui échoue empêche l'écho — et c'est voulu : une ambiance ratée se voit sur
+le natel, un réveil raté fait rater le train. Sans enceinte, la lumière se
+lève quand même.
+
+L'écho côté app est l'état des helpers eux-mêmes, et `script.reveil` qui
+reste `on` tant que le jour se lève : c'est lui qui transforme « Essai d'une
+minute » en « Je suis debout ».
+
+## La voix
+
+Quatre services Wyoming dans le compose — whisper et speech-to-phrase
+(reconnaissance), piper (synthèse), openwakeword (mot d'appel) — que seul
+Home Assistant joint, par leur nom de service. Un satellite ne parle qu'à
+Home Assistant.
+
+Deux moteurs de reconnaissance pour deux machines. Whisper transcrit tout et
+demande un vrai processeur. Speech-to-Phrase ne transcrit que les phrases
+qu'on lui a apprises, et tient en moins d'une seconde sur un Pi : c'est lui
+sur le Pi. Il lit `custom_sentences/` dans le même format que Home
+Assistant, donc une phrase s'écrit une seule fois, au même endroit, pour
+être entendue et comprise.
+
+Les phrases du dépôt sont dans `homeassistant/custom_sentences/fr/`, un
+fichier par sujet, et chacune nomme un intent que `intent_script` traite dans
+le package du même sujet. Une phrase, c'est donc deux lignes : la tournure,
+et ce qu'elle déclenche. Les listes `range` comprennent les nombres en toutes
+lettres — « sept heures trente » donne `heure=7`, `minutes=30`.
+
+`custom_sentences/` a une place imposée : directement sous `/config`. En dev,
+le compose l'y monte à part, puisque le reste du dépôt vit sous `/config/casa`.
+
+## La météo
+
+`packages/meteo.yaml` : un capteur REST sur l'API que l'app MétéoSuisse
+utilise elle-même, par NPA (`input_text.meteo_npa`), toutes les trente
+minutes. `sensor.meteosuisse` porte la température actuelle et six jours de
+prévisions en attributs ; l'intent `MeteoDuJour` choisit le jour d'aujourd'hui
+par sa date et compose la phrase. API non documentée : si elle change, Assist
+le dit (« je n'ai pas les prévisions ») plutôt que de se tromper.
+
 ## Les entity_id à renseigner
 
 | Rôle | entity_id | État |
@@ -134,6 +215,12 @@ quelle.
 | Cuisine (Music Assistant) | `media_player.ma_cuisine` | liée |
 | Chambre (Music Assistant) | `media_player.ma_chambre` | à vérifier |
 | Ambiance courante | `input_select.mood` | définie (`input_selects.yaml`) |
+| Réveil : heure, actif, durée | `input_datetime.reveil_heure`, `input_boolean.reveil_actif`, `input_number.reveil_duree` | définis (`packages/reveil.yaml`) |
+| Lever de soleil | `script.reveil`, `script.reveil_musique`, `script.reveil_stop` | définis (`packages/reveil.yaml`) |
+| NPA MétéoSuisse | `input_text.meteo_npa` | 1700 par défaut, **à changer** |
+| Capteur de la pièce (Sonoff SNZB-02P, ZHA) | `sensor.temperature_interieure`, `sensor.humidite_interieure` | simulés en dev, **à renommer** sur le Pi |
+| Voix : speech-to-phrase, whisper, piper, openwakeword | intégration Wyoming Protocol, par l'interface | à lier (TESTING.md 1.9) |
+| Clé Zigbee | vue seule sous Home Assistant OS ; `ZIGBEE_DEVICE` de `app/.env` sous Docker | branchée sur le Pi |
 | Bouton mural (ZHA) | `device_id` dans `automations.yaml` | **gabarit** |
 | Playlist Chillos | table de `script.play_playlist` | définie |
 

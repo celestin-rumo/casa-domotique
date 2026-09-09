@@ -1,0 +1,39 @@
+# Home Assistant du Raspberry Pi, avec du vrai matériel.
+#
+# Même forme que dev/configuration.yaml — il inclut les fichiers du dépôt
+# montés en lecture seule sur /config/casa — mais sans aucune fausse
+# entité : ici, light.salon est une ampoule Hue, et sensor.temperature_interieure
+# le Sonoff SNZB-02P.
+#
+# Le dépôt n'est jamais écrit par Home Assistant : sa base, ses journaux et
+# son .storage/ vont dans un volume Docker, comme sur le poste de dev.
+
+default_config:
+
+# Pas de bloc « http: » : l'app ne parle que par WebSocket, et le CORS ne
+# s'applique pas aux WebSockets. « http: » en YAML est de toute façon
+# déprécié depuis HA 2026.x (retiré en 2027.2), et s'auto-révoque avec un
+# redémarrage surprise s'il n'est pas confirmé dans l'interface en cinq
+# minutes. Le réglage vit dans Paramètres → Système → Réseau.
+
+homeassistant:
+  # Un « package » par fonction transverse : le réveil et la météo portent
+  # chacun ses helpers, ses scripts et ses réponses vocales ensemble.
+  packages: !include_dir_named casa/packages
+
+  # Écrit ici plutôt que laissé au premier écran, parce qu'une langue
+  # choisie de travers ne se voit pas : Speech-to-Phrase s'entraîne dans la
+  # langue du système, et n'apprendrait que l'anglais sans rien dire.
+  language: fr
+  country: CH
+  time_zone: Europe/Zurich
+
+# --- les fichiers du dépôt, tels quels ---
+input_select: !include casa/input_selects.yaml
+scene: !include casa/scenes.yaml
+script: !include casa/scripts.yaml
+
+# Le bouton mural. Contrairement au poste de dev, ce bloc est chargé : le
+# device_id de casa/automations.yaml doit donc être renseigné, sinon Home
+# Assistant refuse l'automatisation et le dit dans les logs (TESTING.md 3.4).
+automation: !include casa/automations.yaml

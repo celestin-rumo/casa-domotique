@@ -1,0 +1,154 @@
+# La maison pour de vrai, sur le Raspberry Pi : ampoules Hue en Zigbee,
+# capteur Sonoff, enceintes Sonos, TV LG, et un satellite vocal.
+#
+#   docker compose --env-file app/.env -f docker-compose.pi.yml up -d
+#
+# Ce fichier diffère de docker-compose.dev.yml sur trois points, et trois
+# seulement — tout le reste est identique, à dessein :
+#
+#   1. pi/configuration.yaml remplace dev/configuration.yaml : plus aucune
+#      fausse ampoule, plus aucun faux capteur.
+#   2. Home Assistant et Music Assistant sont sur le RÉSEAU DE L'HÔTE. Sans
+#      ça, les Sonos, la TV LG et le satellite vocal ne sont pas découverts :
+#      leur découverte passe par mDNS et SSDP, qui ne traversent pas le
+#      réseau ponté de Docker. C'est silencieux — rien n'échoue, les
+#      appareils n'apparaissent simplement jamais.
+#   3. La clé Zigbee est passée au conteneur. Le réseau de l'hôte ne suffit
+#      pas : un périphérique USB se donne explicitement.
+#
+# ZIGBEE_DEVICE est obligatoire, dans app/.env, à côté de VITE_HA_URL. Sur
+# le Pi, le chemin stable de la clé se lit ainsi :
+#
+#   ls -l /dev/serial/by-id/
+#   → usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_xxxx-if00-port0
+#
+# et ZIGBEE_DEVICE=/dev/serial/by-id/usb-ITead_… (jamais /dev/ttyUSB0, dont
+# le numéro change d'un redémarrage à l'autre).
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: casa-hass
+    # Le réseau de l'hôte : Home Assistant écoute sur le :8123 du Pi, et
+    # voit le réseau local tel quel. En contrepartie, il ne résout plus les
+    # noms de services du compose — d'où les ports publiés plus bas, qu'il
+    # joint sur localhost.
+    network_mode: host
+    devices:
+      - ${ZIGBEE_DEVICE}:/dev/ttyUSB0
+    environment:
+      - TZ=Europe/Zurich
+    volumes:
+      - hass-config:/config
+      - ./homeassistant:/config/casa:ro
+      - ./pi/configuration.yaml:/config/configuration.yaml:ro
+      # Les phrases d'Assist ne sont lues QUE dans /config/custom_sentences.
+      - ./homeassistant/custom_sentences:/config/custom_sentences:ro
+    restart: unless-stopped
+
+  # --- la voix ---
+  # Ces quatre-là n'ont aucune découverte à faire : ils restent sur le
+  # réseau du compose, et publient un port pour que Home Assistant, qui est
+  # sur l'hôte, les joigne sur localhost. Les ports à donner à l'intégration
+  # Wyoming Protocol sont donc ceux de gauche (TESTING.md 1.9).
+
+  # La reconnaissance du Pi : moins d'une seconde par phrase, parce qu'elle
+  # ne transcrit que ce que Home Assistant sait faire.
+  speech-to-phrase:
+    image: rhasspy/wyoming-speech-to-phrase
+    container_name: casa-parole
+    ports:
+      - "10301:10300" # 10301 : whisper occupe déjà 10300 sur l'hôte
+    env_file:
+      - path: app/.env
+        required: false
+    # Home Assistant étant sur l'hôte, on ne peut plus l'appeler par son nom
+    # de service : host-gateway donne l'adresse du Pi vue du conteneur.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        exec /run.sh
+        --hass-websocket-uri ws://host.docker.internal:8123/api/websocket
+        --hass-token "$$VITE_HA_TOKEN"
+        --custom-sentences-dir /custom_sentences
+        --retrain-on-start
+    volumes:
+      - parole-models:/models
+      - parole-train:/train
+      - ./homeassistant/custom_sentences:/custom_sentences:ro
+    depends_on:
+      - homeassistant
+    restart: unless-stopped
+
+  # Synthèse de la réponse.
+  piper:
+    image: rhasspy/wyoming-piper
+    container_name: casa-piper
+    ports:
+      - "10200:10200"
+    command: --voice fr_FR-siwis-medium
+    volumes:
+      - piper-data:/data
+    restart: unless-stopped
+
+  # Whisper, en second : il comprend ce qui sort des phrases connues, mais
+  # met plusieurs secondes sur un Pi, d'où base-int8 plutôt que small-int8.
+  # Il ne sert que si un assistant vocal le choisit ; ce service peut être
+  # retiré sans rien casser.
+  whisper:
+    image: rhasspy/wyoming-whisper
+    container_name: casa-whisper
+    ports:
+      - "10300:10300"
+    command: --model base-int8 --language fr
+    volumes:
+      - whisper-data:/data
+    restart: unless-stopped
+
+  # Le mot d'appel côté serveur. Inutile avec un Voice Preview Edition, qui
+  # détecte « OK Nabu » dans l'appareil : à retirer si c'est le seul
+  # satellite de la maison.
+  openwakeword:
+    image: rhasspy/wyoming-openwakeword
+    container_name: casa-wakeword
+    ports:
+      - "10400:10400"
+    command: --preload-model ok_nabu
+    restart: unless-stopped
+
+  # --- le son ---
+  # Sur le réseau de l'hôte, lui aussi : c'est ainsi qu'il trouve les Sonos.
+  # Plus de dossier /media monté : la bibliothèque, ici, c'est Spotify.
+  music-assistant:
+    image: ghcr.io/music-assistant/server:latest
+    container_name: casa-music
+    network_mode: host
+    volumes:
+      - music-data:/data
+    restart: unless-stopped
+
+  # --- l'app, comme un site sur :8088 ---
+  # Le seul service qui reste ponté : il ne parle à personne, il sert des
+  # fichiers. VITE_HA_URL doit être l'adresse du Pi TELLE QUE LE NATEL LA
+  # VOIT (http://192.168.x.x:8123), et le jeton est dans les fichiers
+  # servis : ne jamais exposer ce port hors du réseau local.
+  app:
+    build:
+      context: ./app
+      args:
+        VITE_HA_URL: ${VITE_HA_URL:-http://homeassistant.local:8123}
+        VITE_HA_TOKEN: ${VITE_HA_TOKEN:-}
+    container_name: casa-app
+    ports:
+      - "8088:80"
+    restart: unless-stopped
+
+volumes:
+  hass-config:
+  music-data:
+  whisper-data:
+  piper-data:
+  parole-models:
+  parole-train:
