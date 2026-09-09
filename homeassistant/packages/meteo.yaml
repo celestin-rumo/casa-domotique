@@ -1,0 +1,93 @@
+# La météo du jour, par MétéoSuisse, pour la voix.
+#
+# Home Assistant n'a pas d'intégration MétéoSuisse en cœur. Plutôt qu'une
+# intégration communautaire à installer par HACS, un capteur REST interroge
+# l'API que l'app MétéoSuisse utilise elle-même, par NPA : six jours de
+# prévisions (ciel, minimum, maximum, pluie) et la température actuelle.
+# C'est une API non documentée : si elle change un jour, c'est ce fichier
+# qu'il faudra revoir, et Assist répondra « je n'ai pas les prévisions »
+# d'ici là, pas une erreur.
+
+input_text:
+  # Le NPA du lieu. 1700 par défaut ; à changer dans Paramètres → Appareils
+  # et services → Entrées, ou par input_text.set_value. Le capteur relit la
+  # valeur à chaque rafraîchissement.
+  meteo_npa:
+    name: NPA pour MétéoSuisse
+    icon: mdi:map-marker
+    initial: "1700"
+    pattern: "[0-9]{4}"
+    min: 4
+    max: 4
+
+rest:
+  - resource_template: "https://app-prod-ws.meteoswiss-app.ch/v1/plzDetail?plz={{ states('input_text.meteo_npa') }}00"
+    scan_interval: 1800
+    timeout: 20
+    sensor:
+      - name: MétéoSuisse
+        unique_id: casa_meteosuisse
+        icon: mdi:weather-partly-cloudy
+        device_class: temperature
+        unit_of_measurement: "°C"
+        # Une réponse qui n'est pas la bonne (NPA pas encore lu, API en
+        # panne) rend le capteur « indisponible » — pas une erreur de gabarit
+        # dans les logs, ni un état qui n'est pas un nombre.
+        availability: "{{ value_json is defined and value_json.currentWeather is defined }}"
+        value_template: "{{ value_json.currentWeather.temperature }}"
+        # Toute la liste des jours : l'intent choisit celui d'aujourd'hui par
+        # sa date, plutôt que de faire confiance à l'ordre.
+        json_attributes:
+          - forecast
+          - currentWeather
+
+automation:
+  # Le capteur REST fait son premier appel avant que input_text.meteo_npa
+  # existe : la ressource contient « unknown », l'API répond 400, et le
+  # capteur resterait vide une demi-heure. On le rafraîchit peu après le
+  # démarrage, et dès que le NPA change — sans attendre le prochain cycle.
+  - id: meteo_rafraichir
+    alias: MétéoSuisse → rafraîchir
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: input_text.meteo_npa
+    action:
+      - delay:
+          seconds: 30
+      - service: homeassistant.update_entity
+        target: { entity_id: sensor.meteosuisse }
+
+intent_script:
+  MeteoDuJour:
+    speech:
+      text: >-
+        {#- Les codes d'icône de MétéoSuisse, regroupés par ce qu'on en dit.
+            D'après la légende de leurs icônes de jour ; un code inconnu
+            donne « un ciel changeant » plutôt qu'une erreur. -#}
+        {%- set CIEL = {
+          'grand soleil': [1, 26],
+          'quelques nuages': [2, 3, 4],
+          'un ciel couvert': [5, 35],
+          'du brouillard': [27, 28],
+          'des averses': [6, 9, 14, 17, 29, 33],
+          'de la pluie': [20],
+          'des orages': [12, 13, 23, 24, 25, 32],
+          'de la grêle': [10, 11],
+          'de la neige': [8, 16, 19, 22, 30, 34],
+          'de la neige mêlée de pluie': [7, 15, 18, 21, 31],
+        } -%}
+        {%- set s = states.sensor.meteosuisse -%}
+        {%- if s is none or s.state in ['unknown', 'unavailable'] or s.attributes.forecast is not defined -%}
+          Je n'ai pas les prévisions de MétéoSuisse pour le moment.
+        {%- else -%}
+          {%- set jours = s.attributes.forecast | selectattr('dayDate', 'eq', now().date() | string) | list -%}
+          {%- set jour = jours[0] if jours else s.attributes.forecast[0] -%}
+          {%- set ciel = namespace(mot='un ciel changeant') -%}
+          {%- for mot, codes in CIEL.items() if jour.iconDay in codes -%}{%- set ciel.mot = mot -%}{%- endfor -%}
+          {%- set pluie = jour.precipitation | float(0) -%}
+          Aujourd'hui, {{ ciel.mot }}, entre {{ jour.temperatureMin | round(0) | int }} et {{ jour.temperatureMax | round(0) | int }} degrés,
+          {%- if pluie >= 1 %} {{ pluie | round(0) | int }} millimètres de pluie.{% else %} pas de pluie.{% endif %}
+          Il fait {{ s.state | float | round(0) | int }} degrés en ce moment.
+        {%- endif -%}

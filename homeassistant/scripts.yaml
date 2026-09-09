@@ -109,6 +109,25 @@ mood_chillos:
       data: { volume_level: 0.18 }
     - *ambiance_confirmee
 
+mood_calin:
+  alias: Mood Câlin
+  sequence:
+    - service: scene.turn_on
+      target: { entity_id: scene.calin }
+    # La chambre mène, le salon suit : on commence quelque part, on finit
+    # ailleurs.
+    - service: media_player.join
+      target: { entity_id: media_player.ma_chambre }
+      data: { group_members: [media_player.ma_salon] }
+    - service: script.play_playlist
+      data:
+        name: Chillos
+        player: media_player.ma_chambre
+    - service: media_player.volume_set
+      target: { entity_id: media_player.ma_chambre }
+      data: { volume_level: 0.15 }
+    - *ambiance_confirmee
+
 mood_off:
   alias: Tout éteindre
   sequence:

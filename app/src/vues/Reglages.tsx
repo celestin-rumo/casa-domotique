@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMaison } from "../maison";
 import { HOTE, latence } from "../ha";
-import { LIGHTS, MOODS, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, WALL_BUTTON } from "../config";
+import { LIGHTS, MOODS, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, WALL_BUTTON, REVEIL, CLIMAT } from "../config";
 import { Carte, Etiquette, LigneEtat, Pastille } from "../ui";
 
 const TEXTE = {
@@ -19,6 +19,14 @@ const ATTENDUES: { id: string; role: string }[] = [
   { id: "script.play_playlist", role: "Seule table nom → URI" },
   { id: PLAYLIST_SELECT, role: "Les playlists proposées" },
   { id: MOOD_SELECT, role: "L'ambiance courante" },
+  { id: REVEIL.heure, role: "Réveil · l'heure" },
+  { id: REVEIL.actif, role: "Réveil · actif" },
+  { id: REVEIL.duree, role: "Réveil · durée du lever" },
+  { id: REVEIL.script, role: "Réveil · le lever de soleil" },
+  { id: REVEIL.stop, role: "Réveil · je suis debout" },
+  { id: CLIMAT.temperature, role: "Climat · température de la pièce" },
+  { id: CLIMAT.humidite, role: "Climat · humidité de la pièce" },
+  { id: CLIMAT.exterieur, role: "Climat · MétéoSuisse" },
   ...PLAYERS.map((p) => ({ id: p.id, role: `Music Assistant · ${p.label}` })),
   ...DEVICES.map((d) => ({ id: d.id, role: d.label })),
   { id: WALL_BUTTON, role: "Bouton mural ZHA" },

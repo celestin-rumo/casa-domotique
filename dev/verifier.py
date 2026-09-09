@@ -102,6 +102,10 @@ class Client:
     def service(self, domaine, service, donnees):
         return self._appel("/api/services/{}/{}".format(domaine, service), donnees)
 
+    def converser(self, texte):
+        """Ce qu'Assist répond à une phrase tapée — sans micro, sans whisper."""
+        return self._appel("/api/conversation/process", {"text": texte, "language": "fr"})
+
 
 # --- lecture du dépôt -----------------------------------------------------
 
@@ -134,9 +138,17 @@ def config_ts():
     lumieres = re.findall(r'"([^"]+)"', bloc.group(1)) if bloc else []
     select = re.search(r'PLAYLIST_SELECT\s*=\s*"([^"]+)"', source)
     mood_select = re.search(r'MOOD_SELECT\s*=\s*"([^"]+)"', source)
+    # Le réveil : ses helpers et ses scripts viennent de packages/reveil.yaml,
+    # et l'app les nomme tous dans le bloc REVEIL.
+    bloc_reveil = re.search(r"REVEIL\s*=\s*\{(.*?)\}", source, re.S)
+    reveil = re.findall(r'"([^"]+)"', bloc_reveil.group(1)) if bloc_reveil else []
+    # Le climat : les capteurs, simulés en dev, que la carte Climat affiche.
+    bloc_climat = re.search(r"CLIMAT\s*=\s*\{(.*?)\}", source, re.S)
+    reveil += re.findall(r'"([^"]+)"', bloc_climat.group(1)) if bloc_climat else []
     return (moods, lumieres,
             select.group(1) if select else None,
-            mood_select.group(1) if mood_select else None)
+            mood_select.group(1) if mood_select else None,
+            reveil)
 
 
 def etapes_son(corps):
@@ -209,9 +221,9 @@ def verifier_echo_des_ambiances(moods, mood_select):
             echec("{} n'est pas une option de {} dans input_selects.yaml".format(mood, mood_select))
 
 
-def verifier_entites(cli, moods, lumieres, select, mood_select):
+def verifier_entites(cli, moods, lumieres, select, mood_select, reveil):
     titre("Les entités que l'app attend existent")
-    for eid in lumieres + moods + [select, mood_select, "script.play_playlist"]:
+    for eid in lumieres + moods + [select, mood_select, "script.play_playlist"] + reveil:
         if cli.etat(eid) is None:
             echec("{} est absente (src/config.ts la référence)".format(eid))
         else:
@@ -331,6 +343,44 @@ def verifier_ajout_a_chaud(cli, select):
             echec("input_selects.yaml n'a pas retrouvé son état — vérifiez git status")
 
 
+def verifier_phrases_vocales(cli):
+    titre("Chaque phrase d'Assist a un intent qui la traite")
+    # custom_sentences/fr/ est lu par Home Assistant ET par Speech-to-Phrase.
+    # Une phrase dont l'intent n'existe dans aucun intent_script serait
+    # entendue, reconnue, et suivie de « désolé, je n'ai pas compris ».
+    for nom in sorted(os.listdir(os.path.join(HA, "custom_sentences", "fr"))):
+        if not nom.endswith(".yaml"):
+            continue
+        with open(os.path.join(HA, "custom_sentences", "fr", nom)) as f:
+            fichier = yaml.safe_load(f)
+        intents = fichier.get("intents", {})
+        listes = fichier.get("lists", {})
+
+        def premiere_forme(gabarit):
+            """La première forme d'un gabarit hassil : sans les crochets,
+            la première branche de chaque parenthèse."""
+            t = re.sub(r"\[[^\]]*\]", "", gabarit)
+            t = re.sub(r"\(([^|)]*)\|[^)]*\)", r"\1", t)
+            return re.sub(r"\s+", " ", t).strip()
+
+        def valeur(nom_liste):
+            liste = listes.get(nom_liste, {})
+            if "values" in liste:
+                v = liste["values"][0]
+                return premiere_forme(v["in"] if isinstance(v, dict) else v)
+            return "sept"  # un « range » : n'importe quel nombre en lettres
+
+        for intent, corps in intents.items():
+            phrase = corps["data"][0]["sentences"][0]
+            texte = premiere_forme(re.sub(r"\{([^}]+)\}", lambda m: valeur(m.group(1)), phrase))
+            reponse = cli.converser(texte)
+            genre = ((reponse or {}).get("response") or {}).get("response_type")
+            if genre == "action_done":
+                ok("{} : « {} »".format(intent, texte))
+            else:
+                echec("{} : « {} » → {}".format(intent, texte, genre or "pas de réponse"))
+
+
 def verifier_build():
     titre("L'app compile, et le jeton entre bien dans le bundle")
     app = os.path.join(RACINE, "app")
@@ -367,13 +417,14 @@ def main():
         sys.exit("Home Assistant injoignable sur {} ({}). "
                  "docker compose -f docker-compose.dev.yml up -d".format(url, e))
 
-    moods, lumieres, select, mood_select = config_ts()
+    moods, lumieres, select, mood_select, reveil = config_ts()
     verifier_logs()
-    verifier_entites(cli, moods, lumieres, select, mood_select)
+    verifier_entites(cli, moods, lumieres, select, mood_select, reveil)
     verifier_playlists(cli, select)
     verifier_echo_des_ambiances(moods, mood_select)
     verifier_ambiances(cli, moods, mood_select)
     verifier_ajout_a_chaud(cli, select)
+    verifier_phrases_vocales(cli)
     verifier_build()
 
     print()

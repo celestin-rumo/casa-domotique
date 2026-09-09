@@ -19,13 +19,89 @@ services:
       - hass-config:/config
       - ./homeassistant:/config/casa:ro
       - ./dev/configuration.yaml:/config/configuration.yaml:ro
+      # Les phrases d'Assist ne sont lues QUE dans /config/custom_sentences :
+      # le dossier du dépôt y est monté à part, puisque le reste vit sous
+      # /config/casa.
+      - ./homeassistant/custom_sentences:/config/custom_sentences:ro
+    restart: unless-stopped
+
+  # --- la voix : trois services Wyoming, parlés par Home Assistant seul ---
+  # Aucun port publié : Home Assistant les joint par leur nom de service sur
+  # le réseau du compose (whisper:10300, piper:10200, openwakeword:10400),
+  # et un satellite (Voice PE, ESP32) ne parle qu'à Home Assistant, jamais
+  # à eux. Comme Music Assistant, leur intégration — Wyoming Protocol — ne
+  # se configure que par l'interface (docs/TESTING.md, 1.9).
+
+  # Reconnaissance de la parole. small-int8 comprend bien le français sur
+  # un portable ; sur un Pi 4, passer à base-int8 ou tiny-int8 — moins
+  # précis, mais une phrase transcrite en deux secondes plutôt que vingt.
+  whisper:
+    image: rhasspy/wyoming-whisper
+    container_name: casa-whisper
+    command: --model small-int8 --language fr
+    volumes:
+      - whisper-data:/data
+    restart: unless-stopped
+
+  # La reconnaissance du Pi : Speech-to-Phrase ne transcrit que les phrases
+  # que Home Assistant connaît — les ordres intégrés sur les entités
+  # exposées, et celles de homeassistant/custom_sentences/, qu'il lit dans
+  # le même format — d'où une réponse en moins d'une seconde là où whisper
+  # met dix secondes sur un Pi. Il s'entraîne au démarrage en interrogeant
+  # Home Assistant : il lui faut le jeton de app/.env (env_file), et Home
+  # Assistant déjà debout.
+  #
+  # Les deux moteurs tournent côte à côte ; c'est l'assistant vocal, dans
+  # Home Assistant, qui dit lequel écoute (docs/TESTING.md, 1.9).
+  speech-to-phrase:
+    image: rhasspy/wyoming-speech-to-phrase
+    container_name: casa-parole
+    env_file:
+      - path: app/.env
+        required: false
+    # /run.sh est l'entrée de l'image ; on la garde et on n'ajoute que nos
+    # options, le jeton lu dans l'environnement plutôt qu'écrit ici.
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        exec /run.sh
+        --hass-websocket-uri ws://homeassistant:8123/api/websocket
+        --hass-token "$$VITE_HA_TOKEN"
+        --custom-sentences-dir /custom_sentences
+        --retrain-on-start
+    volumes:
+      - parole-models:/models
+      - parole-train:/train
+      - ./homeassistant/custom_sentences:/custom_sentences:ro
+    depends_on:
+      - homeassistant
+    restart: unless-stopped
+
+  # Synthèse de la réponse. Une voix française ; le modèle se télécharge au
+  # premier démarrage.
+  piper:
+    image: rhasspy/wyoming-piper
+    container_name: casa-piper
+    command: --voice fr_FR-siwis-medium
+    volumes:
+      - piper-data:/data
+    restart: unless-stopped
+
+  # Le mot d'appel, pour un satellite qui n'en détecte pas lui-même. Le
+  # navigateur n'en a pas besoin : dans l'interface, on clique le micro.
+  openwakeword:
+    image: rhasspy/wyoming-openwakeword
+    container_name: casa-wakeword
+    command: --preload-model ok_nabu
     restart: unless-stopped
 
   # Music Assistant tourne aussi bien sur un portable que sur un Pi.
   # Son intégration Home Assistant ne se configure QUE par l'interface — elle
   # n'a pas de forme YAML, donc elle ne peut pas vivre dans ce dépôt :
   # Paramètres > Appareils et services > Ajouter > Music Assistant,
-  # serveur http://music-assistant:8095   (voir docs/TESTING.md)
+  # serveur http://IP-du-poste:8095 — pas le nom du service : depuis 2.10,
+  # l'intégration ouvre la page de connexion de Music Assistant dans le
+  # navigateur, qui ne connaît pas ce nom (voir docs/TESTING.md, 1.6).
   #
   # dev/music est monté comme bibliothèque locale : de quoi entendre quelque
   # chose sans compte Spotify.
@@ -69,3 +145,7 @@ services:
 volumes:
   hass-config:
   music-data:
+  whisper-data:
+  piper-data:
+  parole-models:
+  parole-train:

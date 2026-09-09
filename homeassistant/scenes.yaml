@@ -23,6 +23,14 @@
     light.salon: { state: "on", brightness: 12, color_temp_kelvin: 2200 }
     light.cuisine: { state: "off" }
     light.chambre: { state: "on", brightness: 8, color_temp_kelvin: 2200 }
+# Rouge et pourpre, bas : le salon tire sur le rouge, la chambre sur le
+# violet. La cuisine n'a rien à faire là.
+- id: calin
+  name: Câlin
+  entities:
+    light.salon: { state: "on", brightness: 40, rgb_color: [190, 20, 80] }
+    light.cuisine: { state: "off" }
+    light.chambre: { state: "on", brightness: 30, rgb_color: [130, 0, 150] }
 - id: tout_eteindre
   name: Tout éteindre
   entities:

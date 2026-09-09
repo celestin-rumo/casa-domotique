@@ -1,0 +1,56 @@
+# Les phrases qu'Assist comprend pour le réveil. Chaque intent est traité
+# par intent_script dans packages/reveil.yaml.
+#
+# Syntaxe : (a|b) = l'un ou l'autre, [c] = facultatif, {x} = une liste.
+# Les listes « range » acceptent les nombres dits en toutes lettres :
+# « sept heures trente » donne reveil_heure=7, reveil_minutes=30.
+#
+# Ce dossier est lu par deux programmes : Home Assistant, qui y trouve ce
+# que chaque phrase déclenche, et Speech-to-Phrase, qui y apprend ce qu'il
+# doit savoir entendre — même format, même fichier. Les listes portent un
+# préfixe pour ne pas écraser celles que Speech-to-Phrase partage entre
+# toutes les langues (minutes, hours…).
+#
+# Ce fichier doit être dans /config/custom_sentences/fr/ — pas ailleurs.
+# Sur le poste de dev, le compose l'y monte ; sur le Pi, c'est le dossier
+# homeassistant/ entier qui devient /config.
+language: "fr"
+
+intents:
+  ReglerReveil:
+    data:
+      # Trois façons de dire l'heure : « sept heures trente » à l'oral,
+      # « 7h30 » et « 7 h 30 » tels que whisper les écrit. Speech-to-Phrase
+      # sort toujours des chiffres et le mot « heures ».
+      - sentences:
+          - "(règle|mets|programme) [le] réveil (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
+          - "(règle|mets|programme) [le] réveil (à|pour) {reveil_heure}[ ]h[ ][{reveil_minutes}]"
+          - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure} [heure|heures] [{reveil_minutes}]"
+          - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure}[ ]h[ ][{reveil_minutes}]"
+          - "réveil (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
+  ActiverReveil:
+    data:
+      - sentences:
+          - "(active|allume|remets) [le] réveil"
+  DesactiverReveil:
+    data:
+      - sentences:
+          - "(désactive|enlève|coupe|annule) [le] réveil"
+          - "pas de réveil [demain]"
+  ArreterReveil:
+    data:
+      - sentences:
+          - "(arrête|stop|stoppe) [le] réveil"
+          - "je suis (debout|réveillé|réveillée|levé|levée)"
+
+lists:
+  reveil_heure:
+    range:
+      type: number
+      from: 0
+      to: 23
+  reveil_minutes:
+    range:
+      type: number
+      from: 1
+      to: 59

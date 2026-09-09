@@ -1,0 +1,22 @@
+# Lancer une ambiance à la voix. Les ambiances elles-mêmes sont dans
+# scripts.yaml ; ici, seulement ce qu'Assist en fait. Les phrases sont dans
+# custom_sentences/fr/ambiances.yaml, et chacune y donne un mot — « câlin »,
+# « focus » — que ce tableau ramène au script. Un mot absent du tableau ne
+# lance rien et le dit.
+intent_script:
+  LancerAmbiance:
+    action:
+      - variables:
+          scripts:
+            cinéma: script.mood_cinema
+            détente: script.mood_detente
+            focus: script.mood_focus
+            chillos: script.mood_chillos
+            câlin: script.mood_calin
+            tout éteindre: script.mood_off
+      - condition: template
+        value_template: "{{ casa_ambiance in scripts }}"
+      - service: script.turn_on
+        target: { entity_id: "{{ scripts[casa_ambiance] }}" }
+    speech:
+      text: "{{ casa_ambiance | capitalize }}."

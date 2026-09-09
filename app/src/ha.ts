@@ -130,6 +130,31 @@ export async function unjoinPlayer(entityId: string) {
   await callService(conn, "media_player", "unjoin", { entity_id: entityId });
 }
 
+// Les trois réglages du réveil sont des helpers : on les écrit, et l'écho
+// est l'état du helper lui-même.
+export async function setTime(entityId: string, hhmm: string) {
+  const conn = await connect();
+  await callService(conn, "input_datetime", "set_datetime", { entity_id: entityId, time: `${hhmm}:00` });
+}
+
+export async function setBoolean(entityId: string, on: boolean) {
+  const conn = await connect();
+  await callService(conn, "input_boolean", on ? "turn_on" : "turn_off", { entity_id: entityId });
+}
+
+export async function setNumber(entityId: string, value: number) {
+  const conn = await connect();
+  await callService(conn, "input_number", "set_value", { entity_id: entityId, value });
+}
+
+// script.turn_on rend la main tout de suite : appeler le script par son
+// propre service bloquerait l'appel jusqu'à la fin — vingt minutes pour un
+// lever de soleil. Les variables sont celles que le script déclare en fields.
+export async function runScript(entityId: string, variables?: Record<string, unknown>) {
+  const conn = await connect();
+  await callService(conn, "script", "turn_on", { entity_id: entityId, ...(variables ? { variables } : {}) });
+}
+
 // L'aller-retour WebSocket, en millisecondes — ce que l'écran Réglages affiche.
 export async function latence(): Promise<number> {
   const conn = await connect();

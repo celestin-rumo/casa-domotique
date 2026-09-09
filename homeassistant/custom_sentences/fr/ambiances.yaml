@@ -1,0 +1,43 @@
+# Lancer une ambiance à la voix. L'intent est traité par intent_script dans
+# packages/ambiances.yaml, qui tient le tableau mot → script.
+#
+# La liste casa_ambiance ramène chaque tournure (in) à un mot (out). Le
+# mot, et pas l'entity_id, pour une raison précise : Speech-to-Phrase
+# transcrit la valeur « out », et Home Assistant relit cette transcription
+# comme une phrase. « script.mood_calin » ne se relit pas ; « câlin » oui,
+# puisque c'est aussi une entrée de la liste. Plusieurs tournures peuvent
+# donner le même mot ; c'est ici qu'on les ajoute.
+language: "fr"
+
+intents:
+  LancerAmbiance:
+    data:
+      - sentences:
+          - "(mets|lance|passe|passe en|active) [le mode|l'ambiance|mode|ambiance] {casa_ambiance}"
+          - "[le ]mode {casa_ambiance}"
+          - "ambiance {casa_ambiance}"
+      # Les tournures qui sont une ambiance à elles seules.
+      - sentences:
+          - "{casa_ambiance}"
+
+lists:
+  casa_ambiance:
+    values:
+      - in: "cinéma"
+        out: "cinéma"
+      - in: "détente"
+        out: "détente"
+      - in: "focus"
+        out: "focus"
+      - in: "chillos"
+        out: "chillos"
+      - in: "câlin"
+        out: "câlin"
+      - in: "(donne-moi|donne moi|donne-lui|donne lui|donne nous|donne-nous) envie de faire (du sexe|l'amour)"
+        out: "câlin"
+      - in: "on se fait un câlin"
+        out: "câlin"
+      - in: "tout éteindre"
+        out: "tout éteindre"
+      - in: "(éteins|éteindre) tout"
+        out: "tout éteindre"

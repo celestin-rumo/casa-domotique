@@ -1,0 +1,12 @@
+# Les phrases qui demandent la météo du jour. La réponse est composée par
+# intent_script dans packages/meteo.yaml, à partir du capteur MétéoSuisse.
+language: "fr"
+
+intents:
+  MeteoDuJour:
+    data:
+      - sentences:
+          - "(quel temps|quelle météo) [fait-il|fera-t-il|il fait|il fera|est prévu|est prévue] [aujourd'hui|ce matin|pour aujourd'hui|dehors]"
+          - "[c'est quoi |quelle est |donne-moi |dis-moi ][la] météo [du jour|d'aujourd'hui|de la journée|pour aujourd'hui]"
+          - "(est-ce qu'il|il) va pleuvoir [aujourd'hui]"
+          - "[les ]prévisions (du jour|de la journée|d'aujourd'hui)"

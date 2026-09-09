@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import type { HassEntity } from "home-assistant-js-websocket";
 import { useMaison } from "../maison";
-import { LIGHTS, DEVICES } from "../config";
+import { LIGHTS, DEVICES, CLIMAT } from "../config";
 import { toggleLight, setLight } from "../ha";
 import { Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, Pastille } from "../ui";
 
@@ -44,6 +44,8 @@ export function Pieces() {
         <span>· {LIGHTS.length} lumières</span>
       </LigneEtat>
 
+      <Climat />
+
       {LIGHTS.map((id) => (
         <Lumiere
           key={id}
@@ -70,6 +72,53 @@ export function Pieces() {
             </div>
           );
         })}
+      </Carte>
+    </>
+  );
+}
+
+// Un nombre tel que le Pi le donne, avec la virgule d'ici ; « — » si le
+// capteur manque ou ne répond pas, jamais un zéro qui aurait l'air vrai.
+function mesure(etat: string | undefined, decimales: number): string {
+  const n = Number(etat);
+  if (etat === undefined || etat === "unavailable" || etat === "unknown" || Number.isNaN(n)) return "—";
+  return n.toLocaleString("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: decimales });
+}
+
+// Trois chiffres, sans bouton : la pièce, son humidité, et dehors.
+function Climat() {
+  const { entities } = useMaison();
+  const t = entities[CLIMAT.temperature];
+  const h = entities[CLIMAT.humidite];
+  const d = entities[CLIMAT.exterieur];
+  const absents = [t, h].filter((e) => !e).length;
+  return (
+    <>
+      <Etiquette>Climat</Etiquette>
+      <Carte>
+        <div className="climat">
+          <div className="climat-val">
+            <b className="tnum">{mesure(t?.state, 1)}</b>
+            <small>°C</small>
+            <span>intérieur</span>
+          </div>
+          <div className="climat-val">
+            <b className="tnum">{mesure(h?.state, 0)}</b>
+            <small>%</small>
+            <span>humidité</span>
+          </div>
+          <div className="climat-val">
+            <b className="tnum">{mesure(d?.state, 0)}</b>
+            <small>°C</small>
+            <span>dehors</span>
+          </div>
+        </div>
+        {absents > 0 && (
+          <p className="fault-note" role="status">
+            <span>{absents === 2 ? "capteur absent" : "une mesure manque"}</span>
+            <code>{!t ? CLIMAT.temperature : CLIMAT.humidite}</code>
+          </p>
+        )}
       </Carte>
     </>
   );

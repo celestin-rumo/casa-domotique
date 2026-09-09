@@ -1,0 +1,212 @@
+# Le réveil, en un seul fichier : ses trois réglages, le script qui fait
+# lever le jour, celui qui fait entrer la musique, l'automatisation qui les
+# déclenche à l'heure dite, et les phrases qu'Assist comprend.
+#
+# C'est un « package » Home Assistant : chaque clé (input_datetime, script,
+# automation…) est fusionnée avec celles de configuration.yaml. Tout ce qui
+# concerne le réveil vit donc ici, et nulle part ailleurs.
+#
+# Les trois réglages sont des helpers pour une raison précise : l'app les
+# écrit depuis le natel sans toucher au YAML, et Home Assistant les garde
+# au redémarrage. Le script, lui, ne porte que des valeurs par défaut.
+
+input_datetime:
+  reveil_heure:
+    name: Heure du réveil
+    icon: mdi:alarm
+    has_date: false
+    has_time: true
+    initial: "07:00:00"
+
+input_boolean:
+  reveil_actif:
+    name: Réveil actif
+    icon: mdi:alarm-check
+
+input_number:
+  reveil_duree:
+    name: Durée du lever
+    icon: mdi:weather-sunset-up
+    min: 1
+    max: 60
+    step: 1
+    initial: 20
+    unit_of_measurement: min
+    mode: slider
+
+automation:
+  - id: reveil_a_l_heure
+    alias: Réveil → lever de soleil
+    description: À l'heure du réveil, si le réveil est actif, lance script.reveil.
+    trigger:
+      # Un input_datetime sans date sonne chaque jour à la même heure.
+      - platform: time
+        at: input_datetime.reveil_heure
+    condition:
+      - condition: state
+        entity_id: input_boolean.reveil_actif
+        state: "on"
+    action:
+      - service: script.reveil
+
+script:
+  # Le lever de soleil. La lampe part d'une braise à 2000 K et monte marche
+  # par marche jusqu'à 200/255 à 4000 K, une marche toutes les 30 s. Chaque
+  # marche demande une transition de 30 s à l'ampoule : sur une Hue, on ne
+  # voit aucun saut ; sur les fausses ampoules de dev, le niveau monte par
+  # paliers, ce qui suffit à le vérifier.
+  #
+  # La musique n'est PAS dans ce script : elle est confiée à
+  # script.reveil_musique par un script.turn_on, qui n'attend pas et dont les
+  # erreurs ne remontent pas ici. Sans enceinte (avant 1.6, ou une pièce
+  # sans Music Assistant), la lumière se lève quand même. C'est le contraire
+  # des ambiances, où le son qui échoue empêche l'écho — un réveil qui
+  # n'allume pas parce que Spotify ne répond pas ferait rater le train.
+  reveil:
+    alias: Réveil
+    icon: mdi:weather-sunset-up
+    mode: restart
+    fields:
+      duree:
+        description: Minutes du lever. Par défaut, input_number.reveil_duree.
+        example: 20
+      lumiere:
+        description: La lampe qui se lève
+        example: light.chambre
+      player:
+        description: L'enceinte de la musique
+        example: media_player.ma_chambre
+      playlist:
+        description: Un nom de la table de script.play_playlist
+        example: Détente
+    variables:
+      minutes: "{{ duree | default(states('input_number.reveil_duree')) | int(20) }}"
+      lampe: "{{ lumiere | default('light.chambre') }}"
+      enceinte: "{{ player | default('media_player.ma_chambre') }}"
+      liste: "{{ playlist | default('Détente') }}"
+      pas_s: 30
+      # Au moins deux marches, même pour une minute : une seule serait un
+      # allumage sec, pas un lever.
+      marches: "{{ [(minutes * 60 / pas_s) | round(0, 'ceil') | int, 2] | max }}"
+    sequence:
+      - service: script.turn_on
+        target: { entity_id: script.reveil_musique }
+        data:
+          variables:
+            player: "{{ enceinte }}"
+            playlist: "{{ liste }}"
+            # Elle entre à mi-chemin du lever, et finit de monter avec lui.
+            attente_s: "{{ (marches // 2) * pas_s }}"
+            montee_s: "{{ (marches - marches // 2) * pas_s }}"
+      - repeat:
+          count: "{{ marches }}"
+          sequence:
+            - service: light.turn_on
+              target: { entity_id: "{{ lampe }}" }
+              data:
+                brightness: "{{ [1, (200 * repeat.index / marches) | round(0)] | max | int }}"
+                color_temp_kelvin: "{{ (2000 + 2000 * repeat.index / marches) | int }}"
+                transition: "{{ pas_s }}"
+            - delay:
+                seconds: "{{ pas_s }}"
+
+  # La musique du matin : presque inaudible au départ, puis le volume monte
+  # jusqu'à 20 % sur la durée demandée. Le titre vient de la table de
+  # script.play_playlist, comme pour les ambiances — pas une seconde adresse
+  # Spotify à tenir ici.
+  reveil_musique:
+    alias: Réveil · musique
+    icon: mdi:music-note
+    mode: restart
+    fields:
+      player: { example: media_player.ma_chambre }
+      playlist: { example: Détente }
+      attente_s: { description: Secondes avant la première note, example: 600 }
+      montee_s: { description: Secondes pour monter le volume, example: 600 }
+    variables:
+      enceinte: "{{ player | default('media_player.ma_chambre') }}"
+      liste: "{{ playlist | default('Détente') }}"
+      attente: "{{ attente_s | default(0) | int }}"
+      montee: "{{ montee_s | default(600) | int }}"
+      pas_s: 30
+      marches: "{{ [(montee / pas_s) | round(0, 'ceil') | int, 1] | max }}"
+      volume_debut: 0.03
+      volume_fin: 0.2
+    sequence:
+      - delay:
+          seconds: "{{ attente }}"
+      # Pas d'enceinte, pas de musique — et pas d'erreur non plus.
+      - condition: template
+        value_template: "{{ states(enceinte) not in ['unknown', 'unavailable'] }}"
+      - service: media_player.volume_set
+        target: { entity_id: "{{ enceinte }}" }
+        data: { volume_level: "{{ volume_debut }}" }
+      - service: script.play_playlist
+        data:
+          name: "{{ liste }}"
+          player: "{{ enceinte }}"
+      - repeat:
+          count: "{{ marches }}"
+          sequence:
+            - delay:
+                seconds: "{{ pas_s }}"
+            - service: media_player.volume_set
+              target: { entity_id: "{{ enceinte }}" }
+              data:
+                volume_level: "{{ (volume_debut + (volume_fin - volume_debut) * repeat.index / marches) | round(2) }}"
+
+  # « Je suis debout » : on coupe le lever et la musique, on laisse la lampe
+  # où elle en est. Le réveil du lendemain n'est pas touché.
+  reveil_stop:
+    alias: Réveil · arrêter
+    icon: mdi:alarm-off
+    fields:
+      player: { example: media_player.ma_chambre }
+    variables:
+      enceinte: "{{ player | default('media_player.ma_chambre') }}"
+    sequence:
+      - service: script.turn_off
+        target: { entity_id: [script.reveil, script.reveil_musique] }
+      - if:
+          - condition: template
+            value_template: "{{ states(enceinte) not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: media_player.media_stop
+            target: { entity_id: "{{ enceinte }}" }
+            continue_on_error: true
+
+# Ce que la voix peut faire au réveil. Les phrases sont dans
+# custom_sentences/fr/reveil.yaml ; ici, ce que chacune déclenche et ce
+# qu'Assist répond. Les mots entre accolades de la phrase ({reveil_heure},
+# {reveil_minutes}) arrivent tels quels dans les gabarits.
+intent_script:
+  ReglerReveil:
+    action:
+      - service: input_datetime.set_datetime
+        target: { entity_id: input_datetime.reveil_heure }
+        data:
+          time: "{{ '%02d:%02d:00' | format(reveil_heure | int, reveil_minutes | default(0) | int) }}"
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.reveil_actif }
+    speech:
+      text: >-
+        Réveil à {{ reveil_heure | int }} heures{% if reveil_minutes | default(0) | int %} {{ reveil_minutes | int }}{% endif %}.
+  ActiverReveil:
+    action:
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.reveil_actif }
+    speech:
+      text: >-
+        {%- set h = states('input_datetime.reveil_heure').split(':') -%}
+        Réveil activé, à {{ h[0] | int }} heures{% if h[1] | int %} {{ h[1] | int }}{% endif %}.
+  DesactiverReveil:
+    action:
+      - service: input_boolean.turn_off
+        target: { entity_id: input_boolean.reveil_actif }
+    speech:
+      text: "Pas de réveil."
+  ArreterReveil:
+    action:
+      - service: script.reveil_stop
+    speech:
+      text: "Bonjour."

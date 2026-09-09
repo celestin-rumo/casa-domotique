@@ -23,6 +23,18 @@ default_config:
 # Si un jour l'app fait de vrais appels REST : Paramètres → Système → Réseau.
 
 # --- les fichiers du dépôt, tels quels ---
+# Les packages (le réveil) : leurs input_boolean se fusionnent avec ceux des
+# fausses ampoules ci-dessous, et leur automatisation se charge sans le
+# bouton ZHA, puisqu'elle n'est pas dans automations.yaml.
+homeassistant:
+  packages: !include_dir_named casa/packages
+  # Speech-to-Phrase s'entraîne dans la langue du système et celles des
+  # assistants vocaux. Un Home Assistant créé en anglais au premier écran
+  # n'apprendrait que l'anglais ; en dev, on tranche ici. Sur le Pi, c'est
+  # le premier écran qui décide, et il est en français.
+  language: fr
+  country: CH
+
 input_select: !include casa/input_selects.yaml
 scene: !include casa/scenes.yaml
 script: !include casa/scripts.yaml
@@ -56,6 +68,19 @@ input_number:
     min: 0
     max: 255
     initial: 120
+  # Le faux capteur de la pièce : à bouger dans l'interface pour voir la
+  # carte Climat de l'app suivre.
+  temperature_interieure:
+    name: Température intérieure (simulée)
+    min: 10
+    max: 35
+    step: 0.1
+    initial: 21.5
+  humidite_interieure:
+    name: Humidité intérieure (simulée)
+    min: 0
+    max: 100
+    initial: 48
 
 # --- light.salon, light.cuisine, light.chambre : allumage et intensité ---
 # Les entités template vivent sous la clé « template: ». L'ancienne forme,
@@ -76,6 +101,22 @@ input_number:
 # l'allumage et l'intensité se vérifient ici. Le rendu couleur est de toute
 # façon une affaire d'étape 3, où on regarde la pièce plutôt que l'écran.
 template:
+  # sensor.temperature_interieure et sensor.humidite_interieure : sur le Pi,
+  # c'est le capteur Zigbee renommé ainsi (docs/TESTING.md, 3.2). Ici, deux
+  # nombres qu'on règle à la main.
+  - sensor:
+      - name: Température intérieure
+        unique_id: casa_dev_temperature_interieure
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: "{{ states('input_number.temperature_interieure') }}"
+      - name: Humidité intérieure
+        unique_id: casa_dev_humidite_interieure
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+        state: "{{ states('input_number.humidite_interieure') }}"
   - light:
       - name: Salon
         unique_id: casa_dev_salon

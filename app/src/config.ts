@@ -8,6 +8,7 @@ export const MOODS = [
   { id: "script.mood_detente", label: "Détente", what: "Salon + cuisine · 2400 K", hue: "#e8b86d" },
   { id: "script.mood_focus", label: "Focus", what: "Salon seul · 4200 K", hue: "#4a88c7" },
   { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f" },
+  { id: "script.mood_calin", label: "Câlin", what: "Rouge & pourpre · Chillos", hue: "#a0287a" },
   { id: "script.mood_off", label: "Tout éteindre", what: "Lumières + lecture", hue: "#5a5652", wide: true },
 ];
 
@@ -25,11 +26,32 @@ export const PLAYERS = [
 
 export const LIGHTS = ["light.salon", "light.cuisine", "light.chambre"];
 
+// Le climat, en tête de l'écran Pièces : le capteur de la pièce, renommé
+// ainsi sur le Pi, et la température dehors telle que MétéoSuisse la donne
+// (packages/meteo.yaml).
+export const CLIMAT = {
+  temperature: "sensor.temperature_interieure",
+  humidite: "sensor.humidite_interieure",
+  exterieur: "sensor.meteosuisse",
+};
+
 // Ce que les ambiances pilotent en plus des lumières et de la musique.
 export const DEVICES = [
   { id: "media_player.lg_tv", label: "TV LG · webOS" },
   { id: "media_player.sonos_beam", label: "Barre Sonos · HDMI eARC" },
 ];
+
+// Le réveil (homeassistant/packages/reveil.yaml). Les trois réglages sont des
+// helpers que l'app écrit directement ; le script s'allume (state « on »)
+// tant que le jour se lève, et c'est cet état qui dit « en cours ».
+export const REVEIL = {
+  heure: "input_datetime.reveil_heure",
+  actif: "input_boolean.reveil_actif",
+  duree: "input_number.reveil_duree",
+  script: "script.reveil",
+  stop: "script.reveil_stop",
+  lumiere: "light.chambre",
+};
 
 // L'automatisation du bouton mural : présente sur le Pi une fois le
 // device_id renseigné dans automations.yaml, absente en dev.

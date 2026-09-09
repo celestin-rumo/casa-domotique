@@ -30,4 +30,5 @@ mood:
     - script.mood_detente
     - script.mood_focus
     - script.mood_chillos
+    - script.mood_calin
     - script.mood_off

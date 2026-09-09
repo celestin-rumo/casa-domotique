@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type MouseEvent } from "react"
 import { useMaison } from "../maison";
 import { MOODS, MOOD_SELECT, WALL_BUTTON } from "../config";
 import { Carte, Etiquette, LigneEtat, NoteFaute, Pastille } from "../ui";
+import { Reveil } from "./Reveil";
 
 const reduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -87,6 +88,9 @@ export function Ambiances() {
       </div>
 
       {fauteAmbiance && <NoteFaute entite={fauteAmbiance[0]} message={fauteAmbiance[1]} />}
+
+      <Etiquette>Le matin</Etiquette>
+      <Reveil />
 
       <Etiquette>Raccourci</Etiquette>
       <Carte>
