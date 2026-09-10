@@ -2,7 +2,7 @@
 
 Domotique maison : lumières, musique, ambiances, un réveil en lever de soleil et un assistant vocal, pilotés par un Raspberry Pi (Home Assistant + Music Assistant + Wyoming), avec une app natel React + Capacitor.
 
-**Une seule pièce pour l'instant : la chambre.** Une ampoule, une enceinte, cinq ambiances. Les autres pièces, le multiroom et le home cinéma viendront avec le matériel — voir [« Une seule pièce, la chambre »](docs/TESTING.md#une-seule-pièce-la-chambre).
+**Une seule pièce pour l'instant : la chambre.** Deux lumières Hue — une lampe et un bandeau — une enceinte, cinq ambiances. Les autres pièces, le multiroom et le home cinéma viendront avec le matériel — voir [« Une seule pièce, la chambre »](docs/TESTING.md#une-seule-pièce-la-chambre).
 
 - `docker-compose.dev.yml` — la pile sur le poste de dev : fausses ampoules, son en fichier local
 - `pi/configuration.yaml` — la configuration du Pi, qui tourne sous Home Assistant OS

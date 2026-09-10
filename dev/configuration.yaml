@@ -41,11 +41,13 @@ script: !include casa/scripts.yaml
 # Pas d'`automation:` : le dépôt n'a pas d'automations.yaml. Les seules
 # automatisations sont celles des packages, chargées ci-dessus.
 
-# --- de quoi porter l'état d'une ampoule qui n'existe pas ---
-# Une seule, comme il n'y a qu'une pièce équipée : la chambre.
+# --- de quoi porter l'état des deux lumières qui n'existent pas ---
+# Deux, comme dans la chambre : la lampe et le bandeau.
 input_boolean:
   chambre_on:
     name: Chambre allumée
+  chambre_bandeau_on:
+    name: Bandeau allumé
 
 input_number:
   chambre_niveau:
@@ -53,6 +55,11 @@ input_number:
     min: 0
     max: 255
     initial: 120
+  chambre_bandeau_niveau:
+    name: Bandeau niveau
+    min: 0
+    max: 255
+    initial: 60
   # Le faux capteur de la pièce : à bouger dans l'interface pour voir la
   # carte Climat de l'app suivre.
   temperature_interieure:
@@ -67,14 +74,15 @@ input_number:
     max: 100
     initial: 48
 
-# --- light.chambre : allumage et intensité ---
+# --- light.chambre et light.chambre_bandeau : allumage et intensité ---
 # Les entités template vivent sous la clé « template: ». L'ancienne forme,
 # « light: - platform: template », n'est plus acceptée depuis HA 2026.x : elle
 # ne fait pas échouer le démarrage, elle laisse une ligne d'erreur dans les
 # logs et l'ampoule n'existe tout simplement pas. C'est le cas que
 # l'étape 1.2 de docs/TESTING.md sert à attraper.
 #
-# Le nom donne l'entity_id : « Chambre » → light.chambre.
+# Le nom donne l'entity_id : « Chambre » → light.chambre, « Chambre bandeau »
+# → light.chambre_bandeau.
 #
 # set_level rallume AUSSI le booléen, et ce n'est pas une redondance : quand
 # light.turn_on reçoit une luminosité, Home Assistant exécute set_level à la
@@ -119,3 +127,20 @@ template:
             data: { value: "{{ brightness }}" }
           - action: input_boolean.turn_on
             target: { entity_id: input_boolean.chambre_on }
+
+      - name: Chambre bandeau
+        unique_id: casa_dev_chambre_bandeau
+        state: "{{ is_state('input_boolean.chambre_bandeau_on', 'on') }}"
+        level: "{{ states('input_number.chambre_bandeau_niveau') | int(0) }}"
+        turn_on:
+          action: input_boolean.turn_on
+          target: { entity_id: input_boolean.chambre_bandeau_on }
+        turn_off:
+          action: input_boolean.turn_off
+          target: { entity_id: input_boolean.chambre_bandeau_on }
+        set_level:
+          - action: input_number.set_value
+            target: { entity_id: input_number.chambre_bandeau_niveau }
+            data: { value: "{{ brightness }}" }
+          - action: input_boolean.turn_on
+            target: { entity_id: input_boolean.chambre_bandeau_on }

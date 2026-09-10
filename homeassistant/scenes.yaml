@@ -7,26 +7,41 @@
 # version multi-pièces est dans l'historique git, commit ccb9f08 et avant
 # (docs/TESTING.md, « Une seule pièce, la chambre »).
 #
-# La chambre reprend donc le rôle que le salon tenait : c'est elle qui porte
-# Détente et Focus, et non plus seulement les ambiances de fin de journée.
+# DEUX LUMIÈRES, et c'est tout l'intérêt : `light.chambre` est la lampe,
+# `light.chambre_bandeau` le bandeau Hue. Les donner à la même couleur
+# reviendrait à n'en avoir qu'une — chaque ambiance les traite donc
+# séparément. La lampe éclaire, le bandeau colore.
 - id: detente
   name: Détente
   entities:
     light.chambre: { state: "on", brightness: 90, color_temp_kelvin: 2400 }
+    light.chambre_bandeau: { state: "on", brightness: 60, color_temp_kelvin: 2400 }
+# On travaille à la lampe : le bandeau ne fait que distraire.
 - id: focus
   name: Focus
   entities:
     light.chambre: { state: "on", brightness: 210, color_temp_kelvin: 4200 }
+    light.chambre_bandeau: { state: "off" }
+# Presque rien de la lampe, le bandeau porte la pièce.
 - id: chillos
   name: Chillos
   entities:
     light.chambre: { state: "on", brightness: 8, color_temp_kelvin: 2200 }
-# Pourpre et bas.
+    light.chambre_bandeau: { state: "on", brightness: 25, color_temp_kelvin: 2200 }
+# Le rouge rosé est au bandeau, derrière le lit ; la lampe reste chaude et
+# basse. Les deux en rouge donneraient une chambre de laboratoire photo, pas
+# une ambiance — c'est le blanc ambré de la lampe qui fait tenir la couleur.
+#
+# [255, 30, 70] et pas [255, 0, 0] : le rouge pur vire à l'alarme, et une
+# ampoule qui n'a que du rouge rend une lumière plate. Les 30 de vert et les
+# 70 de bleu tirent vers le rose et gardent de la chair aux visages.
 - id: calin
   name: Câlin
   entities:
-    light.chambre: { state: "on", brightness: 30, rgb_color: [130, 0, 150] }
+    light.chambre: { state: "on", brightness: 20, color_temp_kelvin: 2200 }
+    light.chambre_bandeau: { state: "on", brightness: 40, rgb_color: [255, 30, 70] }
 - id: tout_eteindre
   name: Tout éteindre
   entities:
     light.chambre: { state: "off" }
+    light.chambre_bandeau: { state: "off" }

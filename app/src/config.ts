@@ -11,7 +11,7 @@ export const MOODS = [
   { id: "script.mood_detente", label: "Détente", what: "Chambre · 2400 K", hue: "#e8b86d" },
   { id: "script.mood_focus", label: "Focus", what: "Chambre · 4200 K", hue: "#4a88c7" },
   { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f" },
-  { id: "script.mood_calin", label: "Câlin", what: "Pourpre · Chillos", hue: "#a0287a" },
+  { id: "script.mood_calin", label: "Câlin", what: "Rouge rosé · Chillos", hue: "#d42c5e" },
   { id: "script.mood_off", label: "Tout éteindre", what: "Lumières + lecture", hue: "#5a5652", wide: true },
 ];
 
@@ -26,7 +26,8 @@ export const PLAYERS = [
   { id: "media_player.ma_chambre", label: "Chambre" },
 ];
 
-export const LIGHTS = ["light.chambre"];
+// La lampe d'abord, le bandeau ensuite : c'est l'ordre de l'écran Pièces.
+export const LIGHTS = ["light.chambre", "light.chambre_bandeau"];
 
 // Le climat, en tête de l'écran Pièces : le capteur de la pièce, renommé
 // ainsi sur le Pi, et la température dehors telle que MétéoSuisse la donne
@@ -52,6 +53,9 @@ export const REVEIL = {
   duree: "input_number.reveil_duree",
   script: "script.reveil",
   stop: "script.reveil_stop",
+  // La lampe, pas le bandeau : le lever de soleil monte une seule lumière,
+  // marche par marche. Mettre `light.chambre_bandeau` ici lèverait la pièce
+  // par le bandeau à la place — une ligne à changer, rien d'autre.
   lumiere: "light.chambre",
 };
 

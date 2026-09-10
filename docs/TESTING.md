@@ -12,9 +12,15 @@ YAML ni l'app, puisque l'étape 1 les a déjà prouvés.
 
 ## Une seule pièce, la chambre
 
-**Le dépôt ne connaît qu'une pièce.** Une ampoule, `light.chambre`. Une
-enceinte, `media_player.ma_chambre`. Cinq ambiances qui ne pilotent qu'elles :
-Détente, Focus, Chillos, Câlin et Tout éteindre.
+**Le dépôt ne connaît qu'une pièce.** Deux lumières Hue — la lampe
+`light.chambre` et le bandeau `light.chambre_bandeau`. Une enceinte,
+`media_player.ma_chambre`. Cinq ambiances qui ne pilotent qu'elles : Détente,
+Focus, Chillos, Câlin et Tout éteindre.
+
+Les deux lumières ne font jamais la même chose, et c'est délibéré : la lampe
+éclaire, le bandeau colore. Câlin met le rouge rosé au bandeau et laisse la
+lampe chaude et basse ; Focus allume la lampe et éteint le bandeau. Les donner
+à la même couleur reviendrait à n'en avoir qu'une.
 
 C'est le matériel réellement installé au 10 septembre 2026 — une WiiM Sound
 Lite dans la chambre — et le dépôt est écrit comme s'il n'y avait rien
@@ -44,8 +50,8 @@ pièces — c'est la maison visée, pas celle d'aujourd'hui. Les commandes et le
 
 Aucun Raspberry Pi, aucune ampoule, aucune enceinte. Deux conteneurs sur le
 poste de dev. `dev/configuration.yaml` inclut les fichiers du dépôt et déclare
-une *template light* adossée à des `input_boolean` : `light.chambre` existe
-sans qu'aucune ampoule soit branchée.
+deux *template lights* adossées à des `input_boolean` : `light.chambre` et
+`light.chambre_bandeau` existent sans qu'aucune ampoule soit branchée.
 
 Le dépôt n'est jamais écrit par Home Assistant — `homeassistant/` est monté en
 **lecture seule** sur `/config/casa`, et la base, les journaux et les secrets
@@ -933,10 +939,19 @@ première mise sous tension. Une ampoule déjà appairée à un pont Hue doit
 courant d'affilée. Approchez le premier appareil de la clé, les suivants
 profiteront des ampoules comme relais.
 
-Puis la seule chose qui compte : **l'`entity_id` de l'ampoule de la chambre
-doit être `light.chambre`**. Paramètres → Entités → renommer. Le dépôt n'a
-alors rien à changer. Les ampoules des autres pièces peuvent être appairées
-dès maintenant, mais rien ne les pilotera tant que le dépôt n'a qu'une pièce.
+Puis la seule chose qui compte : **la lampe doit avoir l'`entity_id`
+`light.chambre`, et le bandeau `light.chambre_bandeau`**. Paramètres →
+Entités → renommer. Le dépôt n'a alors rien à changer. Les ampoules des autres
+pièces peuvent être appairées dès maintenant, mais rien ne les pilotera tant
+que le dépôt n'a qu'une pièce.
+
+**Le bandeau Gradient ne fera pas de dégradé sur ZHA.** Il s'affichera d'une
+seule couleur, unie. Le dégradé est un flux du pont Hue vers le bandeau, que
+ni ZHA ni Home Assistant ne savent produire — et même avec le pont, Home
+Assistant ne peut pas *composer* un dégradé : le modèle d'entité `light` n'a
+qu'une couleur. Ce qui marche dans ce cas, c'est de composer la scène dans
+l'app Hue, où elle devient une entité `scene.*` que `scripts.yaml` déclenche à
+la place de la scène du dépôt.
 
 Même chose pour le capteur de température et d'humidité, un **Sonoff
 SNZB-02P**, appairé en Zigbee comme les ampoules (appui long sur son bouton

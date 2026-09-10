@@ -41,7 +41,7 @@ flowchart TB
     sat["Satellite vocal<br/>Voice PE · ESP32"]
     msuisse["MétéoSuisse"]
 
-    hue["Ampoule Hue · chambre"]
+    hue["Hue · chambre<br/>lampe + bandeau"]
     tv["TV LG · webOS"]
     beam["Sonos Beam · HDMI eARC"]
     era["4 × Sonos Era 100"]
@@ -234,7 +234,7 @@ Les vrais noms sont dans Paramètres → Appareils et services → Entités.
 
 Home Assistant et Music Assistant tournent aussi bien dans deux conteneurs sur
 un portable. `dev/configuration.yaml` inclut les fichiers du dépôt et ajoute
-une fausse ampoule, de sorte que `light.chambre` existe sans qu'aucune
+deux fausses ampoules, de sorte que `light.chambre` et `light.chambre_bandeau` existent sans qu'aucune
 ampoule soit branchée, et `dev/music/` sert de bibliothèque locale pour
 entendre quelque chose sans compte Spotify.
 
