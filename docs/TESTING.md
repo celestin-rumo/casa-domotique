@@ -670,6 +670,34 @@ Ils sont découverts par Home Assistant tout seuls : une notification propose
 de créer l'intégration, il n'y a ni hôte ni port à taper. C'est la
 différence la plus visible avec la voie Docker de l'étape 1.
 
+> **Et il ne faut surtout pas en taper.** Constaté sur le Pi le 10 septembre
+> 2026, une heure de perdue : si l'intégration Music Assistant est créée à la
+> main avec une adresse — `http://mass.local:8095`, l'IP du Pi, peu importe —
+> elle échoue au démarrage sur
+>
+> ```
+> InvalidToken: Home Assistant system user not allowed on regular webserver
+> ConfigEntryError: Authentication failed, addon discovery not completed yet
+> ```
+>
+> Aucune entité n'est alors créée, et les scripts échouent sur un
+> `Referenced entities media_player.ma_chambre are missing` — sans que rien
+> ne rattache ce symptôme à sa cause. On peut même entendre de la musique
+> pendant ce temps, lancée depuis un natel, et croire que Home Assistant
+> pilote quelque chose.
+>
+> La raison : un module doit se relier par la **découverte du superviseur**,
+> qui porte les bonnes informations d'authentification. Par une adresse
+> ordinaire, Home Assistant se présente comme un utilisateur système, et
+> Music Assistant refuse. L'IP de **1.6** vaut pour la pile Docker, où il n'y
+> a pas de superviseur — pas ici.
+>
+> Si c'est arrivé : supprimer l'intégration, **redémarrer le module**
+> (Paramètres → Modules complémentaires → Music Assistant → Redémarrer),
+> c'est au démarrage qu'il s'annonce. La carte « découvert » apparaît alors
+> seule, et **Configurer** ne demande aucune adresse. C'est à ça qu'on sait
+> qu'on a pris le bon chemin.
+
 Puis, comme en **1.9**, Paramètres → **Assistants vocaux** → Ajouter :
 français, reconnaissance Speech-to-Phrase, synthèse Piper. Et comme en
 **1.6**, le lecteur intégré de Music Assistant renommé
@@ -1250,10 +1278,20 @@ donc pas nécessaire — ses deux entités sont renommées
 `sensor.temperature_interieure` et `sensor.humidite_interieure` et la carte
 Climat les prend telles quelles.
 
-Non vérifiés à ce jour : la partie son (1.6 et 3.3, qui demandent les quatre
-étapes manuelles de Music Assistant), la chaîne complète micro → réponse dans
-Home Assistant (il faut l'assistant de 1.9, puis un micro ou un satellite),
-la suite de l'étape 2 à partir de 2.3, et l'étape 3 à partir de 3.3.
+**Et le son, dans la foulée : 3.3 passée.** Module Music Assistant installé,
+fournisseur **Spotify** en librespot, fournisseur de lecteurs **WiiM /
+LinkPlay** — natif, meilleur qu'AirPlay ou Chromecast pour cette enceinte.
+Le lecteur renommé `media_player.ma_chambre`, et `script.mood_calin` va
+désormais jusqu'au bout : lampes, playlist, volume, et l'écho vers
+`input_select.mood` qui confirme que rien n'a échoué en route.
+
+L'heure perdue, ici, tient à l'intégration créée à la main avec une adresse
+au lieu d'être découverte — l'encadré de 2.3 raconte le symptôme et le
+remède.
+
+Non vérifiés à ce jour : la chaîne complète micro → réponse dans Home
+Assistant (il faut l'assistant de 1.9, puis un micro ou un satellite), et
+l'étape 3 à partir de 3.4.
 
 **Le reste de l'étape 2 mérite un mot.** Tout ce qui y touche à Home
 Assistant OS au-delà de 2.2 a été écrit sans Home Assistant OS sous la main :
