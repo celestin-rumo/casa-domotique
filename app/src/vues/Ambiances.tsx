@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { useMaison } from "../maison";
-import { MOODS, MOOD_SELECT } from "../config";
-import { Carte, Etiquette, LigneEtat, NoteFaute, Pastille } from "../ui";
+import { MOODS, MOOD_SELECT, LIGHTS } from "../config";
+import { enregistrerScene, scenePourLumieres, type EtatLumiere } from "../ha";
+import { Carte, Etiquette, LigneEtat, NoteFaute } from "../ui";
 import { Reveil } from "./Reveil";
 
 const reduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -88,8 +89,67 @@ export function Ambiances() {
 
       {fauteAmbiance && <NoteFaute entite={fauteAmbiance[0]} message={fauteAmbiance[1]} />}
 
+      <Etiquette>Ajuster</Etiquette>
+      <Enregistrer entities={entities} />
+
       <Etiquette>Le matin</Etiquette>
       <Reveil />
     </>
+  );
+}
+
+// Régler les lampes à la main, puis figer cet état dans une ambiance. Deux
+// appuis : le premier arme, le second écrit — un seul suffirait à écraser
+// une ambiance par mégarde, et rien ne permettrait de la retrouver.
+//
+// « Tout éteindre » est absent de la liste : il n'a pas de `scene` dans
+// config.ts, parce qu'enregistrer une pièce noire n'apprendrait rien.
+function Enregistrer({ entities }: { entities: Record<string, EtatLumiere | undefined> }) {
+  const [arme, setArme] = useState<string | null>(null);
+  const [dit, setDit] = useState<string | null>(null);
+  const [rate, setRate] = useState(false);
+
+  const enregistrables = MOODS.filter((m) => m.scene);
+  const allumees = LIGHTS.filter((id) => entities[id]?.state === "on").length;
+
+  async function ecrire(scene: string, nom: string) {
+    setArme(null);
+    try {
+      await enregistrerScene(scene, nom, scenePourLumieres(LIGHTS, entities));
+      setRate(false);
+      setDit(`${nom} : les lumières actuelles sont enregistrées`);
+    } catch (e) {
+      setRate(true);
+      setDit(e instanceof Error ? e.message : "l'enregistrement a échoué");
+    }
+  }
+
+  return (
+    <Carte faute={rate}>
+      <div className="row">
+        <div>
+          <div className="row-name">Enregistrer les lumières</div>
+          <div className="row-meta">
+            {allumees} allumée{allumees > 1 ? "s" : ""} sur {LIGHTS.length} · devient l'ambiance choisie
+          </div>
+        </div>
+      </div>
+      <div className="btn-row" style={{ marginTop: 12, flexWrap: "wrap" }}>
+        {enregistrables.map((m) => (
+          <button
+            key={m.id}
+            className={`btn${arme === m.id ? " primary" : ""}`}
+            onClick={() => (arme === m.id ? ecrire(m.scene!, m.label) : (setArme(m.id), setDit(null)))}
+          >
+            {arme === m.id ? `Écraser ${m.label} ?` : m.label}
+          </button>
+        ))}
+      </div>
+      {dit && (
+        <p className="row-meta" style={{ marginTop: 10 }} role="status">
+          {dit}
+        </p>
+      )}
+    </Carte>
   );
 }

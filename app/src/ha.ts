@@ -155,6 +155,74 @@ export async function runScript(entityId: string, variables?: Record<string, unk
   await callService(conn, "script", "turn_on", { entity_id: entityId, ...(variables ? { variables } : {}) });
 }
 
+// --- Enregistrer une ambiance : le seul endroit où l'app fait du REST ---
+//
+// Home Assistant n'expose pas l'écriture des scènes par WebSocket : son
+// propre éditeur passe par POST /api/config/scene/config/<id>, et c'est le
+// seul chemin qui persiste dans /config/scenes.yaml. `scene.create` existe
+// bien en service, mais il fabrique une scène en mémoire, perdue au
+// redémarrage — inutilisable ici.
+//
+// D'où la seule requête HTTP de toute l'app, et sa conséquence : le CORS
+// s'applique, contrairement aux WebSockets. Servie par Home Assistant depuis
+// /local/casa/, l'app est sur la même origine et rien n'est à régler. En
+// développement, sur localhost:5173, il faut déclarer l'origine dans
+// Paramètres → Système → Réseau — et surtout pas par un bloc « http: » en
+// YAML, déprécié depuis HA 2026.x (docs/architecture.md).
+//
+// L'état est lu tel que Home Assistant le donne, pas tel que l'app le croit :
+// ce sont ses attributs qui deviennent la scène.
+
+export type EtatLumiere = { state: string; attributes: Record<string, unknown> };
+
+// Ce qu'une scène retient d'une lampe allumée. Tout le reste des attributs
+// — friendly_name, supported_features, les modes disponibles — décrirait
+// l'ampoule et non l'ambiance, et Home Assistant les refuse à l'écriture.
+const RETENUS = ["brightness", "color_temp_kelvin", "rgb_color", "hs_color", "xy_color", "effect"];
+
+export function scenePourLumieres(
+  lumieres: string[],
+  etats: Record<string, EtatLumiere | undefined>,
+): Record<string, Record<string, unknown>> {
+  const entities: Record<string, Record<string, unknown>> = {};
+  for (const id of lumieres) {
+    const e = etats[id];
+    if (!e) continue; // une lampe absente n'entre pas dans la scène
+    if (e.state !== "on") {
+      entities[id] = { state: "off" };
+      continue;
+    }
+    const garde: Record<string, unknown> = { state: "on" };
+    for (const cle of RETENUS) {
+      const v = e.attributes[cle];
+      if (v !== undefined && v !== null) garde[cle] = v;
+    }
+    entities[id] = garde;
+  }
+  return entities;
+}
+
+export async function enregistrerScene(
+  sceneId: string,
+  nom: string,
+  entities: Record<string, Record<string, unknown>>,
+) {
+  const r = await fetch(`${HA_URL}/api/config/scene/config/${encodeURIComponent(sceneId)}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ id: sceneId, name: nom, entities }),
+  });
+  if (!r.ok) {
+    // 405 est le symptôme du CORS bloqué, pas d'un refus de Home Assistant :
+    // le navigateur n'a jamais laissé partir la requête.
+    throw new Error(
+      r.status === 405
+        ? "origine refusée — déclarez-la dans Paramètres → Système → Réseau"
+        : `Home Assistant a refusé l'enregistrement (${r.status})`,
+    );
+  }
+}
+
 // L'aller-retour WebSocket, en millisecondes — ce que l'écran Réglages affiche.
 export async function latence(): Promise<number> {
   const conn = await connect();

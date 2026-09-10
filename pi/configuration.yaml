@@ -10,8 +10,10 @@
 
 default_config:
 
-# Pas de bloc « http: » : l'app ne parle que par WebSocket, et le CORS ne
-# s'applique pas aux WebSockets. « http: » en YAML est de toute façon
+# Pas de bloc « http: ». L'app parle par WebSocket, où le CORS ne s'applique
+# pas — sauf une requête, l'enregistrement d'une ambiance, qui passe par
+# l'API REST. Servie par Home Assistant depuis /local/casa/, elle est sur la
+# même origine et rien n'est à régler. « http: » en YAML est de toute façon
 # déprécié depuis HA 2026.x (retiré en 2027.2), et s'auto-révoque avec un
 # redémarrage surprise s'il n'est pas confirmé dans l'interface en cinq
 # minutes. Le réglage vit dans Paramètres → Système → Réseau.

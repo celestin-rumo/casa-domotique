@@ -8,10 +8,18 @@ default_config:
 
 # Pas de bloc « http: » ici, pour deux raisons.
 #
-# 1. L'app n'en a pas besoin. src/ha.ts ne parle à Home Assistant que par
+# 1. L'app n'en a presque pas besoin. src/ha.ts parle à Home Assistant par
 #    WebSocket, et un navigateur n'applique pas le CORS aux WebSockets.
 #    createLongLivedTokenAuth ne fait aucune requête HTTP : le jeton part
 #    dans le message d'authentification, pas dans un appel REST.
+#
+#    Une exception, et une seule : enregistrer une ambiance depuis l'app
+#    (Ambiances → Ajuster) passe par POST /api/config/scene/config/<id>,
+#    parce que Home Assistant n'expose pas l'écriture des scènes par
+#    WebSocket. Ici, l'app tourne sur localhost:5173 et Home Assistant sur
+#    :8123 — deux origines, donc le CORS s'applique à cette requête-là.
+#    Sans rien déclarer, le bouton répond « origine refusée », et tout le
+#    reste de l'app marche normalement.
 #
 # 2. Depuis HA 2026.x, « http: » en YAML est déprécié (retiré en 2027.2). Le
 #    bloc est importé une fois dans .storage/, à l'essai : sans confirmation
@@ -20,7 +28,8 @@ default_config:
 #    milieu de la première prise en main. Ensuite le YAML est ignoré pour
 #    toujours, en silence.
 #
-# Si un jour l'app fait de vrais appels REST : Paramètres → Système → Réseau.
+# Pour que l'enregistrement d'une ambiance marche aussi en dev, déclarer
+# l'origine de l'app dans Paramètres → Système → Réseau — jamais ici.
 
 # --- les fichiers du dépôt, tels quels ---
 # Les packages (le réveil, la météo) : leurs input_boolean se fusionnent avec

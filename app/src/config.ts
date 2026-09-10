@@ -7,11 +7,17 @@
 // écrite comme s'il n'y en avait pas d'autre. Les pièces supplémentaires et
 // l'ambiance Cinéma reviendront avec les ampoules et la TV — la version qui
 // les porte est dans l'historique git, commit ccb9f08 et avant.
+//
+// `scene` est l'identifiant de la scène que l'ambiance allume — le champ
+// `id:` de scenes.yaml, pas l'entity_id. Il sert à l'enregistrement depuis
+// l'app : c'est cette scène-là qui est réécrite dans Home Assistant.
+// « Tout éteindre » n'en a pas, et n'apparaît donc pas dans la liste
+// d'enregistrement : figer une pièce noire n'aurait aucun sens.
 export const MOODS = [
-  { id: "script.mood_detente", label: "Détente", what: "Chambre · 2400 K", hue: "#e8b86d" },
-  { id: "script.mood_focus", label: "Focus", what: "Chambre · 4200 K", hue: "#4a88c7" },
-  { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f" },
-  { id: "script.mood_calin", label: "Câlin", what: "Rouge rosé · Chillos", hue: "#d42c5e" },
+  { id: "script.mood_detente", label: "Détente", what: "Chambre · 2400 K", hue: "#e8b86d", scene: "detente" },
+  { id: "script.mood_focus", label: "Focus", what: "Chambre · 4200 K", hue: "#4a88c7", scene: "focus" },
+  { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f", scene: "chillos" },
+  { id: "script.mood_calin", label: "Câlin", what: "Rouge rosé · Chillos", hue: "#d42c5e", scene: "calin" },
   { id: "script.mood_off", label: "Tout éteindre", what: "Lumières + lecture", hue: "#5a5652", wide: true },
 ];
 

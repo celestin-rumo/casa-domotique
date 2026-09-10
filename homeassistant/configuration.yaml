@@ -12,8 +12,9 @@
 # Ce fichier peut donc être supprimé sans rien casser.
 default_config:
 
-# Pas de bloc « http: » : l'app ne parle que par WebSocket, et le CORS ne
-# s'applique pas aux WebSockets. « http: » en YAML est de toute façon déprécié
+# Pas de bloc « http: ». L'app parle par WebSocket, où le CORS ne s'applique
+# pas — sauf l'enregistrement d'une ambiance, seule requête REST, qui n'en
+# a pas besoin tant que l'app est servie par Home Assistant lui-même. « http: » en YAML est de toute façon déprécié
 # depuis HA 2026.x (retiré en 2027.2) — il s'importe une fois dans .storage/ à
 # l'essai, puis se révoque tout seul avec un redémarrage si personne ne le
 # confirme. Le réglage se fait désormais dans Paramètres → Système → Réseau.

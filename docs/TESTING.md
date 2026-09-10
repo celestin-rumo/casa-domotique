@@ -745,17 +745,12 @@ Il rejoue toute l'étape 1 contre le Pi : les entités, les playlists, les
 ambiances qui allument vraiment les fausses ampoules, l'ajout à chaud, les
 phrases vocales. S'il sort 0, le Pi vaut le portable.
 
-## 2.5 Le CORS ne vous concerne pas
+## 2.5 Le CORS, pour une seule requête
 
 Une version précédente de ce document demandait ici d'ajouter l'URL réseau du
-poste de dev dans `cors_allowed_origins`. C'était inutile, et le bloc `http:`
-a été retiré des deux `configuration.yaml`. Deux raisons, vérifiées :
+poste de dev dans `cors_allowed_origins`, par un bloc `http:`. Le bloc a été
+retiré des deux `configuration.yaml`, et il ne doit pas revenir :
 
-- **L'app ne fait aucune requête HTTP vers Home Assistant.** `src/ha.ts` ne
-  parle que par WebSocket, et un navigateur n'applique pas le CORS aux
-  WebSockets. `createLongLivedTokenAuth` ne déclenche pas d'appel REST : le
-  jeton part dans le message d'authentification. Home Assistant, de son côté,
-  ne vérifie pas l'origine sur `/api/websocket`.
 - **`http:` en YAML est déprécié** depuis HA 2026.x, retiré en 2027.2. Pire
   qu'inutile : le bloc est importé une fois dans `.storage/` *à l'essai*, et
   sans confirmation dans l'interface sous cinq minutes, Home Assistant revient
@@ -763,8 +758,28 @@ a été retiré des deux `configuration.yaml`. Deux raisons, vérifiées :
   redémarrage inexpliqué au milieu de la première prise en main, puis le YAML
   est ignoré pour toujours, en silence.
 
-Si un jour l'app fait de vrais appels REST, le réglage est dans l'interface :
-Paramètres → Système → Réseau.
+**Presque tout ce que fait l'app échappe au CORS.** `src/ha.ts` parle par
+WebSocket, et un navigateur n'applique pas le CORS aux WebSockets.
+`createLongLivedTokenAuth` ne déclenche pas d'appel REST : le jeton part dans
+le message d'authentification. Home Assistant, de son côté, ne vérifie pas
+l'origine sur `/api/websocket`.
+
+**Une requête fait exception : enregistrer une ambiance.** Ambiances →
+Ajuster → « Enregistrer les lumières » fige l'état actuel des lampes dans une
+scène, et Home Assistant n'expose pas l'écriture des scènes par WebSocket —
+son propre éditeur passe par `POST /api/config/scene/config/<id>`. C'est la
+seule requête HTTP de toute l'app, et le CORS s'y applique.
+
+Ce que ça change, selon d'où l'app est servie :
+
+| L'app tourne sur | Origine | À régler |
+|---|---|---|
+| Home Assistant, `/local/casa/` (2.6) | la même que Home Assistant | rien |
+| `npm run dev`, le poste de dev | une autre | déclarer l'origine dans **Paramètres → Système → Réseau** |
+
+Sans ce réglage, en dev, le bouton répond « origine refusée » et tout le
+reste de l'app marche normalement. Le chemin normal sur le natel, l'app
+servie par Home Assistant, n'est pas concerné.
 
 Le vrai piège de cette étape est ailleurs : l'URL que `npm run dev` affiche
 doit être l'**URL réseau**, pas `localhost` — sur le natel, `localhost`
