@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { useMaison } from "../maison";
-import { MOODS, MOOD_SELECT, WALL_BUTTON } from "../config";
+import { MOODS, MOOD_SELECT } from "../config";
 import { Carte, Etiquette, LigneEtat, NoteFaute, Pastille } from "../ui";
 import { Reveil } from "./Reveil";
 
@@ -54,7 +54,6 @@ export function Ambiances() {
   }, []);
 
   const fauteAmbiance = MOODS.map((m) => [m.id, fautes[m.id]] as const).find(([, f]) => f);
-  const bouton = entities[WALL_BUTTON];
 
   return (
     <>
@@ -91,23 +90,6 @@ export function Ambiances() {
 
       <Etiquette>Le matin</Etiquette>
       <Reveil />
-
-      <Etiquette>Raccourci</Etiquette>
-      <Carte>
-        <div className="row">
-          <div>
-            <div className="row-name">Bouton mural</div>
-            <div className="row-meta">appui → Cinéma</div>
-          </div>
-          {bouton ? (
-            <Pastille etat={bouton.state === "on" ? "ok" : "todo"}>
-              {bouton.state === "on" ? "lié" : "désactivé"}
-            </Pastille>
-          ) : (
-            <Pastille etat="miss">à lier</Pastille>
-          )}
-        </div>
-      </Carte>
     </>
   );
 }

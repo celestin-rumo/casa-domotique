@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMaison } from "../maison";
 import { HOTE, latence } from "../ha";
-import { LIGHTS, MOODS, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, WALL_BUTTON, REVEIL, CLIMAT } from "../config";
+import { LIGHTS, MOODS, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, REVEIL, CLIMAT } from "../config";
 import { Carte, Etiquette, LigneEtat, Pastille } from "../ui";
 
 const TEXTE = {
@@ -29,7 +29,6 @@ const ATTENDUES: { id: string; role: string }[] = [
   { id: CLIMAT.exterieur, role: "Climat · MétéoSuisse" },
   ...PLAYERS.map((p) => ({ id: p.id, role: `Music Assistant · ${p.label}` })),
   ...DEVICES.map((d) => ({ id: d.id, role: d.label })),
-  { id: WALL_BUTTON, role: "Bouton mural ZHA" },
 ];
 
 export function Reglages() {
@@ -92,7 +91,7 @@ export function Reglages() {
                   {ent.state === "unavailable" ? "injoignable" : "liée"}
                 </Pastille>
               ) : (
-                <Pastille etat="miss">{e.id === WALL_BUTTON ? "à lier" : "absente"}</Pastille>
+                <Pastille etat="miss">absente</Pastille>
               )}
             </div>
           );

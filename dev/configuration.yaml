@@ -23,9 +23,9 @@ default_config:
 # Si un jour l'app fait de vrais appels REST : Paramètres → Système → Réseau.
 
 # --- les fichiers du dépôt, tels quels ---
-# Les packages (le réveil) : leurs input_boolean se fusionnent avec ceux des
-# fausses ampoules ci-dessous, et leur automatisation se charge sans le
-# bouton ZHA, puisqu'elle n'est pas dans automations.yaml.
+# Les packages (le réveil, la météo) : leurs input_boolean se fusionnent avec
+# ceux de la fausse ampoule ci-dessous, et leurs automatisations se chargent
+# ici comme sur le Pi.
 homeassistant:
   packages: !include_dir_named casa/packages
   # Speech-to-Phrase s'entraîne dans la langue du système et celles des
@@ -38,10 +38,8 @@ homeassistant:
 input_select: !include casa/input_selects.yaml
 scene: !include casa/scenes.yaml
 script: !include casa/scripts.yaml
-# Pas d'automations ici : le seul trigger du dépôt est un bouton mural ZHA,
-# et son device_id n'existe pas sans la clé Zigbee. Home Assistant refuserait
-# de charger le bloc.
-# automation: !include casa/automations.yaml
+# Pas d'`automation:` : le dépôt n'a pas d'automations.yaml. Les seules
+# automatisations sont celles des packages, chargées ci-dessus.
 
 # --- de quoi porter l'état d'une ampoule qui n'existe pas ---
 # Une seule, comme il n'y a qu'une pièce équipée : la chambre.

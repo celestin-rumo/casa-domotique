@@ -33,7 +33,8 @@ input_select: !include casa/input_selects.yaml
 scene: !include casa/scenes.yaml
 script: !include casa/scripts.yaml
 
-# Le bouton mural. Contrairement au poste de dev, ce bloc est chargé : le
-# device_id de casa/automations.yaml doit donc être renseigné, sinon Home
-# Assistant refuse l'automatisation et le dit dans les logs (TESTING.md 3.4).
-automation: !include casa/automations.yaml
+# Pas d'`automation:` ici, et pas d'automations.yaml dans le dépôt : il n'y
+# aura pas de bouton mural. Les seules automatisations sont celles des
+# packages — le réveil et la météo — que `packages:` charge déjà ci-dessus.
+# Celles créées à la souris vivent dans le .storage/ de Home Assistant et ne
+# demandent aucun include.

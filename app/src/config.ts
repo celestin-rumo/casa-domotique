@@ -55,11 +55,6 @@ export const REVEIL = {
   lumiere: "light.chambre",
 };
 
-// L'automatisation du bouton mural : présente sur le Pi une fois le
-// device_id renseigné dans automations.yaml, absente en dev. Elle lance
-// Détente tant qu'il n'y a pas de TV pour justifier Cinéma.
-export const WALL_BUTTON = "automation.bouton_mural_detente";
-
 // La liste des playlists n'est pas ici : elle vit sur le Pi, dans
 // input_selects.yaml, et arrive par le subscribeEntities que fait déjà ha.ts.
 // En ajouter une ne demande donc pas de reconstruire l'app.

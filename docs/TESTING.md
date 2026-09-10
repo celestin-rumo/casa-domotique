@@ -27,8 +27,8 @@ cherche pas.
 | | Ce que ça rendra |
 |---|---|
 | Les autres pièces | le salon et la cuisine, leurs ampoules, leurs enceintes, et le groupement multiroom (`media_player.join`) que les ambiances faisaient |
-| La TV | l'ambiance **Cinéma**, `scene.cinema`, la barre de son, et le bouton mural qui la lançait |
-| Plex sur le Synology | l'étape 3.7 en entier, et `packages/cinema.yaml` |
+| La TV | l'ambiance **Cinéma**, `scene.cinema` et la barre de son |
+| Plex sur le Synology | l'étape 3.6 en entier, et `packages/cinema.yaml` |
 
 Rien de tout ça n'est perdu : la version multi-pièces avec TV est dans
 l'historique git, **commit `ccb9f08` et avant**. `git show ccb9f08:homeassistant/scripts.yaml`
@@ -638,7 +638,7 @@ file or directory`, remplacer le lien `custom_sentences` par une copie
 
 > **Reste à confirmer** : que Home Assistant *lise* effectivement ces phrases
 > à travers les liens, ce que seul un essai à la voix après redémarrage dit
-> (étape 3.5). Les liens résolvent dans le terminal ; c'est nécessaire, pas
+> (étape 3.4). Les liens résolvent dans le terminal ; c'est nécessaire, pas
 > encore suffisant.
 
 Puis Outils de développement → **YAML** → Vérifier la configuration, et
@@ -814,7 +814,7 @@ Non vérifié à ce jour : aucune des trois.
 
 ## Ce que l'étape 2 ne peut pas prouver
 
-Rien de ce qui touche à une ampoule, une enceinte, une TV ou le bouton mural.
+Rien de ce qui touche à une ampoule, une enceinte ou une TV.
 
 ---
 
@@ -845,18 +845,9 @@ Assistant OS la voit sans qu'on déclare son chemin, et l'intégration ZHA la
 propose dans une liste. C'est la simplification la plus nette par rapport à
 la voie Docker, où il fallait lui passer le périphérique à la main.
 
-C'est aussi ici que l'automatisation du bouton mural revient : elle est
-volontairement exclue du fichier de dev, parce que Home Assistant refuse de
-charger un trigger dont le `device_id` n'existe pas. Tant que 3.4 n'est pas
-fait, elle apparaît dans les logs, en une ligne claire :
-
-```
-Automation with alias 'Bouton mural → Cinéma' failed to setup triggers
-and has been disabled: Unknown device 'REMPLACER_PAR_ID_DU_BOUTON'
-```
-
-Celle du réveil, elle, vient de `packages/reveil.yaml` et tourne depuis
-l'étape 1.
+Les seules automatisations du dépôt sont celles des packages — le réveil et
+la météo — et elles tournent depuis l'étape 1. Il n'y a pas
+d'`automations.yaml` : le dépôt n'a pas de bouton mural, et n'en aura pas.
 
 Deux dossiers ont une place imposée : `packages/` est nommé par la clé
 `packages:` de `configuration.yaml`, et `custom_sentences/` doit être
@@ -907,10 +898,10 @@ Vérifié en septembre 2026.
 
 Les ambiances ne dépendent pas de ce choix : elles vivent dans `scenes.yaml`
 et `scripts.yaml`, du côté de Home Assistant, et pilotent `light.chambre` sans
-savoir d'où vient l'entité. Le **bouton mural**, lui, en dépend :
-`automations.yaml` le déclenche par un trigger `device` du domaine `zha`.
-Passé par un pont Hue, il arriverait par l'intégration Hue et ce trigger
-serait à réécrire.
+savoir d'où vient l'entité. Rien dans le dépôt n'est lié à ZHA plutôt qu'au
+pont — c'est ce qui rend le choix réversible : ré-appairer une ampoule d'un
+côté à l'autre, puis la renommer `light.chambre`, et le dépôt ne s'en aperçoit
+pas.
 
 **Brancher la clé, dans l'ordre :**
 
@@ -994,12 +985,7 @@ Vérifier la différence qui ne se voit qu'ici : **Détente porte
 Chillos ne l'a pas, donc sa playlist se joue telle quelle. Si les deux se
 comportent pareil, le paramètre n'est pas passé.
 
-## 3.4 Le bouton mural
-
-Paramètres → Appareils → le bouton ZHA → copier son identifiant, et remplacer
-`REMPLACER_PAR_ID_DU_BOUTON` dans `homeassistant/automations.yaml`.
-
-## 3.5 La voix dans la chambre
+## 3.4 La voix dans la chambre
 
 Les modules de voix et l'assistant sont déjà en place depuis 2.3 : il ne
 reste que le satellite.
@@ -1039,7 +1025,7 @@ Puis, dans la chambre, à voix haute : « réveille-moi à sept heures »,
 « je suis debout ». C'est la seule étape qui prouve la reconnaissance et la
 synthèse elles-mêmes : jusqu'ici, l'API de conversation les contournait.
 
-## 3.6 Le réveil pour de vrai
+## 3.5 Le réveil pour de vrai
 
 Le NPA de `input_text.meteo_npa`, une fois. Puis un réveil dans cinq minutes
 depuis l'app, avec la Hue de la chambre et `media_player.ma_chambre` : la
@@ -1047,7 +1033,7 @@ lampe doit monter **sans saut visible** — chaque marche demande une
 transition de trente secondes à l'ampoule, ce que les fausses ampoules ne
 montrent pas — et la musique entrer à mi-chemin, à peine audible.
 
-## 3.7 Les films du Synology
+## 3.6 Les films du Synology
 
 Facultatif, et à faire en dernier : le reste de la maison n'en dépend pas.
 
@@ -1098,19 +1084,18 @@ reconnaissance juste et sous la seconde.
 Sans TV branchée, l'assistant répond « La télévision ne répond pas » plutôt
 que d'échouer en silence. C'est ce que le vérificateur constate en dev.
 
-## 3.8 La recette d'acceptation
+## 3.7 La recette d'acceptation
 
-Dans cet ordre, en regardant l'appartement :
+Dans cet ordre, en regardant la chambre :
 
-1. Chaque ambiance : lumières **et** son, dans les bonnes pièces.
-2. Le bouton mural déclenche Cinéma.
-3. Une pièce s'allume et se règle depuis l'app, y compris la couleur.
-4. Une playlist se choisit depuis l'app et joue dans les bonnes pièces.
-5. Le natel est débranché du Wi-Fi : l'app doit **dire** qu'elle a perdu le Pi,
+1. Chaque ambiance : lumière **et** son.
+2. La lampe s'allume et se règle depuis l'app, y compris la couleur.
+3. Une playlist se choisit depuis l'app et joue sur l'enceinte.
+4. Le natel est débranché du Wi-Fi : l'app doit **dire** qu'elle a perdu le Pi,
    pas faire semblant de marcher.
-6. Un réveil réglé depuis le natel lève la chambre et la musique à l'heure
+5. Un réveil réglé depuis le natel lève la chambre et la musique à l'heure
    dite ; « je suis debout » coupe les deux.
-7. La météo du jour, demandée à voix haute, revient en français avec les
+6. La météo du jour, demandée à voix haute, revient en français avec les
    températures du jour.
 
 ---

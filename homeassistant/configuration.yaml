@@ -27,4 +27,5 @@ homeassistant:
 input_select: !include input_selects.yaml
 scene: !include scenes.yaml
 script: !include scripts.yaml
-automation: !include automations.yaml
+# Pas d'`automation:` : les seules automatisations du dépôt sont celles des
+# packages, chargées ci-dessus.

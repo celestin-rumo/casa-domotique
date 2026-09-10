@@ -31,7 +31,6 @@ flowchart TB
             pp["script.play_playlist<br/>seule table nom → URI"]
             moods["script.mood_*<br/>cinema · detente · focus<br/>chillos · calin · off"]
             scenes["scene.*<br/>l'état des lumières"]
-            auto["automation<br/>bouton mural"]
             reveil["packages/reveil.yaml<br/>heure · actif · durée<br/>script.reveil → lever de soleil"]
             meteo["packages/meteo.yaml<br/>sensor.meteosuisse"]
             assist["Assist<br/>custom_sentences/fr + intent_script"]
@@ -42,7 +41,7 @@ flowchart TB
     sat["Satellite vocal<br/>Voice PE · ESP32"]
     msuisse["MétéoSuisse"]
 
-    hue["5 ampoules Hue<br/>+ bouton mural"]
+    hue["Ampoule Hue · chambre"]
     tv["TV LG · webOS"]
     beam["Sonos Beam · HDMI eARC"]
     era["4 × Sonos Era 100"]
@@ -57,10 +56,8 @@ flowchart TB
     pp -- "écrit le choix" --> sel
     moods -- "écrit l'écho, en dernier" --> cur
     cur -. "confirme le bouton" .-> hats
-    auto --> moods
 
     scenes -- "Zigbee · ZHA" --> hue
-    hue -- "appui · ZHA" --> auto
     moods -- "réseau" --> tv
     moods -- "réseau" --> beam
     pp --> mass
@@ -229,7 +226,6 @@ le dit (« je n'ai pas les prévisions ») plutôt que de se tromper.
 | Capteur de la pièce (Sonoff SNZB-02P, ZHA) | `sensor.temperature_interieure`, `sensor.humidite_interieure` | simulés en dev, **à renommer** sur le Pi |
 | Voix : speech-to-phrase, whisper, piper, openwakeword | intégration Wyoming Protocol, par l'interface | à lier (TESTING.md 1.9) |
 | Clé Zigbee | vue seule sous Home Assistant OS ; `ZIGBEE_DEVICE` de `app/.env` sous Docker | branchée sur le Pi |
-| Bouton mural (ZHA) | `device_id` dans `automations.yaml` | **gabarit** |
 | Playlist Chillos | table de `script.play_playlist` | définie |
 
 Les vrais noms sont dans Paramètres → Appareils et services → Entités.
@@ -238,7 +234,7 @@ Les vrais noms sont dans Paramètres → Appareils et services → Entités.
 
 Home Assistant et Music Assistant tournent aussi bien dans deux conteneurs sur
 un portable. `dev/configuration.yaml` inclut les fichiers du dépôt et ajoute
-trois fausses ampoules, de sorte que `light.salon` existe sans qu'aucune
+une fausse ampoule, de sorte que `light.chambre` existe sans qu'aucune
 ampoule soit branchée, et `dev/music/` sert de bibliothèque locale pour
 entendre quelque chose sans compte Spotify.
 
