@@ -2,6 +2,14 @@
 
 Tout ce que fait cette installation, et où chaque chose tourne.
 
+> **Ce document décrit la maison visée. Le dépôt, lui, ne pilote aujourd'hui
+> qu'une pièce : la chambre.** Une ampoule `light.chambre`, une enceinte
+> `media_player.ma_chambre`, cinq ambiances. Les schémas et les tableaux qui
+> suivent gardent le salon, la cuisine, la TV et les Sonos parce que c'est là
+> qu'on va — mais les entités correspondantes ne sont plus référencées par le
+> code. Voir « Une seule pièce, la chambre » dans [TESTING.md](TESTING.md), et
+> l'historique git au commit `ccb9f08` pour la version multi-pièces.
+
 ## Le système entier
 
 ```mermaid

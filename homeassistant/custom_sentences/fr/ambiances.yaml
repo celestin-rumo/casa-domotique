@@ -23,8 +23,9 @@ intents:
 lists:
   casa_ambiance:
     values:
-      - in: "cinéma"
-        out: "cinéma"
+      # « cinéma » reviendra avec la TV : le mot ne sert à rien tant que
+      # script.mood_cinema n'existe pas, et packages/ambiances.yaml
+      # répondrait qu'il ne connaît pas l'ambiance.
       - in: "détente"
         out: "détente"
       - in: "focus"

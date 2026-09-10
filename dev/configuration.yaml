@@ -2,7 +2,7 @@
 # dev : sur le Pi, c'est homeassistant/configuration.yaml qui sert.
 #
 # Il inclut les vrais fichiers du dépôt, montés sur /config/casa, et ajoute
-# de fausses ampoules pour que light.salon existe sans qu'aucune ampoule
+# une fausse ampoule pour que light.chambre existe sans qu'aucune ampoule
 # soit branchée.
 default_config:
 
@@ -43,26 +43,13 @@ script: !include casa/scripts.yaml
 # de charger le bloc.
 # automation: !include casa/automations.yaml
 
-# --- de quoi porter l'état de trois ampoules qui n'existent pas ---
+# --- de quoi porter l'état d'une ampoule qui n'existe pas ---
+# Une seule, comme il n'y a qu'une pièce équipée : la chambre.
 input_boolean:
-  salon_on:
-    name: Salon allumé
-  cuisine_on:
-    name: Cuisine allumée
   chambre_on:
     name: Chambre allumée
 
 input_number:
-  salon_niveau:
-    name: Salon niveau
-    min: 0
-    max: 255
-    initial: 200
-  cuisine_niveau:
-    name: Cuisine niveau
-    min: 0
-    max: 255
-    initial: 150
   chambre_niveau:
     name: Chambre niveau
     min: 0
@@ -82,14 +69,14 @@ input_number:
     max: 100
     initial: 48
 
-# --- light.salon, light.cuisine, light.chambre : allumage et intensité ---
+# --- light.chambre : allumage et intensité ---
 # Les entités template vivent sous la clé « template: ». L'ancienne forme,
 # « light: - platform: template », n'est plus acceptée depuis HA 2026.x : elle
 # ne fait pas échouer le démarrage, elle laisse une ligne d'erreur dans les
-# logs et les trois ampoules n'existent tout simplement pas. C'est le cas que
+# logs et l'ampoule n'existe tout simplement pas. C'est le cas que
 # l'étape 1.2 de docs/TESTING.md sert à attraper.
 #
-# Le nom donne l'entity_id : « Salon » → light.salon.
+# Le nom donne l'entity_id : « Chambre » → light.chambre.
 #
 # set_level rallume AUSSI le booléen, et ce n'est pas une redondance : quand
 # light.turn_on reçoit une luminosité, Home Assistant exécute set_level à la
@@ -118,40 +105,6 @@ template:
         state_class: measurement
         state: "{{ states('input_number.humidite_interieure') }}"
   - light:
-      - name: Salon
-        unique_id: casa_dev_salon
-        state: "{{ is_state('input_boolean.salon_on', 'on') }}"
-        level: "{{ states('input_number.salon_niveau') | int(0) }}"
-        turn_on:
-          action: input_boolean.turn_on
-          target: { entity_id: input_boolean.salon_on }
-        turn_off:
-          action: input_boolean.turn_off
-          target: { entity_id: input_boolean.salon_on }
-        set_level:
-          - action: input_number.set_value
-            target: { entity_id: input_number.salon_niveau }
-            data: { value: "{{ brightness }}" }
-          - action: input_boolean.turn_on
-            target: { entity_id: input_boolean.salon_on }
-
-      - name: Cuisine
-        unique_id: casa_dev_cuisine
-        state: "{{ is_state('input_boolean.cuisine_on', 'on') }}"
-        level: "{{ states('input_number.cuisine_niveau') | int(0) }}"
-        turn_on:
-          action: input_boolean.turn_on
-          target: { entity_id: input_boolean.cuisine_on }
-        turn_off:
-          action: input_boolean.turn_off
-          target: { entity_id: input_boolean.cuisine_on }
-        set_level:
-          - action: input_number.set_value
-            target: { entity_id: input_number.cuisine_niveau }
-            data: { value: "{{ brightness }}" }
-          - action: input_boolean.turn_on
-            target: { entity_id: input_boolean.cuisine_on }
-
       - name: Chambre
         unique_id: casa_dev_chambre
         state: "{{ is_state('input_boolean.chambre_on', 'on') }}"

@@ -8,7 +8,35 @@ YAML ni l'app, puisque l'étape 1 les a déjà prouvés.
 |---|---|---|---|---|
 | **1** | Portable | fausses | fichier local | Le YAML, les scripts, l'app, le mécanisme des playlists |
 | **2** | Raspberry Pi | fausses | fichier local | Le Pi, le réseau, l'app native sur le natel |
-| **3** | Raspberry Pi | Hue · Zigbee | Sonos · Spotify | Le matériel, et lui seul |
+| **3** | Raspberry Pi | Hue · Zigbee | WiiM · Spotify | Le matériel, et lui seul |
+
+## Une seule pièce, la chambre
+
+**Le dépôt ne connaît qu'une pièce.** Une ampoule, `light.chambre`. Une
+enceinte, `media_player.ma_chambre`. Cinq ambiances qui ne pilotent qu'elles :
+Détente, Focus, Chillos, Câlin et Tout éteindre.
+
+C'est le matériel réellement installé au 10 septembre 2026 — une WiiM Sound
+Lite dans la chambre — et le dépôt est écrit comme s'il n'y avait rien
+d'autre, plutôt que de viser une maison qui n'existe pas encore. Un script qui
+cherche une enceinte absente échoue en silence : mieux vaut qu'il ne la
+cherche pas.
+
+**Ce qui viendra plus tard**, quand le matériel sera là :
+
+| | Ce que ça rendra |
+|---|---|
+| Les autres pièces | le salon et la cuisine, leurs ampoules, leurs enceintes, et le groupement multiroom (`media_player.join`) que les ambiances faisaient |
+| La TV | l'ambiance **Cinéma**, `scene.cinema`, la barre de son, et le bouton mural qui la lançait |
+| Plex sur le Synology | l'étape 3.7 en entier, et `packages/cinema.yaml` |
+
+Rien de tout ça n'est perdu : la version multi-pièces avec TV est dans
+l'historique git, **commit `ccb9f08` et avant**. `git show ccb9f08:homeassistant/scripts.yaml`
+la ressort telle quelle.
+
+Le reste de ce guide parle encore, ici ou là, d'une maison à plusieurs
+pièces — c'est la maison visée, pas celle d'aujourd'hui. Les commandes et les
+`entity_id` qu'il donne, eux, sont ceux de la chambre.
 
 ---
 
@@ -16,7 +44,7 @@ YAML ni l'app, puisque l'étape 1 les a déjà prouvés.
 
 Aucun Raspberry Pi, aucune ampoule, aucune enceinte. Deux conteneurs sur le
 poste de dev. `dev/configuration.yaml` inclut les fichiers du dépôt et déclare
-trois *template lights* adossées à des `input_boolean` : `light.salon` existe
+une *template light* adossée à des `input_boolean` : `light.chambre` existe
 sans qu'aucune ampoule soit branchée.
 
 Le dépôt n'est jamais écrit par Home Assistant — `homeassistant/` est monté en
@@ -82,8 +110,8 @@ sûr est d'y puiser :
 
 ```bash
 # les fausses ampoules existent
-curl -s -H "$H" http://localhost:8123/api/states/light.salon
-# → {"entity_id":"light.salon","state":"off", ...}
+curl -s -H "$H" http://localhost:8123/api/states/light.chambre
+# → {"entity_id":"light.chambre","state":"off", ...}
 
 # la liste des playlists, telle que l'app la lira
 curl -s -H "$H" http://localhost:8123/api/states/input_select.playlist
@@ -96,7 +124,7 @@ curl -s -H "$H" http://localhost:8123/api/states/script.play_playlist
 curl -s -X POST -H "$H" -H "Content-Type: application/json" \
   -d '{"entity_id":"script.mood_detente"}' \
   http://localhost:8123/api/services/script/turn_on
-curl -s -H "$H" http://localhost:8123/api/states/light.salon
+curl -s -H "$H" http://localhost:8123/api/states/light.chambre
 # → "state":"on"
 ```
 
@@ -112,23 +140,23 @@ cd app && npm install && cp .env.example .env
 Dans `.env` : `VITE_HA_URL=http://localhost:8123` et le jeton de 1.3. Puis
 `npm run dev`.
 
-Attendu : les six ambiances, les trois lumières qui réagissent pour de vrai,
-et **trois playlists dans la liste** — Détente, Chillos et Focus. Un nom
+Attendu : les cinq ambiances, la lumière de la chambre qui réagit pour de
+vrai, et **trois playlists dans la liste** — Détente, Chillos et Focus. Un nom
 n'apparaît que si son URI est dans la table de `script.play_playlist` : une
 entrée sans adresse serait un bouton qui ne joue rien.
 
 Un appui sur une ambiance l'allume tout de suite, contour qui respire, jusqu'à
-l'écho de `input_select.mood`. Sans Music Assistant, **Détente, Focus et
-Chillos reviennent en arrière après six secondes** avec une ligne qui nomme le
-script — leur son a échoué avant l'écho, c'est l'état réel. Cinéma et Tout
-éteindre se confirment. Si un bouton restait allumé sans écho, ce serait le
+l'écho de `input_select.mood`. Sans Music Assistant, **Détente, Focus, Chillos
+et Câlin reviennent en arrière après six secondes** avec une ligne qui nomme
+le script — leur son a échoué avant l'écho, c'est l'état réel. Seul Tout
+éteindre se confirme. Si un bouton restait allumé sans écho, ce serait le
 défaut, pas l'inverse.
 
 Quatre onglets. **Pièces** : chaque lumière a son interrupteur et son
 intensité ; « Avancé » n'apparaît que si l'ampoule sait faire du blanc réglable
 ou de la couleur — les fausses ampoules ne savent que l'intensité, donc pas
 d'« Avancé » avant l'étape 3. **Écoute** dit « Enceinte absente » avec
-`media_player.ma_salon` en toutes lettres tant que 1.6 n'est pas fait.
+`media_player.ma_chambre` en toutes lettres tant que 1.6 n'est pas fait.
 **Réglages** liste chaque entité de `config.ts` avec ce que le Pi en dit :
 « liée » ou « absente » vient de Home Assistant, pas d'une pastille écrite à la
 main — c'est là qu'on voit d'un coup d'œil ce qui reste à brancher.
@@ -196,7 +224,7 @@ navigateur. Il remonte alors dans Home Assistant comme une entité
 
 **d. Le renommer — l'étape qui fait tout marcher.** Home Assistant →
 Paramètres → Entités → ce lecteur → Paramètres → **changer l'ID d'entité** en
-`media_player.ma_salon`.
+`media_player.ma_chambre`.
 
 À partir de là `scripts.yaml`, `config.ts` et les ambiances marchent **sans
 être modifiés**. L'alternative — éditer le dépôt pour viser le nom automatique
@@ -205,7 +233,7 @@ du lecteur — finit toujours par être committée par erreur et à casser la pr
 **e.** Les URI de `script.play_playlist` sont des playlists Spotify : sans
 compte, aucune ne résout. Pour un essai local, trouvez d'abord un `media_id`
 que Music Assistant accepte — Outils de développement → Actions →
-`music_assistant.play_media`, cible `media_player.ma_salon`. Puis ajoutez-le à
+`music_assistant.play_media`, cible `media_player.ma_chambre`. Puis ajoutez-le à
 la table sous le nom `Test`, et `Test` dans `input_selects.yaml`.
 
 ## 1.7 Le test qui justifie toute l'architecture
@@ -374,9 +402,9 @@ sleep 20; curl -s -H "$H" http://localhost:8123/api/states/light.chambre
 # → "brightness":100, puis 200 vingt secondes plus tard
 ```
 
-Pour entendre la moitié son en dev, où seule `media_player.ma_salon` existe
+Pour entendre la moitié son en dev, où seule `media_player.ma_chambre` existe
 (1.6) : Outils de développement → Actions → `script.reveil`, avec
-`player: media_player.ma_salon` et `duree: 1`. La musique entre à trente
+`player: media_player.ma_chambre` et `duree: 1`. La musique entre à trente
 secondes, presque inaudible, et monte.
 
 Sur le Pi, l'automatisation se déclenche chaque jour à l'heure du helper
@@ -528,6 +556,26 @@ Puis Paramètres → **Modules complémentaires** → **Boutique** → chercher
 Terminal**. L'installer, lui donner un mot de passe dans son onglet
 Configuration, le démarrer, et cocher « Afficher dans la barre latérale ».
 
+**Le module officiel n'a pas `git`.** Il s'installe par les options du
+module, onglet Configuration, dans le champ `apks` :
+
+```yaml
+authorized_keys: []
+password: 'un-mot-de-passe-à-toi'
+apks:
+  - git
+server:
+  tcp_forwarding: false
+```
+
+Enregistrer, puis redémarrer le module depuis son onglet Info. Deux pièges :
+sans mot de passe **ni** clé publique, le module refuse de démarrer, et on
+cherche un terminal qui ne s'ouvrira pas ; et un `apk add git` tapé à la main
+disparaît au redémarrage suivant, parce que le conteneur du module est
+recréé à chaque fois — `apks` est rejoué, lui. Le module doit donc avoir
+internet au démarrage. La version communautaire **Advanced SSH & Web
+Terminal** livre `git` d'origine et n'a pas besoin de ce réglage.
+
 Dans ce terminal :
 
 ```bash
@@ -543,14 +591,55 @@ côté, `casa/` qui pointe dessus, `custom_sentences/` là où Home Assistant
 le cherche, et la configuration de dev — donc les fausses ampoules, qui
 sont tout l'intérêt de cette étape.
 
+Deux pièges de chemin, tous les deux constatés sur le Pi le 10 septembre
+2026. **Le clone doit atterrir dans `/config`**, pas dans le `~` où le
+terminal s'ouvre : le module SSH et Home Assistant sont deux conteneurs
+séparés, qui ne partagent que les dossiers montés. Ce qui est dans `/root`
+est invisible pour Home Assistant, et recréé à chaque redémarrage du module.
+Le dossier personnel du terminal affiche d'ailleurs `config` et
+`homeassistant` côte à côte : ce sont **deux chemins vers le même dossier**,
+au choix. Et **les liens symboliques doivent rester relatifs**, comme
+ci-dessus, sans `/` initial — Home Assistant voit ce dossier sous `/config`
+dans son propre conteneur, et un lien absolu écrit depuis le terminal
+pointerait vers un chemin qui n'existe pas chez lui.
+
+La dernière ligne **écrase** le `configuration.yaml` livré par Home
+Assistant. Il n'y a rien à y perdre sur une installation neuve, mais celui
+d'origine lit `automations.yaml`, `scenes.yaml` et `scripts.yaml` à la racine
+de `/config` — ceux que l'interface écrit quand on crée une scène en
+cliquant — là où celui du dépôt redirige ces trois `!include` vers `casa/`.
+Les fichiers ne sont pas supprimés, ils cessent d'être chargés : ce qui avait
+été créé à la souris disparaît de la liste. D'où, si l'installation a déjà
+servi, `cp configuration.yaml configuration.yaml.avant-casa` avant.
+
 Mettre à jour plus tard, c'est `git -C /config/casa-domotique pull` puis un
 redémarrage de Home Assistant.
 
-> **À confirmer sur le Pi.** Les deux liens symboliques sont la partie de ce
-> guide qui n'a pas été exécutée. Si Home Assistant ne voit pas les phrases
-> vocales, remplacez le lien `custom_sentences` par une copie
-> (`cp -r casa/custom_sentences custom_sentences`), à refaire après chaque
-> `git pull`. Notez ici ce que vous avez trouvé.
+> Ce clone en `https://` ne demande rien parce que **le dépôt est public**.
+> Sur un dépôt privé, GitHub réclame un identifiant et refuse le mot de passe
+> du compte, qui n'est plus accepté depuis 2021. Il faudrait alors une **clé
+> de déploiement** — une clé SSH en lecture seule, liée à ce seul dépôt —
+> rangée dans `/config/.ssh` et déclarée par
+> `git -C /config/casa-domotique config core.sshCommand "ssh -i /config/.ssh/id_ed25519"`,
+> car `/root/.ssh` est recréé à chaque redémarrage du module.
+
+Vérifier que les liens ne pointent pas dans le vide, avant de redémarrer :
+
+```bash
+ls /config/casa/ /config/custom_sentences/fr/
+```
+
+Le second chemin est le vrai test, parce qu'il traverse **deux** liens l'un
+après l'autre. S'il liste `ambiances.yaml`, `meteo.yaml` et `reveil.yaml`,
+c'est bon — constaté sur le Pi le 10 septembre 2026. S'il répond `No such
+file or directory`, remplacer le lien `custom_sentences` par une copie
+(`rm /config/custom_sentences && cp -r /config/casa/custom_sentences /config/custom_sentences`),
+à refaire après chaque `git pull`.
+
+> **Reste à confirmer** : que Home Assistant *lise* effectivement ces phrases
+> à travers les liens, ce que seul un essai à la voix après redémarrage dit
+> (étape 3.5). Les liens résolvent dans le terminal ; c'est nécessaire, pas
+> encore suffisant.
 
 Puis Outils de développement → **YAML** → Vérifier la configuration, et
 redémarrer. Refaire **1.2**, les logs, depuis le terminal du module :
@@ -578,7 +667,7 @@ différence la plus visible avec la voie Docker de l'étape 1.
 Puis, comme en **1.9**, Paramètres → **Assistants vocaux** → Ajouter :
 français, reconnaissance Speech-to-Phrase, synthèse Piper. Et comme en
 **1.6**, le lecteur intégré de Music Assistant renommé
-`media_player.ma_salon`.
+`media_player.ma_chambre`.
 
 Pour le fichier de test du dépôt, le dossier `/media` de Home Assistant OS
 est partagé avec les modules : y déposer `signal-de-test.wav` par le module
@@ -743,7 +832,7 @@ cp /config/casa-domotique/pi/configuration.yaml /config/configuration.yaml
 ```
 
 `pi/configuration.yaml` est le jumeau de celui de dev, sans les fausses
-entités : plus de fausse ampoule, plus de faux capteur. `light.salon` devra
+entités : plus de fausse ampoule, plus de faux capteur. `light.chambre` devra
 être une vraie Hue pour exister, et `sensor.temperature_interieure` un vrai
 Sonoff.
 
@@ -775,11 +864,88 @@ Deux dossiers ont une place imposée : `packages/` est nommé par la clé
 
 ## 3.2 Les lumières
 
-Clé Zigbee branchée, intégration **ZHA**, appairage des 5 ampoules Hue.
+**Clé Zigbee, pont Hue, ou les deux ?** Trois faits tranchent, dans cet
+ordre :
 
-Puis la seule chose qui compte : **leurs `entity_id` doivent être
-`light.salon`, `light.cuisine`, `light.chambre`**. Paramètres → Entités →
-renommer. Le dépôt n'a alors rien à changer.
+1. Le capteur **Sonoff SNZB-02P** n'est pas un appareil Hue. Un pont Hue
+   refuse de l'appairer : **la clé est obligatoire** dès qu'on veut la carte
+   Climat.
+2. La **synchronisation de la TV** avec les lampes, elle, passe
+   obligatoirement par le **pont**. Le mode Entertainment est un flux temps
+   réel du pont vers les ampoules, que ni ZHA ni Home Assistant ne savent
+   produire : par Zigbee ordinaire, on envoie quelques ordres par seconde, là
+   où il en faut des dizaines. Une ampoule pilotée par ZHA ne peut pas être
+   synchronisée.
+3. Une ampoule est sur l'un **ou** sur l'autre, jamais sur les deux.
+
+D'où la règle : **pas de sync TV, pas de pont** — tout sur la clé, un seul
+réseau à comprendre. **Sync TV voulue, alors toutes les ampoules sur le
+pont**, qui en accepte une cinquantaine, et la clé pour le capteur et le
+bouton. Deux réseaux, à mettre sur des canaux éloignés l'un de l'autre et
+du Wi-Fi.
+
+Un effet de bord de ce partage : le réseau de la clé n'a plus que des
+appareils sur pile, qui ne relaient rien. Sa portée devient celle de la clé
+seule, sans le maillage que les ampoules assuraient. Si le capteur est loin,
+une simple prise Zigbee sur secteur, appairée à la clé, sert de relais.
+
+Et le pont ne synchronise rien à lui seul : il lui faut une source d'image.
+Deux façons, et pour un téléviseur LG récent c'est la seconde :
+
+- Le **boîtier HDMI Hue Play Sync Box**, entre les sources et la TV. Cher,
+  et il ne voit que ce qui le traverse — pas les applications intégrées du
+  téléviseur.
+- L'**application Hue Sync installée sur le téléviseur**, qui synchronise
+  tout ce que la TV affiche et ne demande aucun matériel. Disponible sur les
+  **LG de 2024 et 2025**, dont les OLED C5 et G5. Achat unique d'environ 130
+  euros, ou abonnement mensuel.
+
+Une limite qui compte ici : cette application **exige une connexion
+internet**. C'est la seule pièce de toute l'installation dans ce cas — le
+reste, ambiances et voix comprises, tourne sur le réseau local (2.8).
+Vérifié en septembre 2026.
+
+Les ambiances ne dépendent pas de ce choix : elles vivent dans `scenes.yaml`
+et `scripts.yaml`, du côté de Home Assistant, et pilotent `light.chambre` sans
+savoir d'où vient l'entité. Le **bouton mural**, lui, en dépend :
+`automations.yaml` le déclenche par un trigger `device` du domaine `zha`.
+Passé par un pont Hue, il arriverait par l'intégration Hue et ce trigger
+serait à réécrire.
+
+**Brancher la clé, dans l'ordre :**
+
+1. **Une rallonge USB, toujours.** C'est le conseil qui évite la panne la
+   plus fréquente et la plus insaisissable de tout le Zigbee. Un port USB 3
+   et une antenne Wi-Fi rayonnent en 2,4 GHz, juste à côté de la bande
+   Zigbee ; une clé plantée directement dans le Pi donne un réseau qui
+   marche à trois mètres et pas à six, avec des appareils qui décrochent
+   sans raison. Un mètre de rallonge USB 2.0, la clé posée à l'écart, et le
+   problème n'existe pas.
+2. La brancher sur un **port USB 2.0** du Pi, les noirs, en gardant les
+   bleus pour le disque.
+3. Redémarrer la machine : Paramètres → Système → bouton en haut à droite →
+   **Redémarrer le système**. Home Assistant OS voit la clé sans qu'on lui
+   déclare quoi que ce soit, contrairement à la voie Docker.
+4. Au retour, Home Assistant propose en général l'intégration tout seul,
+   dans une notification. Sinon : Paramètres → Appareils et services →
+   Ajouter une intégration → **Zigbee Home Automation**, et choisir le port
+   série proposé dans la liste.
+5. Si le type de radio est demandé, il dépend du modèle de clé. Un Sonoff
+   **ZBDongle-P** est un Texas Instruments, un **ZBDongle-E** un Silicon
+   Labs. La détection automatique tombe juste presque toujours ; ne la
+   corrigez que si elle échoue.
+
+**Appairer**, ensuite : ZHA → Ajouter un appareil, ce qui ouvre une fenêtre
+de recherche de quelques minutes. Une ampoule Hue neuve s'annonce dès sa
+première mise sous tension. Une ampoule déjà appairée à un pont Hue doit
+être réinitialisée avant : par l'app Hue, ou par cinq à six coupures de
+courant d'affilée. Approchez le premier appareil de la clé, les suivants
+profiteront des ampoules comme relais.
+
+Puis la seule chose qui compte : **l'`entity_id` de l'ampoule de la chambre
+doit être `light.chambre`**. Paramètres → Entités → renommer. Le dépôt n'a
+alors rien à changer. Les ampoules des autres pièces peuvent être appairées
+dès maintenant, mais rien ne les pilotera tant que le dépôt n'a qu'une pièce.
 
 Même chose pour le capteur de température et d'humidité, un **Sonoff
 SNZB-02P**, appairé en Zigbee comme les ampoules (appui long sur son bouton
@@ -792,17 +958,32 @@ valeur qui ne change pas d'un coup n'est pas une panne. En dev, ce sont deux `in
 `dev/configuration.yaml` : bougez-les dans l'interface, la carte suit.
 
 ```bash
-curl -s -H "$H" http://homeassistant.local/api/states/light.salon
+curl -s -H "$H" http://homeassistant.local/api/states/light.chambre
 ```
 
 Puis déclencher `script.mood_detente` et **regarder la pièce**, pas l'écran.
 
 ## 3.3 Le son
 
-Sonos et TV LG découverts par leurs intégrations. Music Assistant reçoit un
-fournisseur **Spotify** au lieu du dossier local. Les lecteurs Music Assistant
-sont renommés `media_player.ma_salon`, `ma_cuisine`, `ma_chambre` — les mêmes
-noms qu'à l'étape 1.6, pour les mêmes raisons.
+L'enceinte est découverte par son intégration. Music Assistant reçoit un
+fournisseur **Spotify** au lieu du dossier local, et son lecteur est renommé
+`media_player.ma_chambre` — le même nom qu'à l'étape 1.6, pour les mêmes
+raisons.
+
+**Le matériel réel, au 10 septembre 2026 : une seule enceinte, une WiiM
+Sound Lite, dans la chambre.** Ni Sonos, ni TV, et c'est pourquoi le dépôt
+n'a plus qu'une pièce.
+
+Attention, elle apparaît en **deux entités pour un seul appareil**
+(`media_player.wiim_sound_lite_932a` et `..._932a_2`), vue par deux
+intégrations. C'est celle qu'expose **Music Assistant** qu'il faut renommer :
+tous les scripts passent par `music_assistant.play_media`, qui ne sait viser
+que ses propres lecteurs.
+
+Ne supprimez pas l'autre pour autant. Selon la façon dont Music Assistant est
+branché, c'est peut-être cette entité-là qu'il pilote en dessous : la retirer
+couperait le son sans rien dire. Paramètres → Entités → la masquer suffit à
+ne plus la voir.
 
 Les URI Spotify de `script.play_playlist` résolvent enfin. Chaque nom de
 `input_selects.yaml` doit avoir son URI dans la table : décommentez-les au fur
@@ -829,6 +1010,30 @@ Assistant propose de l'ajouter. Dans sa page, choisir l'assistant vocal
 créé en 2.3. Le mot d'appel se détecte dans l'appareil pour un Voice PE,
 sinon par le module openWakeWord.
 
+**Le mot d'appel est indépendant du reste.** Il ne décide que du moment où
+l'écoute commence ; la langue de la phrase qui suit et le moteur qui la
+transcrit ne le concernent pas. On dit donc « OK Nabu » puis une phrase
+française, et c'est normal.
+
+Les cinq modèles disponibles sont **tous anglophones** — vérifié le
+9 septembre 2026 en interrogeant le service :
+
+| Modèle | Ce qu'on dit |
+|---|---|
+| `okay_nabu` | Okay Nabu |
+| `hey_jarvis` | Hey Jarvis |
+| `hey_mycroft` | Hey Mycroft |
+| `alexa` | Alexa |
+| `hey_rhasspy` | Hey Rhasspy |
+
+Conséquence, constatée le même jour en faisant prononcer le mot par piper et
+écouter par openWakeWord : « OK Nabu » dit à la française **n'a pas
+déclenché**, « okey na bou », plus proche de l'anglais, **a déclenché**. Ce
+n'est pas une panne, c'est un modèle entraîné sur des voix anglaises.
+Prononcez-le à l'anglaise. Sur un Voice PE la détection se fait dans
+l'appareil, avec un modèle mieux réglé et de la vraie voix humaine plutôt
+qu'une synthèse : c'est plus tolérant que ce test.
+
 Puis, dans la chambre, à voix haute : « réveille-moi à sept heures »,
 « active le réveil », « quel temps fait-il aujourd'hui », et le lendemain
 « je suis debout ». C'est la seule étape qui prouve la reconnaissance et la
@@ -842,7 +1047,58 @@ lampe doit monter **sans saut visible** — chaque marche demande une
 transition de trente secondes à l'ampoule, ce que les fausses ampoules ne
 montrent pas — et la musique entrer à mi-chemin, à peine audible.
 
-## 3.7 La recette d'acceptation
+## 3.7 Les films du Synology
+
+Facultatif, et à faire en dernier : le reste de la maison n'en dépend pas.
+
+> **En attente : il n'y a pas de téléviseur au 10 septembre 2026.** Toute
+> cette étape, le `packages/cinema.yaml` qu'elle décrit, la `scene.cinema` et
+> le `script.mood_cinema` reposent sur `media_player.lg_tv` et
+> `media_player.plex_lg_tv`, qui n'existent pas. Les scènes et les scripts se
+> chargent quand même sans erreur — c'est au déclenchement que ça échoue. À
+> reprendre quand la TV sera là, et à ce moment-là vérifier si c'est bien une
+> LG : `scenes.yaml` et `cinema.yaml` sont écrits pour son intégration.
+
+Plex tourne sur le Synology, son application sur la TV, et Home Assistant
+reçoit les deux intégrations. `packages/cinema.yaml` fait le reste :
+`script.plex_ouvrir` allume la TV, ouvre l'application et **attend que le
+client réponde** ; `script.plex_film` lui envoie ensuite un titre, en
+lançant l'ambiance Cinéma au passage, sans l'attendre.
+
+Trois valeurs à confirmer dans ce package : l'entité de la TV, celle du
+client Plex, et le nom exact de l'application tel que la TV l'annonce.
+
+**Ce que ça coûte : rien.** La lecture d'une bibliothèque personnelle **sur
+le réseau local** reste gratuite chez Plex, et c'est tout ce que fait cette
+installation. Ce qui est devenu payant en 2025 et 2026, c'est l'accès
+**distant**, hors de la maison, par un Plex Pass côté serveur ou un Remote
+Watch Pass côté spectateur. Jellyfin est l'alternative entièrement libre,
+au prix d'un montage plus manuel.
+
+L'attente est un `wait_template`, pas un `delay`. Home Assistant ne peut
+envoyer un film qu'à un client déjà actif, et le temps d'ouverture d'une
+application varie du simple au triple : un délai fixe est trop court le jour
+où ça compte.
+
+**Ce que la voix en fait, et pourquoi la liste des titres existe.** Vérifié
+le 9 septembre 2026, en faisant prononcer la phrase par piper et écouter par
+les deux moteurs :
+
+| Moteur | Ce qu'il a entendu | Assist |
+|---|---|---|
+| whisper | « Lance le film d'une. » | ne comprend pas |
+| speech-to-phrase | « lance le film dune » | lance le film |
+
+Whisper a écrit « d'une » là où il fallait « Dune ». C'est tout le sujet :
+un moteur libre écrit ce qu'il croit entendre, un moteur entraîné sur vos
+titres écrit le vôtre. D'où `custom_sentences/fr/films.yaml`, où chaque
+titre dicible est déclaré — contrainte réelle, mais qui achète une
+reconnaissance juste et sous la seconde.
+
+Sans TV branchée, l'assistant répond « La télévision ne répond pas » plutôt
+que d'échouer en silence. C'est ce que le vérificateur constate en dev.
+
+## 3.8 La recette d'acceptation
 
 Dans cet ordre, en regardant l'appartement :
 
@@ -905,15 +1161,31 @@ les quatre phrases du dépôt en 0,25 à 0,55 s, mot pour mot ; whisper
 `small-int8` en 1,5 à 1,8 s une fois chaud (5 à 10 s au premier passage, le
 modèle se charge), en écrivant « 7h30 » pour « sept heures trente ».
 
+**Le 10 septembre 2026, l'étape 2.2 sur le Pi**, sous Home Assistant OS pour
+de vrai. Le module Terminal & SSH n'a pas `git` : il s'installe par ses
+`apks`. Le dépôt cloné dans `/config`, les deux liens symboliques posés en
+relatif, et `dev/configuration.yaml` copié par-dessus celui d'origine. Après
+redémarrage, `ha core logs` ne montre aucun `Invalid config`, et les États
+donnent tout ce que cette étape promet : les trois `light.` template, les
+deux capteurs simulés, `input_select.mood` et `input_select.playlist`, les
+sept entités du réveil, `input_text.meteo_npa` — donc les deux packages et
+les quatre `!include` traversent bien les liens. L'automatisation météo
+s'était déjà déclenchée d'elle-même le matin même.
+
+Quatre corrections que ce passage a imposées au guide : `git` à installer,
+le clone à faire dans `/config` et non dans le `~` du terminal, les liens à
+garder relatifs, et `/config/home-assistant.log` qui n'existe pas sous Home
+Assistant OS — les journaux se lisent avec `ha core logs`.
+
 Non vérifiés à ce jour : la partie son (1.6, qui demande les quatre étapes
 manuelles de Music Assistant), la chaîne complète micro → réponse dans
 Home Assistant (il faut l'assistant de 1.9, puis un micro ou un satellite),
-et les étapes 2 et 3 dans leur entier.
+la suite de l'étape 2 à partir de 2.3, et l'étape 3 dans son entier.
 
-**L'étape 2 mérite un mot.** Tout ce qui y touche à Home Assistant OS a été
-écrit sans Home Assistant OS sous la main : le poste de dev fait tourner la
-pile Docker, et rien d'autre. Les noms des modules complémentaires, le
-comportement des liens symboliques de 2.2 et la découverte automatique de
-2.3 sont ce que la documentation de Home Assistant annonce, pas ce qui a été
-constaté ici. Corrigez ce fichier au fur et à mesure : c'est exactement ce
-qu'ont fait les trois pannes du premier démarrage de l'étape 1.
+**Le reste de l'étape 2 mérite un mot.** Tout ce qui y touche à Home
+Assistant OS au-delà de 2.2 a été écrit sans Home Assistant OS sous la main :
+le poste de dev fait tourner la pile Docker, et rien d'autre. Les noms des
+modules complémentaires et la découverte automatique de 2.3 sont ce que la
+documentation de Home Assistant annonce, pas ce qui a été constaté ici.
+Corrigez ce fichier au fur et à mesure : c'est exactement ce qu'ont fait les
+trois pannes du premier démarrage de l'étape 1, et les quatre de 2.2.

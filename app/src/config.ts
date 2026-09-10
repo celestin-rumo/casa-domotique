@@ -3,28 +3,30 @@
 // `what` est la ligne sous le nom de la tuile : ce que fait l'ambiance, en
 // quelques mots. Elle décrit scenes.yaml et scripts.yaml sans les lire ;
 // si une scène change, c'est ici qu'on met la phrase à jour.
+// UNE SEULE PIÈCE : LA CHAMBRE. C'est le seul endroit équipé, et l'app est
+// écrite comme s'il n'y en avait pas d'autre. Les pièces supplémentaires et
+// l'ambiance Cinéma reviendront avec les ampoules et la TV — la version qui
+// les porte est dans l'historique git, commit ccb9f08 et avant.
 export const MOODS = [
-  { id: "script.mood_cinema", label: "Cinéma", what: "TV + barre · salon tamisé", hue: "#c0392b" },
-  { id: "script.mood_detente", label: "Détente", what: "Salon + cuisine · 2400 K", hue: "#e8b86d" },
-  { id: "script.mood_focus", label: "Focus", what: "Salon seul · 4200 K", hue: "#4a88c7" },
+  { id: "script.mood_detente", label: "Détente", what: "Chambre · 2400 K", hue: "#e8b86d" },
+  { id: "script.mood_focus", label: "Focus", what: "Chambre · 4200 K", hue: "#4a88c7" },
   { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f" },
-  { id: "script.mood_calin", label: "Câlin", what: "Rouge & pourpre · Chillos", hue: "#a0287a" },
+  { id: "script.mood_calin", label: "Câlin", what: "Pourpre · Chillos", hue: "#a0287a" },
   { id: "script.mood_off", label: "Tout éteindre", what: "Lumières + lecture", hue: "#5a5652", wide: true },
 ];
 
-// L'enceinte de référence : celle dont l'app affiche la lecture, et le chef
-// du groupe quand d'autres pièces écoutent.
-export const PLAYER = "media_player.ma_salon";
+// L'enceinte de référence : celle dont l'app affiche la lecture. Elle était
+// aussi le chef du groupe quand d'autres pièces écoutaient ; avec une seule
+// enceinte, il n'y a plus de groupe, et Écoute n'affiche qu'une puce figée.
+export const PLAYER = "media_player.ma_chambre";
 
 // Les enceintes Music Assistant, une par pièce. Le libellé sert aux puces
 // d'Écoute ; l'entité, elle, dit si la pièce existe vraiment.
 export const PLAYERS = [
-  { id: "media_player.ma_salon", label: "Salon" },
-  { id: "media_player.ma_cuisine", label: "Cuisine" },
   { id: "media_player.ma_chambre", label: "Chambre" },
 ];
 
-export const LIGHTS = ["light.salon", "light.cuisine", "light.chambre"];
+export const LIGHTS = ["light.chambre"];
 
 // Le climat, en tête de l'écran Pièces : le capteur de la pièce, renommé
 // ainsi sur le Pi, et la température dehors telle que MétéoSuisse la donne
@@ -36,10 +38,10 @@ export const CLIMAT = {
 };
 
 // Ce que les ambiances pilotent en plus des lumières et de la musique.
-export const DEVICES = [
-  { id: "media_player.lg_tv", label: "TV LG · webOS" },
-  { id: "media_player.sonos_beam", label: "Barre Sonos · HDMI eARC" },
-];
+// Vide tant qu'il n'y a ni TV ni barre de son : la section correspondante
+// de l'écran Pièces ne s'affiche donc pas. Y remettre `media_player.lg_tv`
+// et `media_player.sonos_beam` le jour où ils existent.
+export const DEVICES: { id: string; label: string }[] = [];
 
 // Le réveil (homeassistant/packages/reveil.yaml). Les trois réglages sont des
 // helpers que l'app écrit directement ; le script s'allume (state « on »)
@@ -54,8 +56,9 @@ export const REVEIL = {
 };
 
 // L'automatisation du bouton mural : présente sur le Pi une fois le
-// device_id renseigné dans automations.yaml, absente en dev.
-export const WALL_BUTTON = "automation.bouton_mural_cinema";
+// device_id renseigné dans automations.yaml, absente en dev. Elle lance
+// Détente tant qu'il n'y a pas de TV pour justifier Cinéma.
+export const WALL_BUTTON = "automation.bouton_mural_detente";
 
 // La liste des playlists n'est pas ici : elle vit sur le Pi, dans
 // input_selects.yaml, et arrive par le subscribeEntities que fait déjà ha.ts.

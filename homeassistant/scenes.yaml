@@ -1,39 +1,32 @@
 # Paramètres → Automatisations et scènes → Scènes crée ces entrées automatiquement.
 # Exemple manuel :
-- id: cinema
-  name: Cinéma
-  entities:
-    light.salon: { state: "on", brightness: 15, rgb_color: [120, 20, 20] }
-    light.cuisine: { state: "off" }
-    media_player.lg_tv: { state: "on" }
+#
+# UNE SEULE PIÈCE : LA CHAMBRE. C'est le seul endroit équipé aujourd'hui, et
+# tout le dépôt est écrit comme s'il n'y en avait pas d'autre. Le salon, la
+# cuisine et la scène Cinéma reviendront avec les ampoules et la TV — la
+# version multi-pièces est dans l'historique git, commit ccb9f08 et avant
+# (docs/TESTING.md, « Une seule pièce, la chambre »).
+#
+# La chambre reprend donc le rôle que le salon tenait : c'est elle qui porte
+# Détente et Focus, et non plus seulement les ambiances de fin de journée.
 - id: detente
   name: Détente
   entities:
-    light.salon: { state: "on", brightness: 90, color_temp_kelvin: 2400 }
-    light.cuisine: { state: "on", brightness: 60, color_temp_kelvin: 2400 }
+    light.chambre: { state: "on", brightness: 90, color_temp_kelvin: 2400 }
 - id: focus
   name: Focus
   entities:
-    light.salon: { state: "on", brightness: 210, color_temp_kelvin: 4200 }
-    light.cuisine: { state: "off" }
-    light.chambre: { state: "off" }
+    light.chambre: { state: "on", brightness: 210, color_temp_kelvin: 4200 }
 - id: chillos
   name: Chillos
   entities:
-    light.salon: { state: "on", brightness: 12, color_temp_kelvin: 2200 }
-    light.cuisine: { state: "off" }
     light.chambre: { state: "on", brightness: 8, color_temp_kelvin: 2200 }
-# Rouge et pourpre, bas : le salon tire sur le rouge, la chambre sur le
-# violet. La cuisine n'a rien à faire là.
+# Pourpre et bas.
 - id: calin
   name: Câlin
   entities:
-    light.salon: { state: "on", brightness: 40, rgb_color: [190, 20, 80] }
-    light.cuisine: { state: "off" }
     light.chambre: { state: "on", brightness: 30, rgb_color: [130, 0, 150] }
 - id: tout_eteindre
   name: Tout éteindre
   entities:
-    light.salon: { state: "off" }
-    light.cuisine: { state: "off" }
     light.chambre: { state: "off" }

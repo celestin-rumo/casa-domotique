@@ -1,3 +1,9 @@
+# UNE SEULE PIÈCE : LA CHAMBRE, et une seule enceinte, la WiiM Sound Lite
+# renommée `media_player.ma_chambre` dans Music Assistant. D'où l'absence de
+# tout `media_player.join` : il n'y a personne à grouper. Les ambiances
+# multi-pièces et Cinéma reviendront avec le matériel — la version qui les
+# porte est dans l'historique git, commit ccb9f08 et avant.
+
 # La seule table nom -> URI. Les ambiances l'appellent au lieu de porter
 # chacune son adresse, et l'app appelle ce script avec le nom choisi.
 # Les mêmes noms sont proposés dans input_selects.yaml.
@@ -9,8 +15,8 @@ play_playlist:
       description: Le nom tel qu'il apparaît dans input_select.playlist
       example: Détente
     player:
-      description: L'enceinte ou le groupe qui joue
-      example: media_player.ma_salon
+      description: L'enceinte qui joue
+      example: media_player.ma_chambre
     radio_mode:
       description: Se servir de la playlist comme graine plutôt que la jouer telle quelle
       example: false
@@ -37,57 +43,41 @@ play_playlist:
       target: { entity_id: input_select.playlist }
       data: { option: "{{ name }}" }
 
-mood_cinema:
-  alias: Mood Cinéma
+mood_detente:
+  alias: Mood Détente
   sequence:
     - service: scene.turn_on
-      target: { entity_id: scene.cinema }
-    - service: media_player.select_source
-      target: { entity_id: media_player.sonos_beam }
-      data: { source: TV }
+      target: { entity_id: scene.detente }
+    - service: script.play_playlist
+      data:
+        name: Détente
+        player: media_player.ma_chambre
+        radio_mode: true
+    - service: media_player.volume_set
+      target: { entity_id: media_player.ma_chambre }
+      data: { volume_level: 0.25 }
     # L'écho qui confirme l'ambiance côté app, comme play_playlist écrit
     # input_select.playlist. En dernier, donc absent si une étape a échoué :
     # l'app revient alors en arrière en nommant le script. `this` est le
-    # script lui-même, d'où une étape identique dans les cinq ambiances —
+    # script lui-même, d'où une étape identique dans les quatre ambiances —
     # l'ancre YAML ci-dessous la réutilise sans rien recopier.
     - &ambiance_confirmee
       service: input_select.select_option
       target: { entity_id: input_select.mood }
       data: { option: "{{ this.entity_id }}" }
 
-mood_detente:
-  alias: Mood Détente
-  sequence:
-    - service: scene.turn_on
-      target: { entity_id: scene.detente }
-    - service: media_player.join
-      target: { entity_id: media_player.ma_salon }
-      data: { group_members: [media_player.ma_cuisine] }
-    - service: script.play_playlist
-      data:
-        name: Détente
-        player: media_player.ma_salon
-        radio_mode: true
-    - service: media_player.volume_set
-      target: { entity_id: media_player.ma_salon }
-      data: { volume_level: 0.25 }
-    - *ambiance_confirmee
-
 mood_focus:
   alias: Mood Focus
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.focus }
-    # Le salon seul : on travaille à un endroit, pas dans tout l'appartement.
-    - service: media_player.unjoin
-      target: { entity_id: media_player.ma_salon }
     # pas de radio_mode : la playlist se joue telle quelle
     - service: script.play_playlist
       data:
         name: Focus
-        player: media_player.ma_salon
+        player: media_player.ma_chambre
     - service: media_player.volume_set
-      target: { entity_id: media_player.ma_salon }
+      target: { entity_id: media_player.ma_chambre }
       data: { volume_level: 0.15 }
     - *ambiance_confirmee
 
@@ -96,9 +86,6 @@ mood_chillos:
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.chillos }
-    - service: media_player.join
-      target: { entity_id: media_player.ma_chambre }
-      data: { group_members: [media_player.ma_salon] }
     # pas de radio_mode : une playlist choisie se joue telle quelle
     - service: script.play_playlist
       data:
@@ -114,11 +101,6 @@ mood_calin:
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.calin }
-    # La chambre mène, le salon suit : on commence quelque part, on finit
-    # ailleurs.
-    - service: media_player.join
-      target: { entity_id: media_player.ma_chambre }
-      data: { group_members: [media_player.ma_salon] }
     - service: script.play_playlist
       data:
         name: Chillos

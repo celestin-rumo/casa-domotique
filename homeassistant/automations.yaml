@@ -1,5 +1,8 @@
-- id: bouton_mural_cinema
-  alias: Bouton mural → Cinéma
+# Le bouton lançait l'ambiance Cinéma ; sans TV et avec la seule chambre
+# équipée, il lance Détente — l'ambiance par défaut de la pièce. Il
+# reprendra Cinéma quand la TV sera là.
+- id: bouton_mural_detente
+  alias: Bouton mural → Détente
   trigger:
     - platform: device
       domain: zha
@@ -7,4 +10,4 @@
       subtype: turn_on
       device_id: REMPLACER_PAR_ID_DU_BOUTON
   action:
-    - service: script.mood_cinema
+    - service: script.mood_detente

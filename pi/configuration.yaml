@@ -2,7 +2,7 @@
 #
 # Même forme que dev/configuration.yaml — il inclut les fichiers du dépôt
 # montés en lecture seule sur /config/casa — mais sans aucune fausse
-# entité : ici, light.salon est une ampoule Hue, et sensor.temperature_interieure
+# entité : ici, light.chambre est une ampoule Hue, et sensor.temperature_interieure
 # le Sonoff SNZB-02P.
 #
 # Le dépôt n'est jamais écrit par Home Assistant : sa base, ses journaux et

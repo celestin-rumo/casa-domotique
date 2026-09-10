@@ -8,7 +8,6 @@ intent_script:
     action:
       - variables:
           scripts:
-            cinéma: script.mood_cinema
             détente: script.mood_detente
             focus: script.mood_focus
             chillos: script.mood_chillos
