@@ -993,6 +993,11 @@ qu'une couleur. Ce qui marche dans ce cas, c'est de composer la scène dans
 l'app Hue, où elle devient une entité `scene.*` que `scripts.yaml` déclenche à
 la place de la scène du dépôt.
 
+> **Un RuuviTag fait l'affaire, et évite d'acheter le Sonoff.** C'est ce qui
+> a servi ici : il donne température et humidité en Bluetooth, sans Zigbee,
+> et il suffit de renommer ses deux entités comme ci-dessous. La carte Climat
+> ne regarde que les `entity_id`, jamais d'où vient la mesure.
+
 Même chose pour le capteur de température et d'humidité, un **Sonoff
 SNZB-02P**, appairé en Zigbee comme les ampoules (appui long sur son bouton
 jusqu'au clignotement, pendant que ZHA cherche). ZHA crée deux entités,
@@ -1217,10 +1222,38 @@ le clone à faire dans `/config` et non dans le `~` du terminal, les liens à
 garder relatifs, et `/config/home-assistant.log` qui n'existe pas sous Home
 Assistant OS — les journaux se lisent avec `ha core logs`.
 
-Non vérifiés à ce jour : la partie son (1.6, qui demande les quatre étapes
-manuelles de Music Assistant), la chaîne complète micro → réponse dans
+**Le même jour, 3.1 et 3.2 : les lumières, pour de vrai.** Clé Zigbee,
+intégration ZHA, et les deux Hue de la chambre appairées — une lampe
+Essential White & Color Ambiance et un bandeau Flux Gradient. Les deux se
+sont annoncées sans coupure de courant, une fois **supprimées de l'app Hue**
+sur le natel : tant qu'un appareil les revendique en Bluetooth, elles ne
+cherchent pas de réseau Zigbee. Le bandeau, appairé le premier, a servi de
+relais pour la lampe.
+
+`script.mood_calin` déclenché depuis Outils de développement : la lampe tombe
+en blanc ambré à 20, le bandeau passe au rouge rosé. La moitié son échoue sur
+`Action music_assistant.play_media introuvable`, comme prévu tant que 3.3
+n'est pas fait — et le script s'arrêtant là, l'écho vers `input_select.mood`
+n'a pas lieu, donc l'app revient en arrière au bout de six secondes. C'est le
+comportement voulu, pas une panne.
+
+Ce passage a coûté une heure sur un seul point, désormais documenté en 3.1 :
+les entités template de dev survivent au registre et gardent leurs noms
+réservés. Le renommage de la vraie lampe avait discrètement réussi sous
+`light.chambre_1` — une lampe qui marche, que le dépôt ne pilote pas, et rien
+pour le dire. Le tri par plateforme (`platform == "template"`) dans
+`core.entity_registry` est ce qui a permis de les distinguer sans risque.
+
+Une bonne surprise au passage : un **RuuviTag** déjà en place dans la chambre
+donne température et humidité en Bluetooth. Le Sonoff SNZB-02P de 3.2 n'est
+donc pas nécessaire — ses deux entités sont renommées
+`sensor.temperature_interieure` et `sensor.humidite_interieure` et la carte
+Climat les prend telles quelles.
+
+Non vérifiés à ce jour : la partie son (1.6 et 3.3, qui demandent les quatre
+étapes manuelles de Music Assistant), la chaîne complète micro → réponse dans
 Home Assistant (il faut l'assistant de 1.9, puis un micro ou un satellite),
-la suite de l'étape 2 à partir de 2.3, et l'étape 3 dans son entier.
+la suite de l'étape 2 à partir de 2.3, et l'étape 3 à partir de 3.3.
 
 **Le reste de l'étape 2 mérite un mot.** Tout ce qui y touche à Home
 Assistant OS au-delà de 2.2 a été écrit sans Home Assistant OS sous la main :
