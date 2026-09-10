@@ -258,7 +258,7 @@ python3 dev/verifier.py
 Rejoue 1.2, 1.4, 1.5 et 1.7 avec le jeton de `app/.env` : logs du démarrage
 courant, existence des entités que `config.ts` référence — le réveil
 compris —, playlists reçues et
-chacune avec son URI, les six ambiances comparées à `scenes.yaml`, l'ajout à
+chacune avec son URI, les cinq ambiances comparées à `scenes.yaml`, l'ajout à
 chaud, et le build de l'app avec le jeton dedans. Sortie 0 si tout passe.
 
 Le script ne contient aucune liste : il lit `scripts.yaml` pour savoir quelle
@@ -590,12 +590,31 @@ git clone https://github.com/celestin-rumo/casa-domotique.git
 ln -s casa-domotique/homeassistant casa
 ln -s casa/custom_sentences custom_sentences
 cp casa-domotique/dev/configuration.yaml configuration.yaml
+cp casa/scenes.yaml scenes.yaml
 ```
 
-Ces quatre lignes reproduisent la disposition du portable : le dépôt d'un
+Ces cinq lignes reproduisent la disposition du portable : le dépôt d'un
 côté, `casa/` qui pointe dessus, `custom_sentences/` là où Home Assistant
 le cherche, et la configuration de dev — donc les fausses ampoules, qui
 sont tout l'intérêt de cette étape.
+
+**La cinquième ligne est d'une autre nature, et c'est une copie, pas un
+lien.** Les scènes sont les seules à ne pas être chargées depuis le dépôt :
+`configuration.yaml` déclare `scene: !include scenes.yaml`, sans préfixe,
+donc le fichier de Home Assistant lui-même. C'est ce qui rend l'éditeur de
+l'interface utilisable — il ne sait écrire que dans un fichier qu'il possède,
+et il refuse tout net ce qui vient d'ailleurs.
+
+Le partage est délibéré : les scènes sont du goût, on les retouche à l'œil
+dans la pièce, et un aller-retour par `git commit` et `git pull` à chaque
+essai n'aurait aucun sens. Les scripts, eux, restent au dépôt : ils portent
+la logique, et l'éditeur de l'interface détruirait au passage l'ancre YAML
+que les ambiances se partagent.
+
+Conséquence à connaître : une fois copiées, **les scènes ne suivent plus le
+dépôt**. Un `git pull` n'y touche pas. Pour figer une ambiance qui te
+satisfait durablement, recopie-la en sens inverse et committe-la — en
+sachant que l'éditeur aura effacé les commentaires en réécrivant le fichier.
 
 Deux pièges de chemin, tous les deux constatés sur le Pi le 10 septembre
 2026. **Le clone doit atterrir dans `/config`**, pas dans le `~` où le
@@ -609,14 +628,15 @@ ci-dessus, sans `/` initial — Home Assistant voit ce dossier sous `/config`
 dans son propre conteneur, et un lien absolu écrit depuis le terminal
 pointerait vers un chemin qui n'existe pas chez lui.
 
-La dernière ligne **écrase** le `configuration.yaml` livré par Home
+L'avant-dernière ligne **écrase** le `configuration.yaml` livré par Home
 Assistant. Il n'y a rien à y perdre sur une installation neuve, mais celui
-d'origine lit `automations.yaml`, `scenes.yaml` et `scripts.yaml` à la racine
-de `/config` — ceux que l'interface écrit quand on crée une scène en
-cliquant — là où celui du dépôt redirige ces trois `!include` vers `casa/`.
-Les fichiers ne sont pas supprimés, ils cessent d'être chargés : ce qui avait
-été créé à la souris disparaît de la liste. D'où, si l'installation a déjà
-servi, `cp configuration.yaml configuration.yaml.avant-casa` avant.
+d'origine lit `automations.yaml` et `scripts.yaml` à la racine de `/config` —
+ceux que l'interface écrit quand on crée un script en cliquant — là où celui
+du dépôt redirige ces `!include` vers `casa/`. Les fichiers ne sont pas
+supprimés, ils cessent d'être chargés : ce qui avait été créé à la souris
+disparaît de la liste. D'où, si l'installation a déjà servi,
+`cp configuration.yaml configuration.yaml.avant-casa` avant. Les **scènes**
+font exception et restent lues à la racine, d'où la copie qui suit.
 
 Mettre à jour plus tard, c'est `git -C /config/casa-domotique pull` puis un
 redémarrage de Home Assistant.

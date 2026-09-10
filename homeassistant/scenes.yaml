@@ -1,5 +1,17 @@
-# Paramètres → Automatisations et scènes → Scènes crée ces entrées automatiquement.
-# Exemple manuel :
+# CE FICHIER N'EST PAS CHARGÉ. C'est une graine, à recopier une fois dans
+# /config/scenes.yaml (TESTING.md 2.2) :
+#
+#     cp /config/casa/scenes.yaml /config/scenes.yaml
+#
+# Ensuite, ce sont les scènes de Home Assistant qui vivent, éditables depuis
+# Paramètres → Automatisations et scènes → Scènes, roue chromatique comprise.
+# Les scènes sont du goût : on les retouche dans la pièce, à l'œil, et un
+# aller-retour par git à chaque essai n'aurait aucun sens.
+#
+# Ce fichier garde donc deux rôles : le point de départ d'une installation
+# neuve, et la trace écrite de pourquoi chaque ambiance est réglée ainsi.
+# Pour figer une ambiance qui tient, la recopier en sens inverse — l'éditeur
+# de l'interface, lui, réécrit sans les commentaires.
 #
 # UNE SEULE PIÈCE : LA CHAMBRE. C'est le seul endroit équipé aujourd'hui, et
 # tout le dépôt est écrit comme s'il n'y en avait pas d'autre. Le salon, la

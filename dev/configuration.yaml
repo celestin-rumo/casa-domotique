@@ -36,8 +36,13 @@ homeassistant:
   country: CH
 
 input_select: !include casa/input_selects.yaml
-scene: !include casa/scenes.yaml
 script: !include casa/scripts.yaml
+
+# Les scènes appartiennent à Home Assistant, pas au dépôt : `scenes.yaml`
+# sans préfixe, donc son fichier à lui, éditable depuis l'interface. Même
+# raison que sur le Pi (pi/configuration.yaml). `casa/scenes.yaml` est la
+# graine, à recopier une fois dans /config.
+scene: !include scenes.yaml
 # Pas d'`automation:` : le dépôt n'a pas d'automations.yaml. Les seules
 # automatisations sont celles des packages, chargées ci-dessus.
 

@@ -30,8 +30,24 @@ homeassistant:
 
 # --- les fichiers du dépôt, tels quels ---
 input_select: !include casa/input_selects.yaml
-scene: !include casa/scenes.yaml
 script: !include casa/scripts.yaml
+
+# --- les scènes, elles, appartiennent à Home Assistant ---
+# `scenes.yaml` sans préfixe : le fichier de Home Assistant, pas celui du
+# dépôt. C'est ce qui rend l'éditeur de l'interface utilisable — roue
+# chromatique comprise — parce qu'il ne sait écrire que dans un fichier
+# qu'il possède.
+#
+# Le partage est délibéré. Les scènes sont du goût : on les retouche à l'œil,
+# dans la pièce, souvent. Les faire passer par un commit et un `git pull` à
+# chaque essai serait absurde. Les scripts, eux, sont de la logique — l'ordre
+# des étapes, l'écho qui confirme, l'ancre YAML partagée entre les ambiances —
+# et l'éditeur de l'interface détruirait cette ancre en réécrivant le fichier.
+#
+# `casa/scenes.yaml` reste dans le dépôt comme **graine**, à recopier une fois
+# (TESTING.md 2.2). Pour figer une ambiance qui te satisfait durablement, la
+# recopier en sens inverse et la committer.
+scene: !include scenes.yaml
 
 # Pas d'`automation:` ici, et pas d'automations.yaml dans le dépôt : il n'y
 # aura pas de bouton mural. Les seules automatisations sont celles des

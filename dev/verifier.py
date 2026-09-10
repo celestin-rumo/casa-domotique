@@ -5,10 +5,16 @@
 
 Le script ne contient aucune liste d'ambiances, de lumières ou de playlists :
 il les lit dans le dépôt. scripts.yaml dit quelle scène chaque ambiance
-allume, scenes.yaml dit ce que cette scène fait aux lumières, et c'est cela
-qui est comparé à l'état réel de Home Assistant. Ajouter une ambiance ou
-changer une luminosité ne demande donc pas de toucher à ce fichier — sinon il
-finirait par valider une vérité qui n'est plus celle du dépôt.
+allume, et c'est ce câblage qui est vérifié contre l'état réel de Home
+Assistant. Ajouter une ambiance ne demande donc pas de toucher à ce fichier.
+
+Ce qui est exigé, et ce qui ne l'est plus. Les scènes appartiennent à Home
+Assistant depuis qu'elles sont éditables dans l'interface : leurs couleurs et
+leurs luminosités sont du goût, elles vont diverger du dépôt et c'est voulu.
+Le script vérifie donc que chaque ambiance appelle une scène qui existe
+vraiment, et qu'elle allume ou éteint les bonnes lumières — l'intention. Les
+écarts de valeur sont signalés comme des remarques, jamais comme des échecs :
+homeassistant/scenes.yaml n'est plus qu'une graine.
 
 Sortie 0 si tout passe, 1 sinon.
 """
@@ -249,8 +255,12 @@ def verifier_playlists(cli, select):
 
 
 def verifier_ambiances(cli, moods, mood_select):
-    titre("Chaque ambiance met les lumières dans l'état décrit par scenes.yaml")
+    titre("Chaque ambiance appelle une scène qui existe et allume les bonnes lumières")
     scripts = charger("scripts.yaml")
+    # La graine, pas la vérité : les scènes vivent chez Home Assistant et
+    # sont retouchées depuis l'interface. Elle sert à savoir quelles lumières
+    # chaque ambiance est censée toucher, et dans quel sens — pas à quelle
+    # intensité.
     scenes = {s["id"]: s for s in charger("scenes.yaml")}
 
     for mood in moods:
@@ -263,9 +273,15 @@ def verifier_ambiances(cli, moods, mood_select):
         if not cible:
             note("{} n'allume aucune scène — rien à comparer".format(mood))
             continue
+        # L'existence se demande à Home Assistant, pas au dépôt : une scène
+        # créée dans l'interface est légitime, une scène du dépôt jamais
+        # recopiée dans /config/scenes.yaml ne l'est pas.
+        if cli.etat(cible) is None:
+            echec("{} appelle {}, qui n'existe pas dans Home Assistant".format(mood, cible))
+            continue
         scene = scenes.get(cible.split(".", 1)[1])
         if scene is None:
-            echec("{} appelle {}, absente de scenes.yaml".format(mood, cible))
+            note("{} appelle {}, absente de la graine — comparaison sautée".format(mood, cible))
             continue
 
         # Remis à « aucune » avant chaque ambiance : un écho resté d'un tour
@@ -274,7 +290,8 @@ def verifier_ambiances(cli, moods, mood_select):
         cli.service("script", "turn_on", {"entity_id": mood})
         time.sleep(3)
 
-        ecarts = []
+        ecarts = []   # l'intention trahie : une lumière absente ou à l'envers
+        gouts = []    # la valeur qui a bougé : permis, simplement signalé
         for eid, voulu in scene["entities"].items():
             if not eid.startswith("light."):
                 continue  # les media_player relèvent de l'étape 3
@@ -289,11 +306,13 @@ def verifier_ambiances(cli, moods, mood_select):
             if attendu_lum is not None:
                 obtenu = reel["attributes"].get("brightness")
                 if obtenu != attendu_lum:
-                    ecarts.append("{} luminosité {} au lieu de {}".format(eid, obtenu, attendu_lum))
+                    gouts.append("{} à {} et non {}".format(eid, obtenu, attendu_lum))
         if ecarts:
             echec("{} ({}) : {}".format(mood, scene["name"], " ; ".join(ecarts)))
         else:
             ok("{} ({}) : lumières".format(mood, scene["name"]))
+        if gouts:
+            note("{} a été retouchée depuis la graine : {}".format(scene["name"], " ; ".join(gouts)))
 
         # L'écho n'arrive que si tout le script a marché. Sans Music Assistant
         # la moitié son échoue avant — attendu jusqu'en 1.6, et pas un défaut
