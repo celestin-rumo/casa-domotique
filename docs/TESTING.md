@@ -846,6 +846,42 @@ Vérifier la configuration dans Outils de développement → YAML, puis
 redémarrer. Le compte, le jeton, les modules et les intégrations de l'étape
 2 sont conservés : on ne change que ce fichier.
 
+> **Les fausses entités ne partent pas toutes seules, et elles gardent leurs
+> noms réservés.** Constaté sur le Pi le 10 septembre 2026, et c'est une heure
+> perdue si on ne le sait pas.
+>
+> Les entités de `dev/configuration.yaml` ont un `unique_id`
+> (`casa_dev_chambre`, `casa_dev_salon`…). Home Assistant les inscrit donc à
+> son **registre**, ce qui est normalement utile : c'est ce qui permet de
+> renommer une entité sans que ça saute au redémarrage. Mais retirer le YAML
+> ne retire pas la fiche. Elle survit, elle continue d'occuper
+> `light.chambre`, et le renommage de la vraie ampoule Hue échoue sur
+> *« Entity with this ID is already registered »* — ou pire, réussit en
+> silence sous le nom `light.chambre_1`, que le dépôt ne pilotera jamais.
+>
+> Le piège, c'est qu'on ne les trouve pas. Une entité dont la configuration a
+> disparu n'est ni « indisponible » ni « désactivée » : elle est **« non
+> fournie »**, un statut qu'aucun filtre n'affiche par défaut.
+>
+> Donc, après le redémarrage et **avant de renommer quoi que ce soit** :
+> Paramètres → Appareils et services → **Entités** → panneau **Filtres** →
+> section **Statut** → cocher **« Non fourni »**. Effacer aussi le filtre de
+> pièce, ces fiches n'appartenant à aucun appareil. Apparaissent alors
+> `light.chambre`, `light.chambre_bandeau`, `sensor.temperature_interieure`,
+> `sensor.humidite_interieure` — et, si le dépôt a connu plusieurs pièces,
+> `light.salon` et `light.cuisine`. Tout sélectionner, **Supprimer**.
+>
+> Pour voir d'un coup ce que le registre contient vraiment, sans dépendre de
+> l'interface :
+>
+> ```bash
+> grep -oE '"entity_id": ?"light\.[^"]*"' /config/.storage/core.entity_registry | sort -u
+> ```
+>
+> Les fichiers `.storage` sont du JSON compact, d'où le ` ?` du motif : un
+> `grep` écrit avec l'espace ne trouve rien et laisse croire que le registre
+> est vide.
+
 **La clé Zigbee**, elle, se branche simplement sur un port USB du Pi. Home
 Assistant OS la voit sans qu'on déclare son chemin, et l'intégration ZHA la
 propose dans une liste. C'est la simplification la plus nette par rapport à
@@ -941,7 +977,11 @@ profiteront des ampoules comme relais.
 
 Puis la seule chose qui compte : **la lampe doit avoir l'`entity_id`
 `light.chambre`, et le bandeau `light.chambre_bandeau`**. Paramètres →
-Entités → renommer. Le dépôt n'a alors rien à changer. Les ampoules des autres
+Entités → l'entité → l'**engrenage** → champ **« ID d'entité »**, et pas
+seulement le nom : changer le nom affiché ne change pas l'identifiant, et
+c'est l'identifiant que le dépôt vise. Si Home Assistant répond que l'ID est
+déjà pris, ce sont les fiches orphelines de 3.1 — les supprimer d'abord. Le
+dépôt n'a alors rien à changer. Les ampoules des autres
 pièces peuvent être appairées dès maintenant, mais rien ne les pilotera tant
 que le dépôt n'a qu'une pièce.
 
