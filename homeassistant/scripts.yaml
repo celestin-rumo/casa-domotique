@@ -118,3 +118,34 @@ mood_off:
     - service: media_player.media_stop
       target: { entity_id: all }
     - *ambiance_confirmee
+
+# Un banc d'essai, pas une ambiance : les lampes et la playlist Chillos sans
+# passer par une scène ni par play_playlist, pour qu'une panne accuse le
+# matériel et jamais une scène retouchée dans l'interface. Pas d'écho vers
+# input_select.mood, donc l'app ne le connaît pas.
+test_lampes_musique:
+  alias: Test lampes + musique
+  icon: mdi:lamp
+  mode: restart
+  sequence:
+    - service: light.turn_on
+      target: { entity_id: light.chambre }
+      data: { brightness: 8, color_temp_kelvin: 2200, transition: 2 }
+    - service: light.turn_on
+      target: { entity_id: light.chambre_bandeau }
+      data: { brightness: 40, rgb_color: [255, 30, 70], transition: 2 }
+    # Le volume avant la musique, pour qu'elle ne démarre pas fort.
+    - service: media_player.volume_set
+      target: { entity_id: media_player.ma_chambre }
+      data: { volume_level: 0.18 }
+    # L'aléatoire avant la lecture : Music Assistant mélange la file au
+    # chargement, premier morceau compris. Après, seule la suite le serait.
+    # Le réglage reste sur l'enceinte — les ambiances en héritent ensuite.
+    - service: media_player.shuffle_set
+      target: { entity_id: media_player.ma_chambre }
+      data: { shuffle: true }
+    - service: music_assistant.play_media
+      target: { entity_id: media_player.ma_chambre }
+      data:
+        media_id: "spotify:playlist:0mQbGXAlmsI3T2Vyfa0IVd"
+        media_type: playlist
