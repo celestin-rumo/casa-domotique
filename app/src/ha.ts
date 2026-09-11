@@ -83,8 +83,10 @@ export async function setVolume(entityId: string, level: number) {
   });
 }
 
-// Le script joue la playlist ET met à jour input_select.playlist ; c'est cet
-// écho, reçu par subscribeEntities, qui confirme le choix — pas cet appel.
+// Le script joue la playlist — un nom de la table ou une adresse de la
+// bibliothèque — et en laisse l'écho dans input_text.playlist_courante (plus
+// input_select.playlist pour un nom de la table). C'est cet écho, reçu par
+// subscribeEntities, qui dit ce qui joue — pas cet appel.
 export async function playPlaylist(name: string, player: string) {
   const conn = await connect();
   await callService(conn, "script", "play_playlist", { name, player });
@@ -158,14 +160,6 @@ export async function setText(entityId: string, value: string) {
 export async function setSelect(entityId: string, option: string) {
   const conn = await connect();
   await callService(conn, "input_select", "select_option", { entity_id: entityId, option });
-}
-
-// Une playlist de la bibliothèque, jouée par son adresse. Pas de table, et
-// pas d'écho vers input_select.playlist : celui-ci ne connaît que les noms de
-// script.play_playlist.
-export async function playUri(uri: string, player: string) {
-  const conn = await connect();
-  await callService(conn, "music_assistant", "play_media", { media_id: uri, media_type: "playlist" }, { entity_id: player });
 }
 
 // --- La bibliothèque de Music Assistant ---

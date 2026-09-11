@@ -68,8 +68,10 @@ input_number:
     mode: slider
 
 input_text:
-  # Les lumières qui se lèvent, séparées par des virgules —
-  # « light.chambre,light.chambre_bandeau ». Vide : light.chambre seule.
+  # Les lumières qui se lèvent, séparées par des virgules, chacune avec le
+  # moment où elle entre — « light.chambre,light.chambre_wiz_1@26 » : la
+  # lampe dès le début, la WiZ à 26 % du lever, puis les deux sur la même
+  # courbe. Sans @, dès le début. Vide : light.chambre seule.
   reveil_lumieres:
     name: Réveil · lumières
     icon: mdi:lightbulb-group
@@ -130,7 +132,10 @@ automation:
 script:
   # Le lever de soleil, lu dans les helpers : les lumières de
   # input_text.reveil_lumieres suivent la courbe de input_text.reveil_courbe
-  # sur input_number.reveil_duree minutes.
+  # sur input_number.reveil_duree minutes, chacune à partir de son moment
+  # d'entrée. Avant ce moment, une lampe n'est pas touchée ; au moment venu,
+  # elle s'allume en fondu, sur les 30 s de la marche, jusqu'à là où en est
+  # la courbe, puis monte avec les autres.
   #
   # Le Pi avance par marches de 30 s et demande à chaque lampe une transition
   # de 30 s vers la marche suivante. Sur une Hue, on ne voit aucun saut. Les
@@ -161,10 +166,17 @@ script:
         example: 20
     variables:
       minutes: "{{ [duree | default(states('input_number.reveil_duree')) | int(20), 1] | max }}"
+      # [{'id': 'light.chambre', 'p': 0}, {'id': 'light.chambre_wiz_1', 'p': 26}]
       lampes: >-
-        {%- set l = states('input_text.reveil_lumieres').split(',')
-              | map('trim') | select('match', 'light[.]') | list -%}
-        {{- l if l else ['light.chambre'] -}}
+        {%- set ns = namespace(l=[]) -%}
+        {%- for m in states('input_text.reveil_lumieres').split(',') -%}
+          {%- set x = m.split('@') | map('trim') | list -%}
+          {%- if x[0] is match('light[.]') -%}
+            {%- set p = x[1] | float(0) if x | count > 1 else 0 -%}
+            {%- set ns.l = ns.l + [{'id': x[0], 'p': [[p, 0] | max, 100] | min}] -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{- ns.l if ns.l else [{'id': 'light.chambre', 'p': 0}] -}}
       points: >-
         {%- set brut = states('input_text.reveil_courbe') | lower -%}
         {%- set motif = '^[ ]*[0-9.]+[ ]*,[ ]*[0-9.]+[ ]*,[ ]*(k[0-9]{4,5}|[0-9a-f]{6})[ ]*$' -%}
@@ -218,8 +230,11 @@ script:
           count: "{{ marches + 1 }}"
           sequence:
             - variables:
+                # Où en est le lever, en pourcentage, et les lampes dont le
+                # moment est venu.
+                pr: "{{ (repeat.index - 1) / marches * 100 }}"
+                actives: "{{ lampes | selectattr('p', '<=', pr | float) | map(attribute='id') | list }}"
                 etape: >-
-                  {%- set pr = (repeat.index - 1) / marches * 100 -%}
                   {%- set ns = namespace(a=points[0], b=points[-1]) -%}
                   {%- for pt in points -%}
                     {%- if pt.p <= pr -%}{%- set ns.a = pt -%}{%- endif -%}
@@ -237,23 +252,28 @@ script:
                           (ns.a.rgb[1] + (ns.b.rgb[1] - ns.a.rgb[1]) * t) | round(0) | int,
                           (ns.a.rgb[2] + (ns.b.rgb[2] - ns.a.rgb[2]) * t) | round(0) | int]} -}}
                   {%- endif -%}
+            # Aucune lampe encore entrée : la marche passe sans rien allumer.
             - if:
                 - condition: template
-                  value_template: "{{ etape.k is not none }}"
+                  value_template: "{{ actives | count > 0 }}"
               then:
-                - service: light.turn_on
-                  target: { entity_id: "{{ lampes }}" }
-                  data:
-                    brightness_pct: "{{ etape.b }}"
-                    color_temp_kelvin: "{{ etape.k }}"
-                    transition: "{{ pas_s }}"
-              else:
-                - service: light.turn_on
-                  target: { entity_id: "{{ lampes }}" }
-                  data:
-                    brightness_pct: "{{ etape.b }}"
-                    rgb_color: "{{ etape.rgb }}"
-                    transition: "{{ pas_s }}"
+                - if:
+                    - condition: template
+                      value_template: "{{ etape.k is not none }}"
+                  then:
+                    - service: light.turn_on
+                      target: { entity_id: "{{ actives }}" }
+                      data:
+                        brightness_pct: "{{ etape.b }}"
+                        color_temp_kelvin: "{{ etape.k }}"
+                        transition: "{{ pas_s }}"
+                  else:
+                    - service: light.turn_on
+                      target: { entity_id: "{{ actives }}" }
+                      data:
+                        brightness_pct: "{{ etape.b }}"
+                        rgb_color: "{{ etape.rgb }}"
+                        transition: "{{ pas_s }}"
             - if:
                 - condition: template
                   value_template: "{{ repeat.index <= marches }}"

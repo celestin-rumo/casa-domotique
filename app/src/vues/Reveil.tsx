@@ -1,10 +1,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useMaison } from "../maison";
-import { APRES_REVEIL, LIGHTS, PLAYLIST_SELECT, REVEIL } from "../config";
+import { APRES_REVEIL, LIGHTS, REVEIL } from "../config";
 import { runScript, setBoolean, setNumber, setSelect, setTime } from "../ha";
 import { useTexte } from "../useTexte";
-import { useEpingles } from "../bibliotheque";
-import { Carte, Curseur, Interrupteur, NoteFaute } from "../ui";
+import { usePlaylists } from "../bibliotheque";
+import { Carte, Curseur, Interrupteur, NoteFaute, OptionsPlaylists } from "../ui";
 import {
   css, degradeCourbe, ecrireCourbe, estBlanc, hsRgb, kelvinDe, lireCourbe, rgbDuPoint, rgbHex,
   teinteSaturationDe, type Point,
@@ -13,10 +13,32 @@ import {
 // 255 caractères pour la courbe : une douzaine de points y tiennent large.
 const MAX_POINTS = 12;
 
+// Une lumière du lever, et le moment où elle entre, en pourcentage du lever.
+// Le texte de input_text.reveil_lumieres : « light.chambre,light.chambre_wiz_1@26 »
+// — la lampe dès le début, la WiZ à 26 %, puis les deux sur la même courbe.
+// Sans @, dès le début. Le Pi (packages/reveil.yaml) lit le texte de la
+// même façon.
+type Lampe = { id: string; p: number };
+
 // Sans réglage, le Pi lève light.chambre seule : l'app montre la même chose.
-function lireLampes(brut: string): string[] {
-  const l = brut.split(",").map((s) => s.trim()).filter((s) => s.startsWith("light."));
-  return l.length ? l : ["light.chambre"];
+function lireLampes(brut: string): Lampe[] {
+  const l: Lampe[] = [];
+  for (const morceau of brut.split(",")) {
+    const [id, p] = morceau.split("@").map((s) => s.trim());
+    if (!id.startsWith("light.") || l.some((x) => x.id === id)) continue;
+    const n = Number(p ?? 0);
+    l.push({ id, p: Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0 });
+  }
+  return l.length ? l : [{ id: "light.chambre", p: 0 }];
+}
+
+// L'ordre de Pièces, pour que le texte ne change pas selon l'ordre des clics.
+function ecrireLampes(l: Lampe[]): string {
+  const rang = (id: string) => (LIGHTS.includes(id) ? LIGHTS.indexOf(id) : LIGHTS.length);
+  return [...l]
+    .sort((a, b) => rang(a.id) - rang(b.id))
+    .map((x) => (x.p > 0 ? `${x.id}@${x.p}` : x.id))
+    .join(",");
 }
 
 const Chevron = () => (
@@ -56,7 +78,7 @@ export function Reveil() {
   useEffect(() => setLocale(null), [hhmm]);
   const [ouvert, setOuvert] = useState(false);
 
-  const premiere = entities[lampes[0]];
+  const premiere = entities[lampes[0].id];
   const niveau = premiere?.state === "on" && premiere.attributes.brightness
     ? `${Math.round((premiere.attributes.brightness / 255) * 100)} %`
     : "";
@@ -69,9 +91,22 @@ export function Reveil() {
   const faute = Object.values(REVEIL).map((id) => fautes[id]).find(Boolean);
   const entiteFautive = Object.values(REVEIL).find((id) => fautes[id]) ?? REVEIL.script;
 
-  // L'ordre de Pièces, pour que le texte ne change pas selon l'ordre des clics.
-  const ecrireLampes = (l: string[]) =>
-    ecrireLumieres([...LIGHTS.filter((id) => l.includes(id)), ...l.filter((id) => !LIGHTS.includes(id))].join(","));
+  const changerLampes = (l: Lampe[]) => ecrireLumieres(ecrireLampes(l));
+
+  // Un point déplacé emmène les lampes qui entraient avec lui : « la seconde
+  // lampe au point 1 » reste vrai quand on déplace le point 1.
+  const changerCourbe = (nouveaux: Point[]) => {
+    if (nouveaux.length === points.length) {
+      const bouge = new Map<number, number>();
+      points.forEach((pt, i) => {
+        if (pt.p !== nouveaux[i].p) bouge.set(Math.round(pt.p), Math.round(nouveaux[i].p));
+      });
+      if (lampes.some((l) => l.p > 0 && bouge.has(l.p))) {
+        changerLampes(lampes.map((l) => (l.p > 0 && bouge.has(l.p) ? { ...l, p: bouge.get(l.p)! } : l)));
+      }
+    }
+    ecrireCourbeBrut(ecrireCourbe(nouveaux));
+  };
 
   return (
     <Carte lit={enCours} faute={!!faute}>
@@ -132,8 +167,8 @@ export function Reveil() {
 
       {ouvert && reglable && (
         <div className="adv open long" id="reveil-reglages">
-          <Lampes lampes={lampes} onChange={ecrireLampes} />
-          <Courbe points={points} onChange={(p) => ecrireCourbeBrut(ecrireCourbe(p))} />
+          <Lampes lampes={lampes} points={points} onChange={changerLampes} />
+          <Courbe points={points} onChange={changerCourbe} />
           <Musique minutes={minutes} />
           <AuLever />
         </div>
@@ -159,14 +194,25 @@ export function Reveil() {
 // Les lumières qui se lèvent. Au moins une : la dernière cochée ne se
 // décoche pas, sinon le Pi retomberait sur light.chambre sans qu'on l'ait
 // choisi.
-function Lampes({ lampes, onChange }: { lampes: string[]; onChange: (l: string[]) => void }) {
+//
+// Chacune entre à un moment de la courbe : le début, ou l'un de ses points.
+// Une lampe qui entre s'allume en fondu, depuis le noir, jusqu'à là où en est
+// la courbe, puis suit la même montée que les autres.
+function Lampes({ lampes, points, onChange }: { lampes: Lampe[]; points: Point[]; onChange: (l: Lampe[]) => void }) {
   const { entities } = useMaison();
+  const nom = (id: string) => entities[id]?.attributes.friendly_name ?? id;
+  // Pas la fin : une lampe qui n'entrerait qu'à la fin ne se lèverait pas.
+  const moments = points.slice(0, -1).map((pt, j) => ({
+    p: j === 0 ? 0 : Math.round(pt.p),
+    label: j === 0 ? "dès le début" : `au point ${j} · ${Math.round(pt.p)} %`,
+  }));
+  const echelonne = lampes.length > 1 || lampes.some((l) => l.p > 0);
   return (
     <div className="sous">
       <p className="sous-titre">Les lumières du lever</p>
       <div className="chips">
         {LIGHTS.map((id) => {
-          const dedans = lampes.includes(id);
+          const dedans = lampes.some((l) => l.id === id);
           const seule = dedans && lampes.length === 1;
           return (
             <button
@@ -175,13 +221,32 @@ function Lampes({ lampes, onChange }: { lampes: string[]; onChange: (l: string[]
               aria-pressed={dedans}
               disabled={seule}
               title={seule ? "il faut au moins une lumière" : undefined}
-              onClick={() => onChange(dedans ? lampes.filter((l) => l !== id) : [...lampes, id])}
+              onClick={() => onChange(dedans ? lampes.filter((l) => l.id !== id) : [...lampes, { id, p: 0 }])}
             >
-              {entities[id]?.attributes.friendly_name ?? id}
+              {nom(id)}
             </button>
           );
         })}
       </div>
+      {echelonne && (
+        <>
+          <p className="row-meta">Chacune entre à son moment, puis toutes suivent la même courbe.</p>
+          {lampes.map((l) => (
+            <label className="entree" key={l.id}>
+              <span>{nom(l.id)}</span>
+              <select
+                value={l.p}
+                onChange={(e) => onChange(lampes.map((x) => (x.id === l.id ? { ...x, p: Number(e.target.value) } : x)))}
+              >
+                {moments.map((m) => <option key={m.p} value={m.p}>{m.label}</option>)}
+                {/* Un moment qui ne tombe plus sur un point — le point a été
+                    retiré — reste visible plutôt que de sauter au début. */}
+                {!moments.some((m) => m.p === l.p) && <option value={l.p}>à {l.p} %</option>}
+              </select>
+            </label>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -284,11 +349,10 @@ function PointCourbe({ id, pt, titre, min, max, onChange, onRetirer }: {
 function Musique({ minutes }: { minutes: number }) {
   const { entities, agir } = useMaison();
   const [choix, ecrireChoix] = useTexte(REVEIL.playlist);
-  const { epingles } = useEpingles();
-  const noms: string[] = entities[PLAYLIST_SELECT]?.attributes.options ?? [];
+  const { playlists } = usePlaylists();
 
   const valeur = choix || "Détente";
-  const connue = valeur === "aucune" || noms.includes(valeur) || epingles.some((p) => p.uri === valeur);
+  const connue = valeur === "aucune" || playlists.some((p) => p.valeur === valeur);
   const muette = valeur === "aucune";
 
   const delai = Number(entities[REVEIL.musiqueDelai]?.state ?? 10);
@@ -310,14 +374,7 @@ function Musique({ minutes }: { minutes: number }) {
       <label className="champ">
         <span className="row-meta">Playlist</span>
         <select value={valeur} onChange={(e) => ecrireChoix(e.target.value)}>
-          <optgroup label="Des ambiances">
-            {noms.map((n) => <option key={n} value={n}>{n}</option>)}
-          </optgroup>
-          {epingles.length > 0 && (
-            <optgroup label="Épinglées dans Écoute">
-              {epingles.map((p) => <option key={p.uri} value={p.uri}>{p.name}</option>)}
-            </optgroup>
-          )}
+          <OptionsPlaylists playlists={playlists} />
           <option value="aucune">Pas de musique</option>
           {/* Un choix que ces listes ne connaissent plus reste visible, plutôt
               que d'afficher en silence la première option. */}

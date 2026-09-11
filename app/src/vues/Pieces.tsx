@@ -110,7 +110,8 @@ function etatLisible(s: string) {
            standby: "en veille", unavailable: "injoignable" }[s] ?? s;
 }
 
-function Lumiere({ id, entite, faute, onToggle, onRegler }: {
+// Partagée avec l'édition d'une ambiance, qui règle les mêmes lampes.
+export function Lumiere({ id, entite, faute, onToggle, onRegler }: {
   id: string;
   entite: HassEntity | undefined;
   faute: string | undefined;

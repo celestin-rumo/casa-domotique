@@ -22,3 +22,22 @@ input_text:
     name: Playlists épinglées
     icon: mdi:pin
     max: 255
+
+  # Ce que l'enceinte joue, tel que script.play_playlist l'a lancé : un nom
+  # de la table ou une adresse. L'enceinte ne le dit pas elle-même — son
+  # media_content_id est le morceau, jamais la playlist —, et c'est cet écho
+  # qui dit à Écoute quelle ligne allumer. Sans lui, constaté le 11 septembre
+  # 2026, une épinglée lancée laissait « Détente » affichée en lecture.
+  playlist_courante:
+    name: Playlist en cours
+    icon: mdi:playlist-play
+    max: 255
+
+  # Les noms donnés depuis l'app (appui long sur une playlist d'Écoute) :
+  # « 30=Soirée;Détente=Le soir ». La clé est le numéro d'une épinglée, ou le
+  # nom d'une playlist de la table. Seul l'affichage change : les scripts
+  # jouent toujours la même adresse, et les réglages gardent la même valeur.
+  playlists_noms:
+    name: Playlists · noms
+    icon: mdi:rename
+    max: 255

@@ -13,11 +13,20 @@
 // l'app : c'est cette scène-là qui est réécrite dans Home Assistant.
 // « Tout éteindre » n'en a pas, et n'apparaît donc pas dans la liste
 // d'enregistrement : figer une pièce noire n'aurait aucun sens.
+//
+// `musique` est le réglage de la musique de l'ambiance
+// (packages/ambiances.yaml), et `defaut` ce qu'elle joue quand ce réglage
+// est vide : la variable `defaut` de son script, dans scripts.yaml, que
+// l'app répète ici pour pouvoir la nommer.
 export const MOODS = [
-  { id: "script.mood_detente", label: "Détente", what: "Chambre · 2400 K", hue: "#e8b86d", scene: "detente" },
-  { id: "script.mood_focus", label: "Focus", what: "Chambre · 4200 K", hue: "#4a88c7", scene: "focus" },
-  { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f", scene: "chillos" },
-  { id: "script.mood_calin", label: "Câlin", what: "Rouge rosé · Chillos", hue: "#d42c5e", scene: "calin" },
+  { id: "script.mood_detente", label: "Détente", what: "Chambre · 2400 K", hue: "#e8b86d", scene: "detente",
+    musique: "input_text.musique_detente", defaut: "Détente" },
+  { id: "script.mood_focus", label: "Focus", what: "Chambre · 4200 K", hue: "#4a88c7", scene: "focus",
+    musique: "input_text.musique_focus", defaut: "Focus" },
+  { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f", scene: "chillos",
+    musique: "input_text.musique_chillos", defaut: "Chillos" },
+  { id: "script.mood_calin", label: "Câlin", what: "Rouge rosé · Chillos", hue: "#d42c5e", scene: "calin",
+    musique: "input_text.musique_calin", defaut: "Chillos" },
   { id: "script.mood_off", label: "Tout éteindre", what: "Lumières + lecture", hue: "#5a5652", wide: true },
 ];
 
@@ -93,6 +102,14 @@ export const CIBLES_ENREGISTREMENT = [
 
 // Les playlists épinglées depuis Écoute (homeassistant/packages/playlists.yaml).
 export const PLAYLISTS_EPINGLEES = "input_text.playlists_epinglees";
+
+// Ce que l'enceinte joue, tel que script.play_playlist l'a lancé : un nom de
+// la table ou une adresse. L'enceinte ne dit que le morceau, jamais la
+// playlist — c'est cet écho qui dit à Écoute quelle ligne allumer.
+export const PLAYLIST_COURANTE = "input_text.playlist_courante";
+
+// Les noms donnés aux playlists depuis Écoute : « 30=Soirée;Détente=Le soir ».
+export const PLAYLISTS_NOMS = "input_text.playlists_noms";
 
 // La liste des playlists n'est pas ici : elle vit sur le Pi, dans
 // input_selects.yaml, et arrive par le subscribeEntities que fait déjà ha.ts.

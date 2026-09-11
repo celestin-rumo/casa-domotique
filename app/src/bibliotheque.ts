@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { bibliotheque, messageDe, type PlaylistBib } from "./ha";
 import { useMaison } from "./maison";
-import { PLAYLISTS_EPINGLEES } from "./config";
+import { PLAYLIST_SELECT, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS } from "./config";
 
 let toute: Promise<PlaylistBib[]> | null = null;
 
@@ -60,4 +60,55 @@ export function useEpingles() {
     name: noms.get(numero) ?? (items ? `playlist n° ${numero} · introuvable` : `playlist n° ${numero}`),
   }));
   return { epingles, erreur };
+}
+
+// --- Les noms donnés depuis l'app ---
+//
+// input_text.playlists_noms (packages/playlists.yaml) : des « clé=Nom »
+// séparés par des points-virgules. La clé est le numéro d'une épinglée, ou le
+// nom d'une playlist de la table. Seul l'affichage change : les scripts
+// jouent toujours la même adresse, et un réglage garde la même valeur.
+export function lireNoms(brut: string | undefined): Map<string, string> {
+  const noms = new Map<string, string>();
+  for (const morceau of (brut ?? "").split(";")) {
+    const i = morceau.indexOf("=");
+    if (i <= 0) continue;
+    const cle = morceau.slice(0, i).trim();
+    const nom = morceau.slice(i + 1).trim();
+    if (cle && nom) noms.set(cle, nom);
+  }
+  return noms;
+}
+
+export function ecrireNoms(noms: Map<string, string>): string {
+  return [...noms].map(([cle, nom]) => `${cle}=${nom}`).join(";");
+}
+
+// Ni « ; » ni « = », qui découperaient le texte ; et court, parce que tous
+// les noms partagent 255 caractères.
+export const nettoyerNom = (s: string) => s.replace(/[;=]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
+
+export type Playlist = {
+  cle: string; // ce qui porte le nom : le nom de la table, ou le numéro de l'épinglée
+  valeur: string; // ce que script.play_playlist reçoit, et ce qu'un réglage retient
+  origine: string; // le nom d'origine
+  nom: string; // le nom affiché : celui donné dans l'app, sinon l'origine
+  epinglee: boolean;
+};
+
+// Toutes les playlists que l'app propose — la table, puis les épinglées —,
+// sous leur nom affiché. Écoute, le réveil et l'édition d'une ambiance lisent
+// la même liste : une playlist renommée l'est partout à la fois.
+export function usePlaylists() {
+  const { entities } = useMaison();
+  const { epingles, erreur } = useEpingles();
+  const noms = lireNoms(entities[PLAYLISTS_NOMS]?.state);
+  const table: string[] = entities[PLAYLIST_SELECT]?.attributes.options ?? [];
+  const playlists: Playlist[] = [
+    ...table.map((n) => ({ cle: n, valeur: n, origine: n, nom: noms.get(n) ?? n, epinglee: false })),
+    ...epingles.map((p) => ({
+      cle: p.numero, valeur: p.uri, origine: p.name, nom: noms.get(p.numero) ?? p.name, epinglee: true,
+    })),
+  ];
+  return { playlists, erreur };
 }

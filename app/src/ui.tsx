@@ -1,5 +1,9 @@
 // Les briques communes aux quatre écrans. Aucune ne parle au Pi.
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+import { tap } from "./native";
 
 export function Etiquette({ children }: { children: ReactNode }) {
   return <p className="label">{children}</p>;
@@ -75,7 +79,7 @@ export function Curseur({
   max,
   step = 1,
   valeur,
-  format = (v) => `${Math.round(v)} %`,
+  format = (v) => `${Math.round(v)} %`,
   onCommit,
   onApercu,
   className,
@@ -139,5 +143,135 @@ export function Barres() {
       <i />
       <i />
     </span>
+  );
+}
+
+// L'appui long : une demi-seconde sans bouger, et `surLong` part — le clic
+// qui suit le lâcher est alors avalé, pour qu'ouvrir un réglage ne lance pas
+// en plus l'ambiance. Le clic droit, et la touche menu du clavier, y mènent
+// aussi : le geste n'est pas réservé au doigt. Sans `surLong`, c'est un
+// bouton ordinaire.
+export function useAppuiLong(
+  surLong: (() => void) | undefined,
+  surClic: (ev: MouseEvent<HTMLElement>) => void,
+  delai = 500,
+) {
+  const minuterie = useRef<number | null>(null);
+  const parti = useRef(false);
+  const depart = useRef<[number, number] | null>(null);
+  const arreter = () => {
+    if (minuterie.current !== null) window.clearTimeout(minuterie.current);
+    minuterie.current = null;
+  };
+  useEffect(() => arreter, []);
+  const lancer = () => {
+    arreter();
+    parti.current = true;
+    tap();
+    surLong?.();
+  };
+  return {
+    onPointerDown: (e: PointerEvent<HTMLElement>) => {
+      parti.current = false;
+      if (!surLong || e.button !== 0) return;
+      depart.current = [e.clientX, e.clientY];
+      arreter();
+      minuterie.current = window.setTimeout(lancer, delai);
+    },
+    // Un doigt qui glisse fait défiler l'écran : ce n'est plus un appui.
+    onPointerMove: (e: PointerEvent<HTMLElement>) => {
+      const d = depart.current;
+      if (d && Math.hypot(e.clientX - d[0], e.clientY - d[1]) > 10) arreter();
+    },
+    onPointerUp: arreter,
+    onPointerCancel: arreter,
+    onPointerLeave: arreter,
+    onKeyDown: () => {
+      parti.current = false;
+    },
+    // Android déclenche aussi le menu contextuel au doigt : celui qui arrive
+    // après la minuterie ne relance rien.
+    onContextMenu: (e: MouseEvent<HTMLElement>) => {
+      if (!surLong) return;
+      e.preventDefault();
+      if (!parti.current) lancer();
+    },
+    onClick: (e: MouseEvent<HTMLElement>) => {
+      if (parti.current) {
+        parti.current = false;
+        return;
+      }
+      surClic(e);
+    },
+  };
+}
+
+// Une question fermée, en feuille au bas de l'écran. Échap, le voile ou
+// « Non » referment ; le focus va d'emblée sur « Oui ».
+//
+// Elle s'ouvre souvent sous un doigt encore posé — celui de l'appui long.
+// Le lâcher ne doit rien toucher : un clic ne compte que s'il a commencé
+// dans la feuille, ou au clavier (detail à 0).
+export function Question({ titre, texte, oui = "Oui", non = "Non", surOui, surNon }: {
+  titre: string;
+  texte?: string;
+  oui?: string;
+  non?: string;
+  surOui: () => void;
+  surNon: () => void;
+}) {
+  const fermer = useRef(surNon);
+  fermer.current = surNon;
+  const touchee = useRef(false);
+  useEffect(() => {
+    const echap = (e: KeyboardEvent) => {
+      if (e.key === "Escape") fermer.current();
+    };
+    window.addEventListener("keydown", echap);
+    return () => window.removeEventListener("keydown", echap);
+  }, []);
+  const voulu = (e: MouseEvent) => touchee.current || e.detail === 0;
+  return createPortal(
+    <div className="voile" onPointerDown={() => (touchee.current = true)} onClick={(e) => voulu(e) && surNon()}>
+      <div
+        className="feuille"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="question-titre"
+        aria-describedby={texte ? "question-texte" : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p id="question-titre" className="feuille-titre">{titre}</p>
+        {texte && <p id="question-texte" className="feuille-texte">{texte}</p>}
+        <div className="btn-row">
+          <button className="btn" onClick={(e) => voulu(e) && surNon()}>{non}</button>
+          <button className="btn primary" autoFocus onClick={(e) => voulu(e) && surOui()}>{oui}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// Les playlists dans un <select>, en deux groupes : celles de la table des
+// ambiances, puis les épinglées. Toujours sous leur nom affiché.
+export function OptionsPlaylists({ playlists }: {
+  playlists: { valeur: string; nom: string; epinglee: boolean }[];
+}) {
+  const table = playlists.filter((p) => !p.epinglee);
+  const epinglees = playlists.filter((p) => p.epinglee);
+  return (
+    <>
+      {table.length > 0 && (
+        <optgroup label="Des ambiances">
+          {table.map((p) => <option key={p.valeur} value={p.valeur}>{p.nom}</option>)}
+        </optgroup>
+      )}
+      {epinglees.length > 0 && (
+        <optgroup label="Épinglées dans Écoute">
+          {epinglees.map((p) => <option key={p.valeur} value={p.valeur}>{p.nom}</option>)}
+        </optgroup>
+      )}
+    </>
   );
 }

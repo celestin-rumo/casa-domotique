@@ -1,15 +1,18 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { useMaison } from "../maison";
+import { useNavigation } from "../navigation";
 import { MOODS, MOOD_SELECT, LIGHTS, CIBLES_ENREGISTREMENT } from "../config";
 import { enregistrerScene, scenePourLumieres, type EtatLumiere } from "../ha";
-import { Carte, Etiquette, LigneEtat, NoteFaute } from "../ui";
+import { Carte, Etiquette, LigneEtat, NoteFaute, Question, useAppuiLong } from "../ui";
 import { Reveil } from "./Reveil";
+
+type Mood = (typeof MOODS)[number];
 
 const reduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Le lavis part du point touché, dans la teinte de l'ambiance, et s'efface.
 // Un élément éphémère hors de React : il n'a pas d'état, il a une durée.
-function lavis(ev: MouseEvent<HTMLButtonElement>) {
+function lavis(ev: MouseEvent<HTMLElement>) {
   if (reduit()) return;
   const tuile = ev.currentTarget;
   const r = tuile.getBoundingClientRect();
@@ -42,6 +45,8 @@ function depuis(iso: string | undefined, maintenant: number): string {
 
 export function Ambiances() {
   const { entities, fautes, attente, confirmee, ambiance } = useMaison();
+  const { ouvrir } = useNavigation();
+  const [aModifier, setAModifier] = useState<Mood | null>(null);
   const select = entities[MOOD_SELECT];
   const courante = select?.state;
   const affichee = attente ?? courante;
@@ -65,29 +70,36 @@ export function Ambiances() {
       </LigneEtat>
 
       <div className="moods">
-        {MOODS.map((m) => {
-          const on = affichee === m.id;
-          const etat = attente === m.id ? " pending" : confirmee === m.id ? " settled" : "";
-          return (
-            <button
-              key={m.id}
-              className={`mood${m.wide ? " wide" : ""}${etat}`}
-              style={{ "--hue": m.hue } as CSSProperties}
-              aria-pressed={on}
-              onClick={(ev) => {
-                lavis(ev);
-                ambiance(m.id);
-              }}
-            >
-              <span className="settle" aria-hidden="true" />
-              <span className="mood-name">{m.label}</span>
-              <span className="mood-what">{m.what}</span>
-            </button>
-          );
-        })}
+        {MOODS.map((m) => (
+          <Tuile
+            key={m.id}
+            m={m}
+            on={affichee === m.id}
+            etat={attente === m.id ? " pending" : confirmee === m.id ? " settled" : ""}
+            surClic={(ev) => {
+              lavis(ev);
+              ambiance(m.id);
+            }}
+            // « Tout éteindre » n'a ni scène ni musique : rien à y modifier.
+            surLong={m.scene ? () => setAModifier(m) : undefined}
+          />
+        ))}
       </div>
+      <p className="astuce">Maintiens une ambiance pour la modifier.</p>
 
       {fauteAmbiance && <NoteFaute entite={fauteAmbiance[0]} message={fauteAmbiance[1]} />}
+
+      {aModifier && (
+        <Question
+          titre={`Modifier ${aModifier.label} ?`}
+          texte={`Les lumières passent sur ${aModifier.label}, et tu règles la pièce en direct. Rien n'est gardé avant « Enregistrer ».`}
+          surOui={() => {
+            setAModifier(null);
+            ouvrir({ type: "ambiance", id: aModifier.id });
+          }}
+          surNon={() => setAModifier(null)}
+        />
+      )}
 
       <Etiquette>Ajuster</Etiquette>
       <Enregistrer entities={entities} />
@@ -95,6 +107,29 @@ export function Ambiances() {
       <Etiquette>Le matin</Etiquette>
       <Reveil />
     </>
+  );
+}
+
+// Une tuile : le clic lance l'ambiance, l'appui long propose de la modifier.
+function Tuile({ m, on, etat, surClic, surLong }: {
+  m: Mood;
+  on: boolean;
+  etat: string;
+  surClic: (ev: MouseEvent<HTMLElement>) => void;
+  surLong?: () => void;
+}) {
+  const appui = useAppuiLong(surLong, surClic);
+  return (
+    <button
+      className={`mood${m.wide ? " wide" : ""}${etat}`}
+      style={{ "--hue": m.hue } as CSSProperties}
+      aria-pressed={on}
+      {...appui}
+    >
+      <span className="settle" aria-hidden="true" />
+      <span className="mood-name">{m.label}</span>
+      <span className="mood-what">{m.what}</span>
+    </button>
   );
 }
 

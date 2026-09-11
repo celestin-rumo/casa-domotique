@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { MaisonProvider, useMaison } from "./maison";
+import { NavigationProvider, useNavigation } from "./navigation";
 import { HOTE, type Liaison } from "./ha";
+import { MOODS } from "./config";
 import { Ambiances } from "./vues/Ambiances";
 import { Pieces } from "./vues/Pieces";
 import { Ecoute } from "./vues/Ecoute";
 import { Reglages } from "./vues/Reglages";
+import { Edition } from "./vues/Edition";
 
 type Onglet = "ambiances" | "pieces" | "ecoute" | "reglages";
 
@@ -65,22 +68,37 @@ const LIAISON: Record<Liaison, string> = {
 export default function App() {
   return (
     <MaisonProvider>
-      <Coquille />
+      <NavigationProvider>
+        <Coquille />
+      </NavigationProvider>
     </MaisonProvider>
   );
 }
 
 function Coquille() {
   const { liaison } = useMaison();
+  const { page, fermer } = useNavigation();
   const [onglet, setOnglet] = useState<Onglet>("ambiances");
   const courant = ONGLETS.find((o) => o.id === onglet)!;
   const Vue = courant.vue;
   const index = ONGLETS.indexOf(courant);
+  // Une page ouverte par-dessus l'onglet : l'édition d'une ambiance.
+  const titrePage = page ? (MOODS.find((m) => m.id === page.id)?.label ?? "Ambiance") : null;
 
   return (
     <main className="screen">
       <header className="appbar">
-        <h1>{courant.titre}</h1>
+        {page ? (
+          <div className="appbar-titre">
+            <button className="retour" aria-label="Retour aux ambiances" onClick={fermer}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
+                   strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+            </button>
+            <h1>{titrePage}</h1>
+          </div>
+        ) : (
+          <h1>{courant.titre}</h1>
+        )}
         <p className={`link ${liaison}`} role="status">
           <span className="dot" aria-hidden="true" />
           <span>{LIAISON[liaison]}</span>
@@ -88,9 +106,15 @@ function Coquille() {
       </header>
 
       {/* La clé remonte la vue à chaque changement : l'entrée se rejoue. */}
-      <section className="view enter" key={onglet} role="tabpanel" id={`vue-${onglet}`} aria-label={courant.titre}>
-        <Vue />
-      </section>
+      {page ? (
+        <section className="view enter" key={`page-${page.id}`} aria-label={`Modifier ${titrePage}`}>
+          <Edition id={page.id} />
+        </section>
+      ) : (
+        <section className="view enter" key={onglet} role="tabpanel" id={`vue-${onglet}`} aria-label={courant.titre}>
+          <Vue />
+        </section>
+      )}
 
       <nav className="tabs" role="tablist" aria-label="Écrans">
         <span className="tab-ind" aria-hidden="true" style={{ transform: `translateX(${index * 100}%)` }} />
@@ -101,7 +125,11 @@ function Coquille() {
             role="tab"
             aria-selected={o.id === onglet}
             aria-controls={`vue-${o.id}`}
-            onClick={() => setOnglet(o.id)}
+            onClick={() => {
+              // Un onglet touché referme la page ouverte par-dessus.
+              if (page) fermer();
+              setOnglet(o.id);
+            }}
           >
             {o.icone}
             {o.titre}

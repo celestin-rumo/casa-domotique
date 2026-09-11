@@ -60,6 +60,13 @@ play_playlist:
         media_id: "{{ media_id }}"
         media_type: playlist
         radio_mode: "{{ radio_mode | default(false) }}"
+    # Ce qui joue, nom ou adresse, pour l'écran Écoute : l'enceinte ne dit que
+    # le morceau, jamais la playlist (packages/playlists.yaml). Un Pi qui n'a
+    # pas encore redémarré depuis l'ajout de ce réglage joue quand même.
+    - service: input_text.set_value
+      target: { entity_id: input_text.playlist_courante }
+      data: { value: "{{ choix }}" }
+      continue_on_error: true
     # C'est cet écho qui confirme le choix côté app, pas la réponse au service.
     # Une adresse n'a pas de nom dans input_select.playlist : pas d'écho.
     - if:

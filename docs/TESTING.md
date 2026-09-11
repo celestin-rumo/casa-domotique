@@ -390,7 +390,7 @@ fichier, fusionné avec le reste par la clé `packages:` des deux
 | `input_datetime.reveil_heure` | l'heure, écrite par l'app ou la voix |
 | `input_boolean.reveil_actif` | sonne ou ne sonne pas |
 | `input_number.reveil_duree` | minutes du lever |
-| `input_text.reveil_lumieres` | les lumières qui se lèvent, séparées par des virgules |
+| `input_text.reveil_lumieres` | les lumières qui se lèvent, séparées par des virgules ; `light.x@26` fait entrer celle-là à 26 % du lever |
 | `input_text.reveil_courbe` | la courbe : des points « position,intensité,couleur » |
 | `input_number.reveil_musique_delai` | minutes avant que la musique entre |
 | `input_number.reveil_volume_debut`, `reveil_volume_fin` | son volume au départ, et à la fin du lever |
