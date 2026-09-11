@@ -1,0 +1,142 @@
+# Lancer un film du Synology sur la TV, à la voix.
+#
+# La chaîne : Plex tourne sur le Synology, son application tourne sur la TV
+# LG, et Home Assistant parle aux deux — à la TV par l'intégration webOS pour
+# l'allumer et ouvrir l'application, à Plex par son intégration pour lui dire
+# quel film jouer.
+#
+# Le point qui rend ce script utile plutôt qu'une ligne : Home Assistant ne
+# peut envoyer un film qu'à un client DÉJÀ actif. Tant que l'application Plex
+# n'est pas ouverte sur la TV, l'entité du client n'existe pas, et
+# play_media échoue. D'où l'attente explicite, `wait_template`, plutôt qu'un
+# `delay` en dur : on attend que le client réponde, pas quinze secondes au
+# jugé — un délai fixe est trop court le jour où la TV est lente, et trop
+# long tous les autres jours.
+#
+# NON VÉRIFIÉ : écrit sans TV, sans Synology et sans Plex sous la main. Les
+# trois entity_id ci-dessous sont à confirmer sur place (Paramètres →
+# Entités), et `source` doit être le nom EXACT de l'application tel que la TV
+# le donne — Paramètres → Développement → Actions → media_player.select_source
+# liste les sources reconnues.
+
+script:
+  # Allumer la TV et ouvrir Plex, puis rendre la main seulement quand le
+  # client Plex répond vraiment.
+  plex_ouvrir:
+    alias: Ouvrir Plex sur la TV
+    icon: mdi:television-play
+    mode: single
+    fields:
+      tv:
+        description: L'entité de la TV, côté intégration webOS
+        example: media_player.lg_tv
+      source:
+        description: Le nom de l'application tel que la TV l'annonce
+        example: Plex
+      client:
+        description: L'entité du client Plex, côté intégration Plex
+        example: media_player.plex_lg_tv
+    variables:
+      ecran: "{{ tv | default('media_player.lg_tv') }}"
+      appli: "{{ source | default('Plex') }}"
+      lecteur: "{{ client | default('media_player.plex_lg_tv') }}"
+    sequence:
+      # Pas de TV dans Home Assistant : on s'arrête ici plutôt que d'empiler
+      # des erreurs sur une entité qui n'existe pas.
+      - condition: template
+        value_template: "{{ states(ecran) not in ['unknown', 'unavailable'] }}"
+
+      # turn_on sur une LG éteinte passe par Wake-on-LAN : l'intégration
+      # webOS a besoin de l'adresse MAC de la TV, et la TV de son réglage
+      # « Mobile TV On » activé. Sans ça, cette étape ne fait rien et
+      # l'attente qui suit expire — c'est là qu'il faut regarder.
+      - if:
+          - condition: template
+            value_template: "{{ is_state(ecran, 'off') }}"
+        then:
+          - service: media_player.turn_on
+            target: { entity_id: "{{ ecran }}" }
+          - wait_template: "{{ states(ecran) not in ['off', 'unknown', 'unavailable'] }}"
+            timeout: "00:00:45"
+            continue_on_timeout: false
+
+      - service: media_player.select_source
+        target: { entity_id: "{{ ecran }}" }
+        data: { source: "{{ appli }}" }
+
+      # L'attente qui compte : le client Plex n'apparaît qu'une fois
+      # l'application ouverte et connectée au serveur du Synology.
+      - wait_template: "{{ states(lecteur) not in ['unknown', 'unavailable'] }}"
+        timeout: "00:01:00"
+        continue_on_timeout: false
+
+  # Ouvrir Plex, puis jouer un film par son titre.
+  plex_film:
+    alias: Jouer un film
+    icon: mdi:movie-open
+    mode: restart
+    fields:
+      titre:
+        description: Le titre, tel qu'il est écrit dans la bibliothèque Plex
+        example: Dune
+      bibliotheque:
+        description: Le nom de la bibliothèque Plex
+        example: Films
+      client:
+        description: L'entité du client Plex
+        example: media_player.plex_lg_tv
+      ambiance:
+        description: Passer aussi la pièce en Cinéma
+        example: true
+    variables:
+      lecteur: "{{ client | default('media_player.plex_lg_tv') }}"
+      biblio: "{{ bibliotheque | default('Films') }}"
+    sequence:
+      # L'ambiance part sans qu'on l'attende, et ses erreurs ne remontent
+      # pas : une barre de son muette ne doit pas empêcher le film. Même
+      # raisonnement que la musique du réveil.
+      - if:
+          - condition: template
+            value_template: "{{ ambiance | default(true) }}"
+        then:
+          - service: script.turn_on
+            target: { entity_id: script.mood_cinema }
+
+      - service: script.plex_ouvrir
+        data:
+          client: "{{ lecteur }}"
+
+      # Le media_id de Plex est un objet JSON, pas une chaîne : construit
+      # par to_json plutôt qu'à coups de guillemets échappés, qui sont la
+      # première cause d'échec silencieux de cette action.
+      - service: media_player.play_media
+        target: { entity_id: "{{ lecteur }}" }
+        data:
+          media_content_type: movie
+          media_content_id: "{{ {'library_name': biblio, 'title': titre} | to_json }}"
+
+# Ce que la voix peut demander. Les phrases sont dans
+# custom_sentences/fr/films.yaml, et la liste des titres y vit — parce que
+# Speech-to-Phrase ne transcrit que ce qu'on lui a appris.
+intent_script:
+  LancerFilm:
+    action:
+      # Sans TV, on répond au lieu d'échouer : l'assistant doit dire ce qui
+      # manque, pas rester muet sur une erreur d'exécution.
+      - if:
+          - condition: template
+            value_template: >-
+              {{ states('media_player.lg_tv') not in ['unknown', 'unavailable'] }}
+        then:
+          - service: script.turn_on
+            target: { entity_id: script.plex_film }
+            data:
+              variables:
+                titre: "{{ casa_film }}"
+    speech:
+      text: >-
+        {%- if states('media_player.lg_tv') in ['unknown', 'unavailable'] -%}
+          La télévision ne répond pas.
+        {%- else -%}
+          {{ casa_film }}.
+        {%- endif -%}

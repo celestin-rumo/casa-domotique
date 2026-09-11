@@ -1,0 +1,40 @@
+# Demander un film à voix haute. L'intent est traité par intent_script dans
+# packages/cinema.yaml.
+#
+# La liste `casa_film` est la partie qu'il faut tenir à jour, et c'est une
+# contrainte de Speech-to-Phrase, pas un caprice : il ne transcrit que ce
+# qu'on lui a appris, donc un titre absent d'ici ne sera jamais entendu. En
+# contrepartie, un titre présent est reconnu du premier coup, même prononcé
+# de travers, et en moins d'une seconde.
+#
+# `in` est ce qu'on dit, `out` ce qui part vers Plex : ils diffèrent dès que
+# le titre s'écrit autrement qu'il ne se prononce. Écrire `out` EXACTEMENT
+# comme la bibliothèque Plex l'orthographie, accents et ponctuation compris.
+#
+# Les trois entrées ci-dessous sont des exemples, à remplacer par votre
+# bibliothèque. Le jour où elle sera longue, ce fichier se générera depuis
+# l'API de Plex plutôt qu'à la main.
+#
+# L'autre voie, si l'on veut dire n'importe quel titre sans liste : un
+# assistant vocal réglé sur whisper au lieu de Speech-to-Phrase. Plus souple,
+# plusieurs secondes d'attente sur un Pi, et les titres étrangers souvent
+# mal transcrits. Les deux moteurs cohabitent (docs/TESTING.md, 2.3).
+language: "fr"
+
+intents:
+  LancerFilm:
+    data:
+      - sentences:
+          - "(lance|joue|mets|démarre) [le film|le] {casa_film}"
+          - "on regarde {casa_film}"
+          - "film {casa_film}"
+
+lists:
+  casa_film:
+    values:
+      - in: "dune"
+        out: "Dune"
+      - in: "le seigneur des anneaux"
+        out: "Le Seigneur des anneaux"
+      - in: "arrival"
+        out: "Arrival"
