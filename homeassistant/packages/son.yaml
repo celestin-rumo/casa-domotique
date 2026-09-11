@@ -1,0 +1,51 @@
+# Le son de la WiiM, tenu en laisse.
+#
+# La WiiM Sound Lite est puissante : à 3 %, elle s'entend déjà dans toute la
+# chambre, et les volumes des ambiances d'avant (15 à 25 %) la faisaient
+# hurler. Deux réglages la maîtrisent :
+#
+# - le volume de chaque ambiance, dans packages/ambiances.yaml ;
+# - ici, un plafond que rien ne dépasse : ni une ambiance, ni le réveil, ni
+#   le curseur d'Écoute, ni l'app WiiM, ni la télécommande. Home Assistant
+#   ramène aussitôt l'enceinte au plafond si quelqu'un le franchit.
+#
+# 0 veut dire « pas de plafond ». Ce n'est pas un choix de confort : sans
+# `initial:` (packages/reveil.yaml dit pourquoi), un helper neuf part de son
+# minimum, et un minimum à 1 aurait bridé la WiiM à 1 % au premier
+# redémarrage, sans que rien ne le dise.
+input_number:
+  volume_max:
+    name: Son · plafond de la WiiM
+    icon: mdi:volume-vibrate
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: slider
+
+automation:
+  - id: volume_plafond
+    alias: Son → plafond de la WiiM
+    description: Ramène media_player.ma_chambre au plafond de input_number.volume_max dès qu'il le dépasse.
+    mode: single
+    trigger:
+      # Le volume qui bouge, d'où qu'il vienne, et le plafond qu'on abaisse
+      # sous le volume en cours.
+      - platform: state
+        entity_id: media_player.ma_chambre
+        attribute: volume_level
+      - platform: state
+        entity_id: input_number.volume_max
+    condition:
+      # Un demi-point de marge : l'enceinte arrondit, et 12 % peut revenir
+      # en 0,1201.
+      - condition: template
+        value_template: >-
+          {%- set m = states('input_number.volume_max') | float(0) -%}
+          {%- set v = state_attr('media_player.ma_chambre', 'volume_level') | float(0) -%}
+          {{ m > 0 and v * 100 > m + 0.5 }}
+    action:
+      - service: media_player.volume_set
+        target: { entity_id: media_player.ma_chambre }
+        data:
+          volume_level: "{{ (states('input_number.volume_max') | float(100) / 100) | round(2) }}"

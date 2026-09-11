@@ -113,6 +113,14 @@ input_select:
       - script.mood_focus
       - script.mood_chillos
       - script.mood_calin
+      # Les ambiances ajoutées depuis l'app ; l'app ne propose que les
+      # places remplies.
+      - script.mood_perso_1
+      - script.mood_perso_2
+      - script.mood_perso_3
+      - script.mood_perso_4
+      - script.mood_perso_5
+      - script.mood_perso_6
 
 automation:
   - id: reveil_a_l_heure
@@ -305,8 +313,13 @@ script:
       v0: "{{ states('input_number.reveil_volume_debut') | float(0) }}"
       v1: "{{ states('input_number.reveil_volume_fin') | float(0) }}"
       jamais_regle: "{{ v0 == 0 and v1 == 0 }}"
-      volume_debut: "{{ 0.03 if jamais_regle else (v0 / 100) | round(2) }}"
-      volume_fin: "{{ 0.2 if jamais_regle else (v1 / 100) | round(2) }}"
+      # Le plafond de la WiiM (packages/son.yaml) vaut aussi pour le matin :
+      # 0, pas de plafond.
+      plafond: >-
+        {%- set m = states('input_number.volume_max') | float(0) -%}
+        {{ m / 100 if m > 0 else 1 }}
+      volume_debut: "{{ ([0.03 if jamais_regle else v0 / 100, plafond] | min) | round(2) }}"
+      volume_fin: "{{ ([0.2 if jamais_regle else v1 / 100, plafond] | min) | round(2) }}"
     sequence:
       - condition: template
         value_template: "{{ choix != 'aucune' }}"
@@ -341,6 +354,14 @@ script:
   #
   # L'existence se teste avec expand() et non states() : une scène jamais
   # activée existe bel et bien, mais son état vaut « unknown ».
+  #
+  # « scene.reveil_debout » nomme la scène par son IDENTIFIANT (le `id:` de
+  # scenes.yaml), pas par son entity_id. Home Assistant tire l'entity_id du
+  # NOM de la scène : « Réveillé » est devenue scene.reveille sur le Pi, et
+  # jusqu'au 11 septembre 2026, « Je suis debout » cherchait
+  # scene.reveil_debout, ne la trouvait pas, et laissait la pièce telle
+  # quelle sans un mot. D'où la recherche par l'attribut `id`, quand
+  # l'entity_id n'existe pas tel quel.
   reveil_stop:
     alias: Réveil · arrêter
     icon: mdi:alarm-off
@@ -348,7 +369,15 @@ script:
       player: { example: media_player.ma_chambre }
     variables:
       enceinte: "{{ player | default('media_player.ma_chambre') }}"
-      ensuite: "{{ states('input_select.reveil_debout') }}"
+      choix: "{{ states('input_select.reveil_debout') }}"
+      ensuite: >-
+        {%- if choix.startswith('scene.') and expand(choix) | count == 0 -%}
+          {{- states.scene | selectattr('attributes.id', 'defined')
+                | selectattr('attributes.id', 'eq', choix[6:])
+                | map(attribute='entity_id') | first | default('') -}}
+        {%- else -%}
+          {{- choix -}}
+        {%- endif -%}
     sequence:
       - service: script.turn_off
         target: { entity_id: [script.reveil, script.reveil_musique] }

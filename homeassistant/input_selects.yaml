@@ -31,3 +31,11 @@ mood:
     - script.mood_chillos
     - script.mood_calin
     - script.mood_off
+    # Les six places des ambiances ajoutées depuis l'app
+    # (packages/ambiances.yaml). Une place vide ne s'affiche pas.
+    - script.mood_perso_1
+    - script.mood_perso_2
+    - script.mood_perso_3
+    - script.mood_perso_4
+    - script.mood_perso_5
+    - script.mood_perso_6

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { HassEntities } from "home-assistant-js-websocket";
 import { onEntities, onLiaison, activateScene, messageDe, type Liaison } from "./ha";
-import { MOODS, MOOD_SELECT, ECHO_DELAI_MS } from "./config";
+import { MOOD_SELECT, ECHO_DELAI_MS } from "./config";
 import { setupNative, tap } from "./native";
 
 // Entité → phrase. Une faute reste affichée sur sa carte jusqu'à ce qu'une
@@ -78,7 +78,9 @@ export function MaisonProvider({ children }: { children: ReactNode }) {
     if (attente && courante === attente) {
       setAttente(null);
       setConfirmee(attente);
-      setFautes((f) => MOODS.reduce((reste, m) => sans(reste, m.id), f));
+      // Toutes les ambiances, ajoutées comprises : leurs scripts partagent
+      // le préfixe script.mood_.
+      setFautes((f) => Object.keys(f).filter((k) => k.startsWith("script.mood_")).reduce(sans, f));
     }
   }, [attente, courante]);
 

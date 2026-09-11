@@ -799,8 +799,8 @@ WebSocket, et un navigateur n'applique pas le CORS aux WebSockets.
 le message d'authentification. Home Assistant, de son côté, ne vérifie pas
 l'origine sur `/api/websocket`.
 
-**Une requête fait exception : enregistrer une ambiance.** Ambiances →
-Ajuster → « Enregistrer les lumières » fige l'état actuel des lampes dans une
+**Une requête fait exception : enregistrer une ambiance.** Réglages →
+Lumières → « Enregistrer les lumières » fige l'état actuel des lampes dans une
 scène, et Home Assistant n'expose pas l'écriture des scènes par WebSocket —
 son propre éditeur passe par `/api/config/scene/config/<id>`. L'app y fait
 deux requêtes — lire la scène, puis l'écrire — et ce sont les seules
@@ -1258,8 +1258,15 @@ d'un bond.
 
 Puis **Je suis debout**, avec chacun des choix de « Ensuite » : rien, une
 ambiance, et l'éclairage « Réveillé » — qui n'existe qu'une fois enregistré
-depuis Ambiances → Enregistrer les lumières → Réveillé. Tant qu'il n'existe
+depuis Réglages → Enregistrer les lumières → Réveillé. Tant qu'il n'existe
 pas, ce choix laisse la pièce telle quelle, sans erreur.
+
+> Jusqu'au 11 septembre 2026, « Réveillé » ne s'allumait **jamais**, même
+> enregistré : l'option vaut `scene.reveil_debout`, l'identifiant de la
+> scène, alors que Home Assistant lui a donné l'entity_id `scene.reveille`,
+> tiré de son nom. `script.reveil_stop` la cherche désormais par son
+> identifiant. Vérifié sur le moteur du Pi par `/api/template` : le choix
+> réel du Pi se résout en `scene.reveille`.
 
 ## 3.6 Les films du Synology
 

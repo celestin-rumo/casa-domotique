@@ -1,12 +1,10 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { useMaison } from "../maison";
 import { useNavigation } from "../navigation";
-import { MOODS, MOOD_SELECT, LIGHTS, CIBLES_ENREGISTREMENT } from "../config";
-import { enregistrerScene, scenePourLumieres, type EtatLumiere } from "../ha";
-import { Carte, Etiquette, LigneEtat, NoteFaute, Question, useAppuiLong } from "../ui";
+import { MOOD_SELECT } from "../config";
+import { placeLibre, placesPresentes, useAmbiances, type Ambiance } from "../ambiances";
+import { LigneEtat, NoteFaute, Question, Etiquette, useAppuiLong } from "../ui";
 import { Reveil } from "./Reveil";
-
-type Mood = (typeof MOODS)[number];
 
 const reduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -43,14 +41,18 @@ function depuis(iso: string | undefined, maintenant: number): string {
   return `depuis ${h} h${min % 60 ? ` ${min % 60}` : ""}`;
 }
 
+// L'écran de tous les jours : les ambiances, puis le réveil du lendemain.
+// Ce qu'on règle une fois — le lever en détail, le plafond du son,
+// l'enregistrement des lumières — vit dans Réglages.
 export function Ambiances() {
   const { entities, fautes, attente, confirmee, ambiance } = useMaison();
   const { ouvrir } = useNavigation();
-  const [aModifier, setAModifier] = useState<Mood | null>(null);
+  const ambiances = useAmbiances();
+  const [aModifier, setAModifier] = useState<Ambiance | null>(null);
   const select = entities[MOOD_SELECT];
   const courante = select?.state;
   const affichee = attente ?? courante;
-  const mood = MOODS.find((m) => m.id === affichee);
+  const mood = ambiances.find((m) => m.id === affichee);
 
   // « depuis 12 min » doit avancer sans qu'on touche à rien.
   const [maintenant, setMaintenant] = useState(Date.now());
@@ -59,7 +61,24 @@ export function Ambiances() {
     return () => clearInterval(t);
   }, []);
 
-  const fauteAmbiance = MOODS.map((m) => [m.id, fautes[m.id]] as const).find(([, f]) => f);
+  const fauteAmbiance = ambiances.map((m) => [m.id, fautes[m.id]] as const).find(([, f]) => f);
+  const libre = placeLibre(entities);
+  const presentes = placesPresentes(entities);
+
+  const tuile = (m: Ambiance) => (
+    <Tuile
+      key={m.id}
+      m={m}
+      on={affichee === m.id}
+      etat={attente === m.id ? " pending" : confirmee === m.id ? " settled" : ""}
+      surClic={(ev) => {
+        lavis(ev);
+        ambiance(m.id);
+      }}
+      // « Tout éteindre » n'a ni scène ni musique : rien à y modifier.
+      surLong={m.scene ? () => setAModifier(m) : undefined}
+    />
+  );
 
   return (
     <>
@@ -70,22 +89,25 @@ export function Ambiances() {
       </LigneEtat>
 
       <div className="moods">
-        {MOODS.map((m) => (
-          <Tuile
-            key={m.id}
-            m={m}
-            on={affichee === m.id}
-            etat={attente === m.id ? " pending" : confirmee === m.id ? " settled" : ""}
-            surClic={(ev) => {
-              lavis(ev);
-              ambiance(m.id);
-            }}
-            // « Tout éteindre » n'a ni scène ni musique : rien à y modifier.
-            surLong={m.scene ? () => setAModifier(m) : undefined}
-          />
-        ))}
+        {ambiances.filter((m) => !m.wide).map(tuile)}
+        {/* La place libre : pas de question, rien n'est touché avant
+            « Créer ». Grisée quand les six sont prises, ou que le Pi ne les
+            a pas encore. */}
+        <button
+          className="mood ajout"
+          disabled={!libre}
+          onClick={() => libre && ouvrir({ type: "ambiance", id: libre.id, nouvelle: true })}
+        >
+          <span className="mood-name">
+            <span aria-hidden="true">+ </span>Nouvelle
+          </span>
+          <span className="mood-what">
+            {!presentes ? "le Pi n'a pas encore les places" : libre ? "tes lumières, ta musique, ton volume" : "les six places sont prises"}
+          </span>
+        </button>
+        {ambiances.filter((m) => m.wide).map(tuile)}
       </div>
-      <p className="astuce">Maintiens une ambiance pour la modifier.</p>
+      <p className="astuce">Maintiens une ambiance pour la modifier : lumières, musique, volume.</p>
 
       {fauteAmbiance && <NoteFaute entite={fauteAmbiance[0]} message={fauteAmbiance[1]} />}
 
@@ -101,9 +123,6 @@ export function Ambiances() {
         />
       )}
 
-      <Etiquette>Ajuster</Etiquette>
-      <Enregistrer entities={entities} />
-
       <Etiquette>Le matin</Etiquette>
       <Reveil />
     </>
@@ -112,7 +131,7 @@ export function Ambiances() {
 
 // Une tuile : le clic lance l'ambiance, l'appui long propose de la modifier.
 function Tuile({ m, on, etat, surClic, surLong }: {
-  m: Mood;
+  m: Ambiance;
   on: boolean;
   etat: string;
   surClic: (ev: MouseEvent<HTMLElement>) => void;
@@ -130,62 +149,5 @@ function Tuile({ m, on, etat, surClic, surLong }: {
       <span className="mood-name">{m.label}</span>
       <span className="mood-what">{m.what}</span>
     </button>
-  );
-}
-
-// Régler les lampes à la main, puis figer cet état dans une ambiance. Deux
-// appuis : le premier arme, le second écrit — un seul suffirait à écraser
-// une ambiance par mégarde, et rien ne permettrait de la retrouver.
-//
-// La liste vient de CIBLES_ENREGISTREMENT : les ambiances qui ont une scène,
-// plus l'éclairage « Réveillé » que « Je suis debout » peut allumer. « Tout
-// éteindre » n'y est pas : enregistrer une pièce noire n'apprendrait rien.
-function Enregistrer({ entities }: { entities: Record<string, EtatLumiere | undefined> }) {
-  const [arme, setArme] = useState<string | null>(null);
-  const [dit, setDit] = useState<string | null>(null);
-  const [rate, setRate] = useState(false);
-
-  const enregistrables = CIBLES_ENREGISTREMENT;
-  const allumees = LIGHTS.filter((id) => entities[id]?.state === "on").length;
-
-  async function ecrire(scene: string, nom: string) {
-    setArme(null);
-    try {
-      await enregistrerScene(scene, nom, scenePourLumieres(LIGHTS, entities));
-      setRate(false);
-      setDit(`${nom} : les lumières actuelles sont enregistrées`);
-    } catch (e) {
-      setRate(true);
-      setDit(e instanceof Error ? e.message : "l'enregistrement a échoué");
-    }
-  }
-
-  return (
-    <Carte faute={rate}>
-      <div className="row">
-        <div>
-          <div className="row-name">Enregistrer les lumières</div>
-          <div className="row-meta">
-            {allumees} allumée{allumees > 1 ? "s" : ""} sur {LIGHTS.length} · devient l'ambiance choisie
-          </div>
-        </div>
-      </div>
-      <div className="btn-row" style={{ marginTop: 12, flexWrap: "wrap" }}>
-        {enregistrables.map((m) => (
-          <button
-            key={m.id}
-            className={`btn${arme === m.id ? " primary" : ""}`}
-            onClick={() => (arme === m.id ? ecrire(m.scene, m.label) : (setArme(m.id), setDit(null)))}
-          >
-            {arme === m.id ? `Écraser ${m.label} ?` : m.label}
-          </button>
-        ))}
-      </div>
-      {dit && (
-        <p className="row-meta" style={{ marginTop: 10 }} role="status">
-          {dit}
-        </p>
-      )}
-    </Carte>
   );
 }

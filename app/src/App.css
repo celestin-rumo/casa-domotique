@@ -632,6 +632,37 @@ input.recherche:disabled { color: var(--muted); }
 .entree span { font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entree select { width: auto; max-width: 62%; }
 
+/* ---------- ajouter une ambiance ---------- */
+/* La place libre : une tuile en creux, qui ne se confond pas avec une
+   ambiance éteinte. */
+.mood.ajout {
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px dashed var(--line-2);
+}
+.mood.ajout .mood-name { color: var(--muted); }
+.mood.ajout:not(:disabled):hover .mood-name { color: var(--ink); }
+.teintes { display: flex; flex-wrap: wrap; gap: 10px; }
+.teinte {
+  width: 34px; height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--t);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  cursor: pointer;
+  transition: transform var(--t-tap) var(--e-out), box-shadow var(--t-swap) var(--e-both);
+}
+.teinte:active { transform: scale(.9); }
+.teinte[aria-checked="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--t); }
+.btn.danger { color: var(--err); }
+
+/* ---------- Réglages ---------- */
+/* Un groupe d'écran qui garde l'espacement de la vue : la carte du réveil y
+   mène, et l'étiquette doit arriver en haut de l'écran avec ses cartes. */
+.groupe { display: grid; gap: 16px; scroll-margin-top: 6px; }
+/* Le lien vers une autre vue : le chevron regarde à droite. */
+.adv-toggle .chev.droite { transform: rotate(-90deg); }
+
 /* Coupe tout, lavis et trait compris. L'état affiché reste le même. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

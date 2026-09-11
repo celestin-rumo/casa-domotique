@@ -17,18 +17,33 @@
 // `musique` est le réglage de la musique de l'ambiance
 // (packages/ambiances.yaml), et `defaut` ce qu'elle joue quand ce réglage
 // est vide : la variable `defaut` de son script, dans scripts.yaml, que
-// l'app répète ici pour pouvoir la nommer.
+// l'app répète ici pour pouvoir la nommer. `volume` et `volumeDefaut`, de
+// même : le réglage du volume, et la variable `volume_defaut` du script,
+// qu'il joue tant que le réglage est à 0.
+//
+// Les ambiances ajoutées depuis l'app ne sont pas ici : elles vivent sur le
+// Pi, dans leurs places (PERSO_PLACES ci-dessous), et arrivent par
+// subscribeEntities — src/ambiances.ts assemble les deux.
 export const MOODS = [
   { id: "script.mood_detente", label: "Détente", what: "Chambre · 2400 K", hue: "#e8b86d", scene: "detente",
-    musique: "input_text.musique_detente", defaut: "Détente" },
+    musique: "input_text.musique_detente", defaut: "Détente", volume: "input_number.volume_detente", volumeDefaut: 25 },
   { id: "script.mood_focus", label: "Focus", what: "Chambre · 4200 K", hue: "#4a88c7", scene: "focus",
-    musique: "input_text.musique_focus", defaut: "Focus" },
+    musique: "input_text.musique_focus", defaut: "Focus", volume: "input_number.volume_focus", volumeDefaut: 15 },
   { id: "script.mood_chillos", label: "Chillos", what: "Tamisé · 2200 K", hue: "#b0455f", scene: "chillos",
-    musique: "input_text.musique_chillos", defaut: "Chillos" },
+    musique: "input_text.musique_chillos", defaut: "Chillos", volume: "input_number.volume_chillos", volumeDefaut: 18 },
   { id: "script.mood_calin", label: "Câlin", what: "Rouge rosé · Chillos", hue: "#d42c5e", scene: "calin",
-    musique: "input_text.musique_calin", defaut: "Chillos" },
+    musique: "input_text.musique_calin", defaut: "Chillos", volume: "input_number.volume_calin", volumeDefaut: 15 },
   { id: "script.mood_off", label: "Tout éteindre", what: "Lumières + lecture", hue: "#5a5652", wide: true },
 ];
+
+// Le nombre de places pour les ambiances ajoutées depuis l'app : autant de
+// input_text.ambiance_perso_N (packages/ambiances.yaml), de
+// script.mood_perso_N (scripts.yaml) et d'options de input_select.mood. En
+// ajouter demande de toucher aux trois, puis ici.
+export const PERSO_PLACES = 6;
+
+// Le plafond de la WiiM (packages/son.yaml) : rien ne le dépasse.
+export const VOLUME_MAX = "input_number.volume_max";
 
 // L'enceinte de référence : celle dont l'app affiche la lecture. Elle était
 // aussi le chef du groupe quand d'autres pièces écoutaient ; avec une seule
@@ -85,20 +100,12 @@ export const REVEIL = {
   stop: "script.reveil_stop",
 };
 
-// Ce que « Je suis debout » peut faire de la pièce : les options de
-// input_select.reveil_debout, dans le même ordre, avec un nom lisible.
-export const APRES_REVEIL = [
-  { id: "rien", label: "Laisser la pièce comme le lever l'a mise" },
-  { id: "scene.reveil_debout", label: "Allumer l'éclairage « Réveillé »" },
-  ...MOODS.flatMap((m) => (m.scene ? [{ id: m.id, label: `Lancer ${m.label}` }] : [])),
-];
-
-// Les scènes que « Enregistrer les lumières » peut réécrire : celles des
-// ambiances, plus l'éclairage « Réveillé » que « Je suis debout » allume.
-export const CIBLES_ENREGISTREMENT = [
-  ...MOODS.flatMap((m) => (m.scene ? [{ id: m.id, label: m.label, scene: m.scene }] : [])),
-  { id: "scene.reveil_debout", label: "Réveillé", scene: "reveil_debout" },
-];
+// L'éclairage « Réveillé », que « Je suis debout » peut allumer. `id` est
+// son option dans input_select.reveil_debout : la scène nommée par son
+// IDENTIFIANT de configuration, `scene`. Son entity_id, lui, vient du nom —
+// scene.reveille sur le Pi —, et c'est par l'identifiant que l'app comme
+// script.reveil_stop la retrouvent.
+export const REVEILLE = { id: "scene.reveil_debout", label: "Réveillé", scene: "reveil_debout" };
 
 // Les playlists épinglées depuis Écoute (homeassistant/packages/playlists.yaml).
 export const PLAYLISTS_EPINGLEES = "input_text.playlists_epinglees";

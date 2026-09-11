@@ -92,9 +92,28 @@ mood_detente:
     # après quelques titres. Une playlist choisie dans le réglage, elle, se
     # joue telle quelle.
     radio: true
+    # Le volume : son réglage (packages/ambiances.yaml), ou, jamais réglé,
+    # celui d'avant ces réglages.
+    volume: input_number.volume_detente
+    volume_defaut: 25
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.detente }
+    # Le volume AVANT la musique, pour qu'elle ne démarre pas au volume de
+    # l'ambiance d'avant. Réglé, ou `volume_defaut`, et jamais au-dessus du
+    # plafond de la WiiM (packages/son.yaml) — un Pi qui n'a pas encore
+    # redémarré depuis l'ajout de ces réglages lit « unknown », donc 0 : le
+    # défaut, sans plafond, comme avant.
+    - &volume_regle
+      service: media_player.volume_set
+      target: { entity_id: media_player.ma_chambre }
+      data:
+        volume_level: >-
+          {%- set r = states(volume) | float(0) -%}
+          {%- set v = r if r > 0 else volume_defaut | float -%}
+          {%- set m = states('input_number.volume_max') | float(0) -%}
+          {%- set v = [v, m] | min if m > 0 else v -%}
+          {{ (v / 100) | round(2) }}
     # Une étape groupée, pour que l'ancre la réutilise d'un bloc dans les
     # quatre ambiances : chacune ne donne que `reglage` et `defaut`.
     - &musique_reglee
@@ -112,9 +131,6 @@ mood_detente:
                 name: "{{ choix }}"
                 player: media_player.ma_chambre
                 radio_mode: "{{ radio | default(false) and not reglee }}"
-    - service: media_player.volume_set
-      target: { entity_id: media_player.ma_chambre }
-      data: { volume_level: 0.25 }
     # L'écho qui confirme l'ambiance côté app, comme play_playlist écrit
     # input_select.playlist. En dernier, donc absent si une étape a échoué :
     # l'app revient alors en arrière en nommant le script. `this` est le
@@ -131,13 +147,13 @@ mood_focus:
   variables:
     reglage: input_text.musique_focus
     defaut: Focus
+    volume: input_number.volume_focus
+    volume_defaut: 15
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.focus }
+    - *volume_regle
     - *musique_reglee
-    - service: media_player.volume_set
-      target: { entity_id: media_player.ma_chambre }
-      data: { volume_level: 0.15 }
     - *ambiance_confirmee
 
 mood_chillos:
@@ -146,13 +162,13 @@ mood_chillos:
   variables:
     reglage: input_text.musique_chillos
     defaut: Chillos
+    volume: input_number.volume_chillos
+    volume_defaut: 18
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.chillos }
+    - *volume_regle
     - *musique_reglee
-    - service: media_player.volume_set
-      target: { entity_id: media_player.ma_chambre }
-      data: { volume_level: 0.18 }
     - *ambiance_confirmee
 
 mood_calin:
@@ -160,13 +176,13 @@ mood_calin:
   variables:
     reglage: input_text.musique_calin
     defaut: Chillos
+    volume: input_number.volume_calin
+    volume_defaut: 15
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.calin }
+    - *volume_regle
     - *musique_reglee
-    - service: media_player.volume_set
-      target: { entity_id: media_player.ma_chambre }
-      data: { volume_level: 0.15 }
     - *ambiance_confirmee
 
 mood_off:
@@ -183,6 +199,69 @@ mood_off:
     - service: media_player.media_stop
       target: { entity_id: all }
     - *ambiance_confirmee
+
+# LES AMBIANCES AJOUTÉES DEPUIS L'APP : six places, une par script, qui
+# lisent tout de leur input_text.ambiance_perso_N (packages/ambiances.yaml) :
+# le nom, la musique, le volume. Les lumières sont la scène d'identifiant
+# `ambiance_perso_N`, que l'app écrit comme les autres — cherchée par cet
+# identifiant, pas par un entity_id que Home Assistant tire du nom.
+#
+# Même ordre que les ambiances d'origine, même écho en dernier. Une place
+# vide échoue et le dit : l'app ne la montre pas, mais « Je suis debout » ou
+# Outils de développement peuvent encore la lancer.
+mood_perso_1:
+  alias: Ambiance perso 1
+  variables: { place: 1 }
+  sequence: &ambiance_perso
+    - variables:
+        brut: "{{ states('input_text.ambiance_perso_' ~ place) | trim }}"
+        reglage: "{{ brut | from_json if brut.startswith('{') else {} }}"
+    - if:
+        - condition: template
+          value_template: "{{ reglage.n is not defined }}"
+      then:
+        - stop: "Cette place est vide : aucune ambiance n'y est enregistrée"
+          error: true
+    - variables:
+        scene: >-
+          {{ states.scene | selectattr('attributes.id', 'defined')
+             | selectattr('attributes.id', 'eq', 'ambiance_perso_' ~ place)
+             | map(attribute='entity_id') | first | default('') }}
+        choix: "{{ reglage.m | default('') | string | trim }}"
+        volume: "{{ reglage.v | default(0) | float(0) }}"
+    - if:
+        - condition: template
+          value_template: "{{ scene != '' }}"
+      then:
+        - service: scene.turn_on
+          target: { entity_id: "{{ scene }}" }
+    - if:
+        - condition: template
+          value_template: "{{ volume > 0 }}"
+      then:
+        - service: media_player.volume_set
+          target: { entity_id: media_player.ma_chambre }
+          data:
+            volume_level: >-
+              {%- set m = states('input_number.volume_max') | float(0) -%}
+              {%- set v = [volume, m] | min if m > 0 else volume -%}
+              {{ (v / 100) | round(2) }}
+    - if:
+        - condition: template
+          value_template: "{{ choix not in ['', 'aucune'] }}"
+      then:
+        - service: script.play_playlist
+          data:
+            name: "{{ choix }}"
+            player: media_player.ma_chambre
+    - service: input_select.select_option
+      target: { entity_id: input_select.mood }
+      data: { option: "{{ this.entity_id }}" }
+mood_perso_2: { alias: Ambiance perso 2, variables: { place: 2 }, sequence: *ambiance_perso }
+mood_perso_3: { alias: Ambiance perso 3, variables: { place: 3 }, sequence: *ambiance_perso }
+mood_perso_4: { alias: Ambiance perso 4, variables: { place: 4 }, sequence: *ambiance_perso }
+mood_perso_5: { alias: Ambiance perso 5, variables: { place: 5 }, sequence: *ambiance_perso }
+mood_perso_6: { alias: Ambiance perso 6, variables: { place: 6 }, sequence: *ambiance_perso }
 
 # Un banc d'essai, pas une ambiance : les lampes et la playlist Chillos sans
 # passer par une scène ni par play_playlist, pour qu'une panne accuse le

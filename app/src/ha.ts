@@ -293,10 +293,15 @@ async function requete(chemin: string, init: RequestInit = {}): Promise<Response
 // config.ts — ainsi qu'une icône et des métadonnées posées par l'éditeur.
 // Réécrire la scène avec les seules lumières de l'app les effacerait toutes,
 // sans un mot : l'enregistrement ne touche donc qu'à ce qu'il connaît.
+//
+// `renommer` : le nom de la scène suit celui qu'on vient de donner — pour une
+// ambiance ajoutée depuis l'app, dont le nom se change dans l'app. Les
+// autres gardent le nom que Home Assistant leur connaît.
 export async function enregistrerScene(
   sceneId: string,
   nom: string,
   lumieres: Record<string, Record<string, unknown>>,
+  renommer = false,
 ) {
   const chemin = `/api/config/scene/config/${encodeURIComponent(sceneId)}`;
   const lue = await requete(chemin);
@@ -306,9 +311,19 @@ export async function enregistrerScene(
   const existante: ConfigScene | null = lue.ok ? await lue.json() : null;
   const scene: ConfigScene = existante ?? { id: sceneId, name: nom, entities: {} };
   scene.entities = { ...scene.entities, ...lumieres };
+  if (renommer) scene.name = nom;
 
   const r = await requete(chemin, { method: "POST", body: JSON.stringify(scene) });
   if (!r.ok) throw new Error(`Home Assistant a refusé l'enregistrement (${r.status})`);
+}
+
+// Retirer la scène d'une ambiance ajoutée qu'on supprime : le même chemin,
+// en DELETE, que l'éditeur de Home Assistant. Une scène déjà absente — jamais
+// enregistrée, ou retirée dans l'interface — n'est pas une erreur : ce qu'on
+// voulait est fait.
+export async function supprimerScene(sceneId: string) {
+  const r = await requete(`/api/config/scene/config/${encodeURIComponent(sceneId)}`, { method: "DELETE" });
+  if (!r.ok && r.status !== 404) throw new Error(`Home Assistant refuse de retirer la scène (${r.status})`);
 }
 
 // L'aller-retour WebSocket, en millisecondes — ce que l'écran Réglages affiche.

@@ -1,9 +1,11 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useMaison } from "../maison";
-import { APRES_REVEIL, LIGHTS, REVEIL } from "../config";
+import { useNavigation } from "../navigation";
+import { LIGHTS, REVEIL, REVEILLE } from "../config";
 import { runScript, setBoolean, setNumber, setSelect, setTime } from "../ha";
 import { useTexte } from "../useTexte";
 import { usePlaylists } from "../bibliotheque";
+import { listeAmbiances, plafond, sceneDe } from "../ambiances";
 import { Carte, Curseur, Interrupteur, NoteFaute, OptionsPlaylists } from "../ui";
 import {
   css, degradeCourbe, ecrireCourbe, estBlanc, hsRgb, kelvinDe, lireCourbe, rgbDuPoint, rgbHex,
@@ -41,33 +43,32 @@ function ecrireLampes(l: Lampe[]): string {
     .join(",");
 }
 
-const Chevron = () => (
-  <svg className="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+const Chevron = ({ droite }: { droite?: boolean }) => (
+  <svg className={`chev${droite ? " droite" : ""}`} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
        strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
 );
 
-// La carte du réveil, sur l'écran Ambiances. En haut, ce qu'on touche chaque
-// soir : l'heure, actif ou non, la durée, et l'aperçu du lever. Dessous,
-// replié, ce qu'on règle une fois : les lumières, la courbe, la musique, et
-// ce que fait « Je suis debout ». Tout vit sur le Pi, dans les helpers de
-// packages/reveil.yaml : c'est le Pi qui réveille, pas le natel.
+// La carte du réveil, sur l'écran Ambiances : ce qu'on touche chaque soir —
+// l'heure, actif ou non, la durée, et l'aperçu du lever. Ce qu'on règle une
+// fois — les lumières, la courbe, la musique, et ce que fait « Je suis
+// debout » — prenait tout l'écran une fois déplié : il vit dans Réglages
+// (ReglagesReveil, plus bas), où cette carte mène. Tout vit sur le Pi, dans
+// les helpers de packages/reveil.yaml : c'est le Pi qui réveille, pas le
+// natel.
 export function Reveil() {
   const { entities, fautes, agir } = useMaison();
+  const { choisirOnglet } = useNavigation();
   const heure = entities[REVEIL.heure];
   const actif = entities[REVEIL.actif];
   const duree = entities[REVEIL.duree];
   const script = entities[REVEIL.script];
 
-  const [lumieresBrut, ecrireLumieres] = useTexte(REVEIL.lumieres);
-  const [courbeBrut, ecrireCourbeBrut] = useTexte(REVEIL.courbe);
+  const [lumieresBrut] = useTexte(REVEIL.lumieres);
+  const [courbeBrut] = useTexte(REVEIL.courbe);
   const lampes = lireLampes(lumieresBrut);
   const points = lireCourbe(courbeBrut);
 
   const present = !!(heure && actif && duree && script);
-  // Un Pi qui n'a pas encore tiré la version du 11 septembre 2026 a le
-  // réveil, mais pas ses nouveaux réglages : on le dit plutôt que d'ouvrir un
-  // panneau dont chaque geste échouerait.
-  const reglable = present && !!entities[REVEIL.courbe];
   const on = actif?.state === "on";
   const enCours = script?.state === "on";
   const hhmm = (heure?.state ?? "07:00:00").slice(0, 5);
@@ -76,7 +77,6 @@ export function Reveil() {
   // Comme le curseur : la valeur tapée reste affichée jusqu'à l'écho.
   const [locale, setLocale] = useState<string | null>(null);
   useEffect(() => setLocale(null), [hhmm]);
-  const [ouvert, setOuvert] = useState(false);
 
   const premiere = entities[lampes[0].id];
   const niveau = premiere?.state === "on" && premiere.attributes.brightness
@@ -88,25 +88,11 @@ export function Reveil() {
     : on ? `${hhmm} · lever en ${minutes} min · ${quoi}`
     : "désactivé";
 
-  const faute = Object.values(REVEIL).map((id) => fautes[id]).find(Boolean);
-  const entiteFautive = Object.values(REVEIL).find((id) => fautes[id]) ?? REVEIL.script;
-
-  const changerLampes = (l: Lampe[]) => ecrireLumieres(ecrireLampes(l));
-
-  // Un point déplacé emmène les lampes qui entraient avec lui : « la seconde
-  // lampe au point 1 » reste vrai quand on déplace le point 1.
-  const changerCourbe = (nouveaux: Point[]) => {
-    if (nouveaux.length === points.length) {
-      const bouge = new Map<number, number>();
-      points.forEach((pt, i) => {
-        if (pt.p !== nouveaux[i].p) bouge.set(Math.round(pt.p), Math.round(nouveaux[i].p));
-      });
-      if (lampes.some((l) => l.p > 0 && bouge.has(l.p))) {
-        changerLampes(lampes.map((l) => (l.p > 0 && bouge.has(l.p) ? { ...l, p: bouge.get(l.p)! } : l)));
-      }
-    }
-    ecrireCourbeBrut(ecrireCourbe(nouveaux));
-  };
+  // Les fautes des gestes de cette carte ; celles des réglages s'affichent
+  // dans Réglages, là où on les a faits.
+  const ici = [REVEIL.actif, REVEIL.heure, REVEIL.duree, REVEIL.script, REVEIL.stop];
+  const entiteFautive = ici.find((id) => fautes[id]) ?? REVEIL.script;
+  const faute = fautes[entiteFautive];
 
   return (
     <Carte lit={enCours} faute={!!faute}>
@@ -158,20 +144,10 @@ export function Reveil() {
       </div>
 
       {present && (
-        <button className="adv-toggle" aria-expanded={ouvert} aria-controls="reveil-reglages"
-                disabled={!reglable} onClick={() => setOuvert(!ouvert)}>
-          <span>{reglable ? "Régler le lever" : "Réglages du lever : absents du Pi"}</span>
-          {reglable && <Chevron />}
+        <button className="adv-toggle" onClick={() => choisirOnglet("reglages", "reglages-reveil")}>
+          <span>Lumières, courbe, musique · Réglages</span>
+          <Chevron droite />
         </button>
-      )}
-
-      {ouvert && reglable && (
-        <div className="adv open long" id="reveil-reglages">
-          <Lampes lampes={lampes} points={points} onChange={changerLampes} />
-          <Courbe points={points} onChange={changerCourbe} />
-          <Musique minutes={minutes} />
-          <AuLever />
-        </div>
       )}
 
       <div className="btn-row">
@@ -188,6 +164,82 @@ export function Reveil() {
         )}
       </div>
     </Carte>
+  );
+}
+
+// Les réglages du lever, sur l'écran Réglages : une carte par question —
+// quelles lumières et sur quelle courbe, quelle musique, et ce que fait
+// « Je suis debout ».
+export function ReglagesReveil() {
+  const { entities, fautes } = useMaison();
+  const [lumieresBrut, ecrireLumieres] = useTexte(REVEIL.lumieres);
+  const [courbeBrut, ecrireCourbeBrut] = useTexte(REVEIL.courbe);
+  const lampes = lireLampes(lumieresBrut);
+  const points = lireCourbe(courbeBrut);
+
+  const present = !!(entities[REVEIL.heure] && entities[REVEIL.script]);
+  // Un Pi qui n'a pas encore tiré la version du 11 septembre 2026 a le
+  // réveil, mais pas ses nouveaux réglages : on le dit plutôt que d'ouvrir un
+  // panneau dont chaque geste échouerait.
+  const reglable = present && !!entities[REVEIL.courbe];
+  const minutes = Number(entities[REVEIL.duree]?.state ?? 20);
+
+  const reglages = [REVEIL.lumieres, REVEIL.courbe, REVEIL.playlist, REVEIL.musiqueDelai,
+                    REVEIL.volumeDebut, REVEIL.volumeFin, REVEIL.debout];
+  const entiteFautive = reglages.find((id) => fautes[id]);
+
+  const changerLampes = (l: Lampe[]) => ecrireLumieres(ecrireLampes(l));
+
+  // Un point déplacé emmène les lampes qui entraient avec lui : « la seconde
+  // lampe au point 1 » reste vrai quand on déplace le point 1.
+  const changerCourbe = (nouveaux: Point[]) => {
+    if (nouveaux.length === points.length) {
+      const bouge = new Map<number, number>();
+      points.forEach((pt, i) => {
+        if (pt.p !== nouveaux[i].p) bouge.set(Math.round(pt.p), Math.round(nouveaux[i].p));
+      });
+      if (lampes.some((l) => l.p > 0 && bouge.has(l.p))) {
+        changerLampes(lampes.map((l) => (l.p > 0 && bouge.has(l.p) ? { ...l, p: bouge.get(l.p)! } : l)));
+      }
+    }
+    ecrireCourbeBrut(ecrireCourbe(nouveaux));
+  };
+
+  if (!present) {
+    return (
+      <Carte faute>
+        <p className="row-meta">packages/reveil.yaml n'est pas chargé sur le Pi.</p>
+      </Carte>
+    );
+  }
+  if (!reglable) {
+    return (
+      <Carte>
+        <p className="row-meta">
+          Réglages du lever : absents du Pi. Home Assistant n'a pas redémarré depuis le git pull (docs/MISE-A-JOUR.md).
+        </p>
+      </Carte>
+    );
+  }
+
+  return (
+    <>
+      {entiteFautive && (
+        <Carte faute>
+          <NoteFaute entite={entiteFautive} message={fautes[entiteFautive]} />
+        </Carte>
+      )}
+      <Carte>
+        <Lampes lampes={lampes} points={points} onChange={changerLampes} />
+        <Courbe points={points} onChange={changerCourbe} />
+      </Carte>
+      <Carte>
+        <Musique minutes={minutes} />
+      </Carte>
+      <Carte>
+        <AuLever />
+      </Carte>
+    </>
   );
 }
 
@@ -269,6 +321,9 @@ function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) 
   return (
     <div className="sous">
       <p className="sous-titre">La courbe</p>
+      <div className="courbe" aria-hidden="true" style={{ background: degradeCourbe(points) }}>
+        {points.map((pt, j) => <i key={j} style={{ left: `${pt.p}%` }} />)}
+      </div>
       {points.map((pt, j) => {
         const bord = j === 0 || j === points.length - 1;
         return (
@@ -345,11 +400,13 @@ function PointCourbe({ id, pt, titre, min, max, onChange, onRetirer }: {
 // volume. Les deux volumes à 0 % veulent dire « jamais réglés » : le Pi joue
 // alors de 3 % à 20 %, et l'app montre ces valeurs-là — les écrire toutes
 // les deux au premier geste évite que l'autre reste à 0 sans qu'on l'ait
-// voulu.
+// voulu. Le plafond de la WiiM (Réglages → Son) borne les deux curseurs :
+// le Pi ne dépasserait pas, de toute façon.
 function Musique({ minutes }: { minutes: number }) {
   const { entities, agir } = useMaison();
   const [choix, ecrireChoix] = useTexte(REVEIL.playlist);
   const { playlists } = usePlaylists();
+  const cap = plafond(entities);
 
   const valeur = choix || "Détente";
   const connue = valeur === "aucune" || playlists.some((p) => p.valeur === valeur);
@@ -361,8 +418,8 @@ function Musique({ minutes }: { minutes: number }) {
   const jamais = v0 === 0 && v1 === 0;
   const volume = (id: string, v: number) => agir(id, async () => {
     if (jamais) {
-      await setNumber(REVEIL.volumeDebut, id === REVEIL.volumeDebut ? v : 3);
-      await setNumber(REVEIL.volumeFin, id === REVEIL.volumeFin ? v : 20);
+      await setNumber(REVEIL.volumeDebut, id === REVEIL.volumeDebut ? v : Math.min(3, cap));
+      await setNumber(REVEIL.volumeFin, id === REVEIL.volumeFin ? v : Math.min(20, cap));
     } else {
       await setNumber(id, v);
     }
@@ -370,7 +427,7 @@ function Musique({ minutes }: { minutes: number }) {
 
   return (
     <div className="sous">
-      <p className="sous-titre">La musique</p>
+      <p className="sous-titre">La musique du réveil</p>
       <label className="champ">
         <span className="row-meta">Playlist</span>
         <select value={valeur} onChange={(e) => ecrireChoix(e.target.value)}>
@@ -384,33 +441,54 @@ function Musique({ minutes }: { minutes: number }) {
       <Curseur id="reveil-mdelai" label="Entre après" min={0} max={Math.max(minutes, 1)}
                valeur={Math.min(delai, minutes)} format={(v) => `${Math.round(v)} min`} disabled={muette}
                onCommit={(v) => agir(REVEIL.musiqueDelai, () => setNumber(REVEIL.musiqueDelai, Math.round(v)))} />
-      <Curseur id="reveil-v0" label="Volume au départ" min={0} max={100} valeur={jamais ? 3 : v0} disabled={muette}
+      <Curseur id="reveil-v0" label="Volume au départ" min={0} max={cap}
+               valeur={Math.min(cap, jamais ? 3 : v0)} disabled={muette}
                onCommit={(v) => volume(REVEIL.volumeDebut, Math.round(v))} />
-      <Curseur id="reveil-v1" label="Volume à la fin du lever" min={0} max={100} valeur={jamais ? 20 : v1} disabled={muette}
+      <Curseur id="reveil-v1" label="Volume à la fin du lever" min={0} max={cap}
+               valeur={Math.min(cap, jamais ? 20 : v1)} disabled={muette}
                onCommit={(v) => volume(REVEIL.volumeFin, Math.round(v))} />
+      {cap < 100 && <p className="row-meta">plafond de la WiiM : {cap} % · Réglages → Son</p>}
     </div>
   );
 }
 
-// Ce que fait « Je suis debout », une fois le lever et la musique coupés.
+// Ce que fait « Je suis debout », une fois le lever et la musique coupés :
+// rien, l'éclairage « Réveillé », ou une ambiance — ajoutées comprises. Seules
+// les options que le Pi connaît sont proposées : un Pi pas encore à jour
+// refuserait les autres.
 function AuLever() {
   const { entities, agir } = useMaison();
-  const choix = entities[REVEIL.debout]?.state ?? "rien";
-  const sansScene = choix === "scene.reveil_debout" && !entities["scene.reveil_debout"];
+  const select = entities[REVEIL.debout];
+  const choix = select?.state ?? "rien";
+  const connues: string[] = select?.attributes.options ?? [];
+  const options = [
+    { id: "rien", label: "Laisser la pièce comme le lever l'a mise" },
+    { id: REVEILLE.id, label: `Allumer l'éclairage « ${REVEILLE.label} »` },
+    ...listeAmbiances(entities).filter((a) => a.scene).map((a) => ({ id: a.id, label: `Lancer ${a.label}` })),
+  ].filter((o) => connues.length === 0 || connues.includes(o.id));
+  const perdue = !options.some((o) => o.id === choix);
+  // Par son identifiant : la scène « Réveillé » est scene.reveille sur le Pi.
+  const sansScene = choix === REVEILLE.id && !sceneDe(entities, REVEILLE.scene);
   return (
     <div className="sous">
       <p className="sous-titre">« Je suis debout »</p>
       <label className="champ">
         <span className="row-meta">Ensuite</span>
         <select value={choix} onChange={(e) => agir(REVEIL.debout, () => setSelect(REVEIL.debout, e.target.value))}>
-          {APRES_REVEIL.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          {/* Une ambiance ajoutée puis supprimée : le Pi la garde choisie, et
+              « Je suis debout » ne ferait rien. On le montre. */}
+          {perdue && <option value={choix}>{choix.startsWith("script.mood_perso_") ? "une ambiance supprimée" : choix}</option>}
         </select>
       </label>
       {sansScene && (
         <p className="row-meta">
           L'éclairage « Réveillé » n'existe pas encore : règle la pièce comme tu la veux au lever, puis
-          Ambiances → Enregistrer les lumières → Réveillé. D'ici là, « Je suis debout » laisse la pièce telle quelle.
+          Enregistrer les lumières → Réveillé, plus bas sur cet écran. D'ici là, « Je suis debout » laisse la pièce telle quelle.
         </p>
+      )}
+      {perdue && choix.startsWith("script.mood_perso_") && (
+        <p className="row-meta">Cette ambiance n'existe plus : « Je suis debout » laisserait la pièce telle quelle. Choisis autre chose.</p>
       )}
     </div>
   );

@@ -154,10 +154,21 @@ def config_ts():
     # Les playlists épinglées depuis Écoute (packages/playlists.yaml).
     epinglees = re.search(r'PLAYLISTS_EPINGLEES\s*=\s*"([^"]+)"', source)
     reveil += [epinglees.group(1)] if epinglees else []
+    # Le son : le volume de chaque ambiance (dans MOODS) et le plafond de la
+    # WiiM (packages/ambiances.yaml et packages/son.yaml).
+    reveil += re.findall(r'volume:\s*"([^"]+)"', bloc_moods.group(1) if bloc_moods else "")
+    plafond = re.search(r'VOLUME_MAX\s*=\s*"([^"]+)"', source)
+    reveil += [plafond.group(1)] if plafond else []
+    # Les places des ambiances ajoutées depuis l'app : un script et un texte
+    # chacune, numérotés de 1 à PERSO_PLACES.
+    places = re.search(r"PERSO_PLACES\s*=\s*(\d+)", source)
+    n = int(places.group(1)) if places else 0
+    perso = ["script.mood_perso_{}".format(i) for i in range(1, n + 1)]
+    reveil += ["input_text.ambiance_perso_{}".format(i) for i in range(1, n + 1)]
     return (moods, lumieres,
             select.group(1) if select else None,
             mood_select.group(1) if mood_select else None,
-            reveil)
+            reveil, perso)
 
 
 def etapes_son(corps):
@@ -480,11 +491,13 @@ def main():
         sys.exit("Home Assistant injoignable sur {} ({}). "
                  "docker compose -f docker-compose.dev.yml up -d".format(url, e))
 
-    moods, lumieres, select, mood_select, reveil = config_ts()
+    moods, lumieres, select, mood_select, reveil, perso = config_ts()
     verifier_logs()
-    verifier_entites(cli, moods, lumieres, select, mood_select, reveil)
+    # Les places s'écho-confirment comme les autres, mais ne se lancent pas
+    # ici : vides, elles échouent — c'est voulu.
+    verifier_entites(cli, moods + perso, lumieres, select, mood_select, reveil)
     verifier_playlists(cli, select)
-    verifier_echo_des_ambiances(moods, mood_select)
+    verifier_echo_des_ambiances(moods + perso, mood_select)
     verifier_musiques_des_ambiances(cli, moods)
     verifier_ambiances(cli, moods, mood_select)
     verifier_ajout_a_chaud(cli, select)

@@ -32,6 +32,49 @@ input_text:
     icon: mdi:playlist-music
     max: 255
 
+  # Les ambiances ajoutées depuis l'app (Ambiances → « Nouvelle ambiance »).
+  # Six places, fixes : Home Assistant ne sait pas créer un script depuis
+  # l'app sans réécrire scripts.yaml, que le Pi tire de git — une ambiance
+  # ajoutée aurait bloqué le prochain `git pull`. Ici, chaque place a déjà
+  # son script (mood_perso_N, scripts.yaml) et sa ligne dans
+  # input_select.mood ; l'app ne fait que la remplir.
+  #
+  # Une place vide est libre. Remplie, elle porte un petit JSON :
+  #   {"n":"Soirée","c":"#e8b86d","m":"library://playlist/83","v":8}
+  # n : le nom de la tuile ; c : sa teinte ; m : la musique, comme les
+  # réglages ci-dessus — "" ou « aucune » ne touche pas à la musique ;
+  # v : le volume en %, 0 pour ne pas y toucher.
+  # Les lumières, elles, sont une scène de Home Assistant, d'identifiant
+  # `ambiance_perso_N`, écrite par l'app comme les autres.
+  #
+  # Plus de six ? Ajouter ici ambiance_perso_7, son script dans scripts.yaml
+  # et son option dans input_selects.yaml, puis PERSO_PLACES dans config.ts.
+  #
+  # Écrites en entier, sans ancre YAML ni `<<:` : le chargeur de Home
+  # Assistant signale la fusion comme des clés en double, et rien ne dit
+  # alors quel nom l'emporte.
+  ambiance_perso_1: { name: Ambiance perso 1, icon: mdi:palette-outline, max: 255 }
+  ambiance_perso_2: { name: Ambiance perso 2, icon: mdi:palette-outline, max: 255 }
+  ambiance_perso_3: { name: Ambiance perso 3, icon: mdi:palette-outline, max: 255 }
+  ambiance_perso_4: { name: Ambiance perso 4, icon: mdi:palette-outline, max: 255 }
+  ambiance_perso_5: { name: Ambiance perso 5, icon: mdi:palette-outline, max: 255 }
+  ambiance_perso_6: { name: Ambiance perso 6, icon: mdi:palette-outline, max: 255 }
+
+# Le volume de chaque ambiance, réglé depuis l'app (appui long sur la tuile).
+# 0 veut dire « jamais réglé » : le script garde alors son volume d'avant ces
+# réglages, sa variable `volume_defaut` dans scripts.yaml. Le plafond de
+# packages/son.yaml s'applique par-dessus. Les ambiances ajoutées, elles,
+# portent leur volume dans leur JSON.
+input_number:
+  volume_detente:
+    { name: Détente · volume, icon: mdi:volume-medium, min: 0, max: 100, step: 1, unit_of_measurement: "%", mode: slider }
+  volume_focus:
+    { name: Focus · volume, icon: mdi:volume-medium, min: 0, max: 100, step: 1, unit_of_measurement: "%", mode: slider }
+  volume_chillos:
+    { name: Chillos · volume, icon: mdi:volume-medium, min: 0, max: 100, step: 1, unit_of_measurement: "%", mode: slider }
+  volume_calin:
+    { name: Câlin · volume, icon: mdi:volume-medium, min: 0, max: 100, step: 1, unit_of_measurement: "%", mode: slider }
+
 # Lancer une ambiance à la voix. Les phrases sont dans
 # custom_sentences/fr/ambiances.yaml, et chacune y donne un mot — « câlin »,
 # « focus » — que ce tableau ramène au script. Un mot absent du tableau ne

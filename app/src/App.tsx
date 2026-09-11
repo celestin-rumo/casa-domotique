@@ -1,15 +1,13 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { MaisonProvider, useMaison } from "./maison";
-import { NavigationProvider, useNavigation } from "./navigation";
+import { NavigationProvider, useNavigation, type Onglet } from "./navigation";
 import { HOTE, type Liaison } from "./ha";
-import { MOODS } from "./config";
+import { listeAmbiances } from "./ambiances";
 import { Ambiances } from "./vues/Ambiances";
 import { Pieces } from "./vues/Pieces";
 import { Ecoute } from "./vues/Ecoute";
 import { Reglages } from "./vues/Reglages";
 import { Edition } from "./vues/Edition";
-
-type Onglet = "ambiances" | "pieces" | "ecoute" | "reglages";
 
 // Quatre onglets, chacun avec son mot : une barre d'icônes seules s'apprend,
 // celle-ci se lit avec un couteau dans l'autre main.
@@ -76,14 +74,28 @@ export default function App() {
 }
 
 function Coquille() {
-  const { liaison } = useMaison();
-  const { page, fermer } = useNavigation();
-  const [onglet, setOnglet] = useState<Onglet>("ambiances");
+  const { entities, liaison } = useMaison();
+  const { page, fermer, onglet, choisirOnglet, ancre, oublierAncre } = useNavigation();
   const courant = ONGLETS.find((o) => o.id === onglet)!;
   const Vue = courant.vue;
   const index = ONGLETS.indexOf(courant);
-  // Une page ouverte par-dessus l'onglet : l'édition d'une ambiance.
-  const titrePage = page ? (MOODS.find((m) => m.id === page.id)?.label ?? "Ambiance") : null;
+  // Une page ouverte par-dessus l'onglet : l'édition d'une ambiance, ou sa
+  // création.
+  const titrePage = !page ? null
+    : page.nouvelle ? "Nouvelle ambiance"
+    : listeAmbiances(entities).find((a) => a.id === page.id)?.label ?? "Ambiance";
+
+  // Une vue qui en ouvre une autre à un endroit précis : la carte du réveil
+  // mène à ses réglages. L'effet passe après le rendu de la nouvelle vue.
+  useEffect(() => {
+    if (!ancre) return;
+    const t = requestAnimationFrame(() => {
+      const reduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById(ancre)?.scrollIntoView({ behavior: reduit ? "auto" : "smooth", block: "start" });
+      oublierAncre();
+    });
+    return () => cancelAnimationFrame(t);
+  }, [ancre, onglet, oublierAncre]);
 
   return (
     <main className="screen">
@@ -107,8 +119,8 @@ function Coquille() {
 
       {/* La clé remonte la vue à chaque changement : l'entrée se rejoue. */}
       {page ? (
-        <section className="view enter" key={`page-${page.id}`} aria-label={`Modifier ${titrePage}`}>
-          <Edition id={page.id} />
+        <section className="view enter" key={`page-${page.id}`} aria-label={titrePage ?? undefined}>
+          <Edition id={page.id} nouvelle={page.nouvelle} />
         </section>
       ) : (
         <section className="view enter" key={onglet} role="tabpanel" id={`vue-${onglet}`} aria-label={courant.titre}>
@@ -125,11 +137,7 @@ function Coquille() {
             role="tab"
             aria-selected={o.id === onglet}
             aria-controls={`vue-${o.id}`}
-            onClick={() => {
-              // Un onglet touché referme la page ouverte par-dessus.
-              if (page) fermer();
-              setOnglet(o.id);
-            }}
+            onClick={() => choisirOnglet(o.id)}
           >
             {o.icone}
             {o.titre}

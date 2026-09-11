@@ -8,16 +8,22 @@ import {
   ecrireNoms, lireEpingles, lireNoms, nettoyerNom, numeroDe, useBibliotheque, usePlaylists, type Playlist,
 } from "../bibliotheque";
 import { useTexte } from "../useTexte";
+import { plafond } from "../ambiances";
 import { Barres, Carte, Curseur, Etiquette, LigneEtat, NoteFaute, useAppuiLong } from "../ui";
 
 export function Ecoute() {
   const { entities, fautes, agir } = useMaison();
   const chef = entities[PLAYER];
   const joue = chef?.state === "playing";
-  // group_members liste le groupe, chef compris ; seul, il ne liste que lui.
-  const groupe: string[] = chef?.attributes.group_members ?? (chef ? [PLAYER] : []);
+  // group_members liste le groupe, chef compris. Seule, la WiiM le donne
+  // VIDE, et non absent — constaté sur le Pi le 11 septembre 2026 —, et le
+  // curseur de volume, qui ne montre que les enceintes du groupe,
+  // disparaissait avec lui : le chef compte toujours.
+  const membres: string[] = chef?.attributes.group_members ?? [];
+  const groupe: string[] = chef ? (membres.length ? membres : [PLAYER]) : [];
   const ecoutent = PLAYERS.filter((p) => groupe.includes(p.id));
   const { playlists, erreur } = usePlaylists();
+  const cap = plafond(entities);
 
   // Ce qui joue, tel que script.play_playlist l'a noté. L'enceinte ne dit que
   // le morceau : sans cet écho, une épinglée lancée laissait « Détente »
@@ -117,12 +123,16 @@ export function Ecoute() {
           <div className="vol-rows">
             {ecoutent.map((p) => (
               <div className="vol-row expand" key={p.id}>
+                {/* Le curseur s'arrête au plafond de la WiiM (Réglages → Son) :
+                    toute sa course sert, au lieu des trois premiers pour cent
+                    d'une barre de cent. */}
                 <Curseur
                   id={`vol-${p.id.replace(".", "-")}`}
                   label={p.label}
                   min={0}
-                  max={100}
-                  valeur={Math.round((entities[p.id]?.attributes.volume_level ?? 0) * 100)}
+                  max={cap}
+                  valeur={Math.min(cap, Math.round((entities[p.id]?.attributes.volume_level ?? 0) * 100))}
+                  format={(v) => `${Math.round(v)} %${cap < 100 ? ` / ${cap}` : ""}`}
                   onCommit={(pct) => agir(p.id, () => setVolume(p.id, pct / 100))}
                 />
                 <NoteFaute entite={p.id} message={p.id === PLAYER ? undefined : fautes[p.id]} />
