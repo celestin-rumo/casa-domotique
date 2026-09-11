@@ -843,8 +843,12 @@ Construire sur le poste de dev, avec dans `app/.env` l'adresse du Pi
 cd app && npm run build
 ```
 
-Puis déposer le résultat sur le Pi. Trois chemins, et les deux évidents
-demandent quelque chose qu'une installation neuve n'a pas :
+Puis déposer le résultat sur le Pi. **Le plus court est `dev/deployer-app.sh`,
+sur le portable** : il construit, ouvre le pare-feu au Pi seul, affiche la
+ligne à coller sur le Pi et vérifie le résultat
+([MISE-A-JOUR.md](MISE-A-JOUR.md)). Ce qui suit est ce qu'il fait, pour le
+comprendre ou s'en passer. Trois chemins, et les deux évidents demandent
+quelque chose qu'une installation neuve n'a pas :
 
 - **`scp`** exige le serveur SSH du module Terminal & SSH, sur le port 22.
   Or le module officiel, tel qu'installé en 2.2, n'ouvre que le terminal

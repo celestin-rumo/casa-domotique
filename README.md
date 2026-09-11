@@ -9,7 +9,7 @@ Domotique maison : lumières, musique, ambiances, un réveil en lever de soleil 
 - `docker-compose.pi.yml` — un Pi sous Docker plutôt que Home Assistant OS, pour qui en a besoin (voir TESTING.md 2.8)
 - `app/` — l'application (voir son README pour le build natif)
 - `homeassistant/` — scènes, scripts et automatisations à copier sur le Pi (`/config`) ; `packages/` porte le réveil et la météo, `custom_sentences/fr/` ce que la voix entend et comprend
-- `docs/` — [le schéma complet](docs/architecture.md) et [comment tester sans Pi](docs/TESTING.md)
+- `docs/` — [le schéma complet](docs/architecture.md), [comment tester sans Pi](docs/TESTING.md), et [comment mettre le Pi à jour](docs/MISE-A-JOUR.md)
 
 ## Démarrage rapide
 
