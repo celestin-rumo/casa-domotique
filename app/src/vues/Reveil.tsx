@@ -6,7 +6,8 @@ import { runScript, setBoolean, setNumber, setSelect, setTime } from "../ha";
 import { useTexte } from "../useTexte";
 import { usePlaylists } from "../bibliotheque";
 import { listeAmbiances, plafond, sceneDe } from "../ambiances";
-import { Carte, Curseur, Interrupteur, NoteFaute, OptionsPlaylists } from "../ui";
+import { Carte, Curseur, Depliable, Interrupteur, NoteFaute, OptionsPlaylists } from "../ui";
+import type { HassEntities } from "home-assistant-js-websocket";
 import {
   css, degradeCourbe, ecrireCourbe, estBlanc, hsRgb, kelvinDe, lireCourbe, rgbDuPoint, rgbHex,
   teinteSaturationDe, type Point,
@@ -167,11 +168,12 @@ export function Reveil() {
   );
 }
 
-// Les réglages du lever, sur l'écran Réglages : une carte par question —
-// quelles lumières et sur quelle courbe, quelle musique, et ce que fait
-// « Je suis debout ».
+// Les réglages du lever, sur l'écran Réglages : une carte repliée par
+// question — quelles lumières, quelle courbe, quelle musique, et ce que fait
+// « Je suis debout » —, chacune avec la réponse actuelle en résumé.
 export function ReglagesReveil() {
   const { entities, fautes } = useMaison();
+  const { playlists } = usePlaylists();
   const [lumieresBrut, ecrireLumieres] = useTexte(REVEIL.lumieres);
   const [courbeBrut, ecrireCourbeBrut] = useTexte(REVEIL.courbe);
   const lampes = lireLampes(lumieresBrut);
@@ -222,6 +224,20 @@ export function ReglagesReveil() {
     );
   }
 
+  // Les résumés : ce que chaque carte contient, lisible sans l'ouvrir.
+  const nom = (id: string) => entities[id]?.attributes.friendly_name ?? id;
+  const fin = points[points.length - 1];
+  const brutPlaylist = entities[REVEIL.playlist]?.state;
+  const playlist = !brutPlaylist || brutPlaylist === "unknown" || brutPlaylist === "unavailable" ? "Détente" : brutPlaylist;
+  const v0 = Number(entities[REVEIL.volumeDebut]?.state ?? 0);
+  const v1 = Number(entities[REVEIL.volumeFin]?.state ?? 0);
+  const cap = plafond(entities);
+  const [d0, d1] = v0 === 0 && v1 === 0 ? [3, 20] : [v0, v1];
+  const resumeMusique = playlist === "aucune" ? "pas de musique"
+    : `${playlists.find((p) => p.valeur === playlist)?.nom ?? playlist} · après ${Math.round(Number(entities[REVEIL.musiqueDelai]?.state ?? 10))} min · ${Math.min(d0, cap)} à ${Math.min(d1, cap)} %`;
+  const choix = entities[REVEIL.debout]?.state ?? "rien";
+  const resumeDebout = optionsApresReveil(entities).find((o) => o.id === choix)?.label ?? "une ambiance supprimée";
+
   return (
     <>
       {entiteFautive && (
@@ -229,16 +245,19 @@ export function ReglagesReveil() {
           <NoteFaute entite={entiteFautive} message={fautes[entiteFautive]} />
         </Carte>
       )}
-      <Carte>
+      <Depliable id="reveil-lampes" titre="Les lumières du lever" resume={lampes.map((l) => nom(l.id)).join(", ")}>
         <Lampes lampes={lampes} points={points} onChange={changerLampes} />
+      </Depliable>
+      <Depliable id="reveil-courbe" titre="La courbe"
+                 resume={`${points.length} points · de ${Math.round(points[0].b)} % à ${Math.round(fin.b)} %`}>
         <Courbe points={points} onChange={changerCourbe} />
-      </Carte>
-      <Carte>
+      </Depliable>
+      <Depliable id="reveil-musique" titre="La musique du réveil" resume={resumeMusique}>
         <Musique minutes={minutes} />
-      </Carte>
-      <Carte>
+      </Depliable>
+      <Depliable id="reveil-debout" titre="« Je suis debout »" resume={resumeDebout}>
         <AuLever />
-      </Carte>
+      </Depliable>
     </>
   );
 }
@@ -261,7 +280,6 @@ function Lampes({ lampes, points, onChange }: { lampes: Lampe[]; points: Point[]
   const echelonne = lampes.length > 1 || lampes.some((l) => l.p > 0);
   return (
     <div className="sous">
-      <p className="sous-titre">Les lumières du lever</p>
       <div className="chips">
         {LIGHTS.map((id) => {
           const dedans = lampes.some((l) => l.id === id);
@@ -307,7 +325,14 @@ function Lampes({ lampes, points, onChange }: { lampes: Lampe[]; points: Point[]
 // veut. Un point ajouté se pose au milieu du plus grand écart, avec
 // l'intensité à mi-chemin de ses voisins : il ne change rien au lever tant
 // qu'on ne le déplace pas, ce qui permet de l'ajouter sans crainte.
+//
+// UN SEUL POINT DÉPLIÉ À LA FOIS. Quatre curseurs par point, douze points au
+// plus : tout déplié, c'était des écrans de ronds à défiler, et le doigt qui
+// défilait en déplaçait un au passage. Replié, chaque point tient sur une
+// ligne qui dit où il est, à quelle intensité, de quelle couleur ; la barre
+// du haut ouvre le point dont on touche le rond.
 function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) => void }) {
+  const [ouvert, setOuvert] = useState<number | null>(null);
   let i = 0, ecart = -1;
   for (let j = 0; j < points.length - 1; j++) {
     const e = points[j + 1].p - points[j].p;
@@ -317,12 +342,23 @@ function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) 
     const a = points[i], b = points[i + 1];
     const milieu: Point = { p: Math.round((a.p + b.p) / 2), b: Math.round((a.b + b.b) / 2), c: a.c };
     onChange([...points.slice(0, i + 1), milieu, ...points.slice(i + 1)]);
+    setOuvert(i + 1); // le point neuf s'ouvre : c'est lui qu'on va régler
   };
+  const titre = (j: number) => (j === 0 ? "Début" : j === points.length - 1 ? "Fin" : `Point ${j}`);
+  const basculer = (j: number) => setOuvert(ouvert === j ? null : j);
   return (
     <div className="sous">
-      <p className="sous-titre">La courbe</p>
-      <div className="courbe" aria-hidden="true" style={{ background: degradeCourbe(points) }}>
-        {points.map((pt, j) => <i key={j} style={{ left: `${pt.p}%` }} />)}
+      <div className="courbe choix" style={{ background: degradeCourbe(points) }}>
+        {points.map((pt, j) => (
+          <button
+            key={j}
+            className="courbe-pt"
+            style={{ left: `${pt.p}%` }}
+            aria-pressed={ouvert === j}
+            aria-label={`Régler ${titre(j)}, à ${Math.round(pt.p)} % du lever`}
+            onClick={() => basculer(j)}
+          />
+        ))}
       </div>
       {points.map((pt, j) => {
         const bord = j === 0 || j === points.length - 1;
@@ -331,11 +367,16 @@ function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) 
             key={j}
             id={`reveil-pt-${j}`}
             pt={pt}
-            titre={j === 0 ? "Début" : j === points.length - 1 ? "Fin" : `Point ${j}`}
+            titre={titre(j)}
+            ouvert={ouvert === j}
+            surBasculer={() => basculer(j)}
             min={bord ? undefined : points[j - 1].p + 1}
             max={bord ? undefined : points[j + 1].p - 1}
             onChange={(nouveau) => onChange(points.map((x, k) => (k === j ? nouveau : x)))}
-            onRetirer={bord ? undefined : () => onChange(points.filter((_, k) => k !== j))}
+            onRetirer={bord ? undefined : () => {
+              setOuvert(null);
+              onChange(points.filter((_, k) => k !== j));
+            }}
           />
         );
       })}
@@ -346,10 +387,12 @@ function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) 
   );
 }
 
-function PointCourbe({ id, pt, titre, min, max, onChange, onRetirer }: {
+function PointCourbe({ id, pt, titre, ouvert, surBasculer, min, max, onChange, onRetirer }: {
   id: string;
   pt: Point;
   titre: string;
+  ouvert: boolean;
+  surBasculer: () => void;
   min?: number;
   max?: number;
   onChange: (p: Point) => void;
@@ -359,14 +402,22 @@ function PointCourbe({ id, pt, titre, min, max, onChange, onRetirer }: {
   const rgb = rgbDuPoint(pt.c);
   const [h, s] = blanc ? [30, 80] : teinteSaturationDe(rgb);
   const pouce = { "--thumb": css(rgb) } as CSSProperties;
+  const couleur = blanc ? `${kelvinDe(pt.c)} K` : "couleur";
   return (
-    <div className="point" style={{ "--pt": css(rgb) } as CSSProperties}>
+    <div className={`point${ouvert ? " ouvert" : ""}`} style={{ "--pt": css(rgb) } as CSSProperties}>
       <div className="point-tete">
-        <span className="point-puce" aria-hidden="true" />
-        <span className="point-nom">{titre}</span>
-        <span className="row-meta">{Math.round(pt.p)} %</span>
-        {onRetirer && <button className="lien" onClick={onRetirer}>Retirer</button>}
+        <button className="point-bascule" aria-expanded={ouvert} aria-controls={`${id}-corps`} onClick={surBasculer}>
+          <span className="point-puce" aria-hidden="true" />
+          <span className="point-nom">{titre}</span>
+          <span className="row-meta">à {Math.round(pt.p)} % · {Math.round(pt.b)} % · {couleur}</span>
+          <Chevron />
+        </button>
+        {/* Seulement déplié : replié, la ligne entière sert à l'ouvrir, et un
+            « Retirer » à côté se toucherait par mégarde. */}
+        {ouvert && onRetirer && <button className="lien" onClick={onRetirer}>Retirer</button>}
       </div>
+      {ouvert && (
+      <div className="point-corps" id={`${id}-corps`}>
       {min !== undefined && max !== undefined && max > min && (
         <Curseur id={`${id}-p`} label="Moment du lever" min={min} max={max} valeur={pt.p}
                  onCommit={(v) => onChange({ ...pt, p: Math.round(v) })} />
@@ -391,6 +442,8 @@ function PointCourbe({ id, pt, titre, min, max, onChange, onRetirer }: {
           <Curseur id={`${id}-s`} label="Saturation" min={10} max={100} valeur={Math.max(10, s)} style={pouce}
                    onCommit={(v) => onChange({ ...pt, c: rgbHex(hsRgb(h, v)) })} />
         </>
+      )}
+      </div>
       )}
     </div>
   );
@@ -427,7 +480,6 @@ function Musique({ minutes }: { minutes: number }) {
 
   return (
     <div className="sous">
-      <p className="sous-titre">La musique du réveil</p>
       <label className="champ">
         <span className="row-meta">Playlist</span>
         <select value={valeur} onChange={(e) => ecrireChoix(e.target.value)}>
@@ -456,22 +508,24 @@ function Musique({ minutes }: { minutes: number }) {
 // rien, l'éclairage « Réveillé », ou une ambiance — ajoutées comprises. Seules
 // les options que le Pi connaît sont proposées : un Pi pas encore à jour
 // refuserait les autres.
-function AuLever() {
-  const { entities, agir } = useMaison();
-  const select = entities[REVEIL.debout];
-  const choix = select?.state ?? "rien";
-  const connues: string[] = select?.attributes.options ?? [];
-  const options = [
+function optionsApresReveil(entities: HassEntities) {
+  const connues: string[] = entities[REVEIL.debout]?.attributes.options ?? [];
+  return [
     { id: "rien", label: "Laisser la pièce comme le lever l'a mise" },
     { id: REVEILLE.id, label: `Allumer l'éclairage « ${REVEILLE.label} »` },
     ...listeAmbiances(entities).filter((a) => a.scene).map((a) => ({ id: a.id, label: `Lancer ${a.label}` })),
   ].filter((o) => connues.length === 0 || connues.includes(o.id));
+}
+
+function AuLever() {
+  const { entities, agir } = useMaison();
+  const choix = entities[REVEIL.debout]?.state ?? "rien";
+  const options = optionsApresReveil(entities);
   const perdue = !options.some((o) => o.id === choix);
   // Par son identifiant : la scène « Réveillé » est scene.reveille sur le Pi.
   const sansScene = choix === REVEILLE.id && !sceneDe(entities, REVEILLE.scene);
   return (
     <div className="sous">
-      <p className="sous-titre">« Je suis debout »</p>
       <label className="champ">
         <span className="row-meta">Ensuite</span>
         <select value={choix} onChange={(e) => agir(REVEIL.debout, () => setSelect(REVEIL.debout, e.target.value))}>

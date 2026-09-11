@@ -120,6 +120,20 @@ export async function mediaNext(entityId: string) {
   await callService(conn, "media_player", "media_next_track", { entity_id: entityId });
 }
 
+export async function mediaPrevious(entityId: string) {
+  const conn = await connect();
+  await callService(conn, "media_player", "media_previous_track", { entity_id: entityId });
+}
+
+// L'aléatoire vit sur l'enceinte, pas sur la playlist : Music Assistant
+// mélange la file au chargement, et le réglage reste pour la suivante —
+// ambiances et réveil compris. Basculé pendant la lecture, il mélange (ou
+// remet dans l'ordre) ce qui reste à jouer.
+export async function setShuffle(entityId: string, shuffle: boolean) {
+  const conn = await connect();
+  await callService(conn, "media_player", "shuffle_set", { entity_id: entityId, shuffle });
+}
+
 // Le chef du groupe reçoit les membres ; une pièce qui cesse d'écouter se
 // retire elle-même. C'est la sémantique de media_player.join / unjoin.
 export async function joinPlayers(chef: string, membres: string[]) {

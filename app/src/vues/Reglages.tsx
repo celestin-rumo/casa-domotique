@@ -5,7 +5,7 @@ import {
   LIGHTS, MOODS, PLAYER, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, REVEIL, REVEILLE, CLIMAT, VOLUME_MAX,
 } from "../config";
 import { PLACES, listeAmbiances, plafond } from "../ambiances";
-import { Carte, Curseur, Etiquette, LigneEtat, NoteFaute, Pastille } from "../ui";
+import { Curseur, Depliable, Etiquette, LigneEtat, NoteFaute, Pastille } from "../ui";
 import { ReglagesReveil } from "./Reveil";
 
 const TEXTE = {
@@ -41,18 +41,14 @@ const ATTENDUES: { id: string; role: string }[] = [
   ...DEVICES.map((d) => ({ id: d.id, role: d.label })),
 ];
 
-const Chevron = () => (
-  <svg className="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-       strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-);
-
 // Tout ce qu'on règle une fois, et pas chaque jour : le lever en détail, le
-// plafond du son, l'enregistrement des lumières. En bas, ce que le Pi dit de
-// la liaison et des entités, replié : c'est un diagnostic, pas un réglage.
+// plafond du son, l'enregistrement des lumières, puis ce que le Pi dit de la
+// liaison et des entités. Chaque section est une carte repliée, qui résume
+// son contenu : l'écran entier tient sans défiler, et on n'ouvre que ce
+// qu'on vient régler.
 export function Reglages() {
   const { entities, liaison } = useMaison();
   const [ms, setMs] = useState<number | null>(null);
-  const [voirEntites, setVoirEntites] = useState(false);
 
   // La latence se mesure tant que l'écran est ouvert, et cesse avec lui.
   useEffect(() => {
@@ -87,10 +83,14 @@ export function Reglages() {
       <Enregistrer />
 
       <Etiquette>Connexion</Etiquette>
-      <Carte>
+      <Depliable
+        id="connexion"
+        titre="Home Assistant"
+        resume={`${HOTE} · ${TEXTE[liaison].toLowerCase()}${liaison === "ok" && ms !== null ? ` · ${ms} ms` : ""}`}
+      >
         <div className="row">
           <div>
-            <div className="row-name">Home Assistant</div>
+            <div className="row-name">Liaison</div>
             <div className="row-meta">{HOTE}</div>
           </div>
           <Pastille etat={liaison === "ok" ? "ok" : liaison === "perdu" ? "todo" : "miss"}>
@@ -104,37 +104,35 @@ export function Reglages() {
           </div>
           <Pastille etat="todo">privé</Pastille>
         </div>
-      </Carte>
-
-      <button className="adv-toggle" aria-expanded={voirEntites} aria-controls="reglages-entites"
-              onClick={() => setVoirEntites(!voirEntites)}>
-        <span>Entités {absentes === 0 ? "· toutes liées" : `· ${absentes} absente${absentes > 1 ? "s" : ""}`}</span>
-        <Chevron />
-      </button>
-      {voirEntites && (
-        <div id="reglages-entites">
-          <Carte>
-            {ATTENDUES.map((e) => {
-              const ent = entities[e.id];
-              return (
-                <div className="ent" key={e.id}>
-                  <div>
-                    <code>{e.id}</code>
-                    <small>{e.role}</small>
-                  </div>
-                  {ent ? (
-                    <Pastille etat={ent.state === "unavailable" ? "miss" : "ok"}>
-                      {ent.state === "unavailable" ? "injoignable" : "liée"}
-                    </Pastille>
-                  ) : (
-                    <Pastille etat="miss">absente</Pastille>
-                  )}
+      </Depliable>
+      <Depliable
+        id="entites"
+        titre="Entités"
+        resume={absentes === 0 ? "toutes liées" : `${absentes} absente${absentes > 1 ? "s" : ""} sur ${ATTENDUES.length}`}
+      >
+        {/* Un bloc à part : les lignes ont leur propre filet, sans l'écart
+            de la carte entre elles. */}
+        <div>
+          {ATTENDUES.map((e) => {
+            const ent = entities[e.id];
+            return (
+              <div className="ent" key={e.id}>
+                <div>
+                  <code>{e.id}</code>
+                  <small>{e.role}</small>
                 </div>
-              );
-            })}
-          </Carte>
+                {ent ? (
+                  <Pastille etat={ent.state === "unavailable" ? "miss" : "ok"}>
+                    {ent.state === "unavailable" ? "injoignable" : "liée"}
+                  </Pastille>
+                ) : (
+                  <Pastille etat="miss">absente</Pastille>
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
+      </Depliable>
     </>
   );
 }
@@ -148,16 +146,9 @@ function Plafond() {
   const cap = plafond(entities);
   const wiim = entities[PLAYER];
   const actuel = Math.round((wiim?.attributes.volume_level ?? 0) * 100);
+  const resume = `${!present ? "absent du Pi" : cap < 100 ? `plafond ${cap} %` : "aucun plafond"}${wiim ? ` · en ce moment ${actuel} %` : ""}`;
   return (
-    <Carte faute={!!fautes[VOLUME_MAX]}>
-      <div className="row">
-        <div>
-          <div className="row-name">Volume maximal</div>
-          <div className="row-meta">
-            {wiim ? `${wiim.attributes.friendly_name ?? PLAYER} · en ce moment ${actuel} %` : "enceinte absente"}
-          </div>
-        </div>
-      </div>
+    <Depliable id="son-plafond" titre="Volume maximal" resume={resume} faute={!!fautes[VOLUME_MAX]}>
       <Curseur
         id="volume-max"
         label="Plafond"
@@ -174,7 +165,7 @@ function Plafond() {
           : "packages/son.yaml n'est pas encore chargé : Home Assistant doit redémarrer après le git pull."}
       </p>
       <NoteFaute entite={VOLUME_MAX} message={fautes[VOLUME_MAX]} />
-    </Carte>
+    </Depliable>
   );
 }
 
@@ -210,15 +201,12 @@ function Enregistrer() {
   }
 
   return (
-    <Carte faute={rate}>
-      <div className="row">
-        <div>
-          <div className="row-name">Enregistrer les lumières</div>
-          <div className="row-meta">
-            {allumees} allumée{allumees > 1 ? "s" : ""} sur {LIGHTS.length} · devient l'ambiance choisie
-          </div>
-        </div>
-      </div>
+    <Depliable
+      id="lumieres-enregistrer"
+      titre="Enregistrer les lumières"
+      resume={`${allumees} allumée${allumees > 1 ? "s" : ""} sur ${LIGHTS.length} · deviennent l'ambiance choisie`}
+      faute={rate}
+    >
       <div className="btn-row" style={{ flexWrap: "wrap" }}>
         {cibles.map((m) => (
           <button
@@ -235,6 +223,6 @@ function Enregistrer() {
           {dit}
         </p>
       )}
-    </Carte>
+    </Depliable>
   );
 }

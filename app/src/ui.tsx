@@ -36,6 +36,47 @@ export function Carte({
   );
 }
 
+// Une carte qui se déplie : un titre et un résumé d'une ligne, qui disent ce
+// qu'elle contient sans l'ouvrir. Réglages en est fait — tout déplié, l'écran
+// n'était plus qu'une piste de curseurs, et le doigt qui défilait en
+// attrapait un au passage.
+//
+// Ce qui est ouvert le reste le temps de la session, d'un onglet à l'autre :
+// un Set hors de React, lu à l'ouverture de chaque carte.
+const depliees = new Set<string>();
+
+export function Depliable({ id, titre, resume, faute, children }: {
+  id: string;
+  titre: ReactNode;
+  resume?: ReactNode;
+  faute?: boolean;
+  children: ReactNode;
+}) {
+  const [ouvert, setOuvert] = useState(() => depliees.has(id));
+  const basculer = () => {
+    if (ouvert) depliees.delete(id);
+    else depliees.add(id);
+    setOuvert(!ouvert);
+  };
+  return (
+    <Carte faute={faute}>
+      <button className="depli-tete" aria-expanded={ouvert} aria-controls={`${id}-corps`} onClick={basculer}>
+        <span className="depli-texte">
+          <span className="row-name">{titre}</span>
+          {resume && <span className="row-meta">{resume}</span>}
+        </span>
+        <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {ouvert && (
+        <div className="depli-corps" id={`${id}-corps`}>
+          {children}
+        </div>
+      )}
+    </Carte>
+  );
+}
+
 // Le refus de Home Assistant, sur la carte de l'entité qui a refusé.
 export function NoteFaute({ entite, message }: { entite: string; message: string | undefined }) {
   if (!message) return null;

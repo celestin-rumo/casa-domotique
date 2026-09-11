@@ -3,18 +3,21 @@ import { useMaison } from "../maison";
 import {
   PLAYER, PLAYERS, PLAYLIST_COURANTE, PLAYLIST_SELECT, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS,
 } from "../config";
-import { mediaPlayPause, mediaNext, joinPlayers, unjoinPlayer, setVolume, playPlaylist } from "../ha";
+import {
+  mediaPlayPause, mediaNext, mediaPrevious, joinPlayers, unjoinPlayer, setShuffle, setVolume, playPlaylist,
+} from "../ha";
 import {
   ecrireNoms, lireEpingles, lireNoms, nettoyerNom, numeroDe, useBibliotheque, usePlaylists, type Playlist,
 } from "../bibliotheque";
 import { useTexte } from "../useTexte";
 import { plafond } from "../ambiances";
-import { Barres, Carte, Curseur, Etiquette, LigneEtat, NoteFaute, useAppuiLong } from "../ui";
+import { Barres, Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, useAppuiLong } from "../ui";
 
 export function Ecoute() {
   const { entities, fautes, agir } = useMaison();
   const chef = entities[PLAYER];
   const joue = chef?.state === "playing";
+  const aleatoire = chef?.attributes.shuffle === true;
   // group_members liste le groupe, chef compris. Seule, la WiiM le donne
   // VIDE, et non absent — constaté sur le Pi le 11 septembre 2026 —, et le
   // curseur de volume, qui ne montre que les enceintes du groupe,
@@ -75,6 +78,12 @@ export function Ecoute() {
         </div>
         <NoteFaute entite={PLAYER} message={fautes[PLAYER] ?? (chef ? undefined : "l'entité n'existe pas sur le Pi")} />
         <div className="transport">
+          <button className="tbtn" aria-label="Piste précédente" disabled={!chef}
+                  onClick={() => agir(PLAYER, () => mediaPrevious(PLAYER))}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="5" y="5" width="3" height="14" rx="1.2" /><path d="M19 5.5v13L9 12l10-6.5Z" />
+            </svg>
+          </button>
           <button className="tbtn primary" aria-label={joue ? "Pause" : "Lecture"} disabled={!chef}
                   onClick={() => agir(PLAYER, () => mediaPlayPause(PLAYER))}>
             {joue ? (
@@ -93,6 +102,21 @@ export function Ecoute() {
               <path d="M5 5.5v13l10-6.5L5 5.5Z" /><rect x="16" y="5" width="3" height="14" rx="1.2" />
             </svg>
           </button>
+        </div>
+        {/* L'état vient de l'enceinte (attribut shuffle), pas du geste. */}
+        <div className="row">
+          <div>
+            <div className="row-name">Aléatoire</div>
+            <div className="row-meta">
+              {aleatoire ? "playlists mélangées" : "dans l'ordre de la playlist"} · ambiances et réveil aussi
+            </div>
+          </div>
+          <Interrupteur
+            on={aleatoire}
+            label="Lecture aléatoire"
+            disabled={!chef}
+            onClick={() => agir(PLAYER, () => setShuffle(PLAYER, !aleatoire))}
+          />
         </div>
       </Carte>
 

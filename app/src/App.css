@@ -663,6 +663,73 @@ input.recherche:disabled { color: var(--muted); }
 /* Le lien vers une autre vue : le chevron regarde à droite. */
 .adv-toggle .chev.droite { transform: rotate(-90deg); }
 
+/* ---------- les cartes qui se déplient ---------- */
+.depli-tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.depli-texte { display: grid; gap: 3px; min-width: 0; }
+.depli-texte .row-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.depli-tete .chev, .point-bascule .chev { flex: none; color: var(--muted); transition: transform var(--t-swap) var(--e-out); }
+.depli-tete[aria-expanded="true"] .chev,
+.point-bascule[aria-expanded="true"] .chev { transform: rotate(180deg); color: var(--accent); }
+.depli-corps { display: grid; gap: 13px; animation: advLong var(--t-swap) var(--e-out) both; }
+
+/* ---------- la courbe : un point déplié à la fois ---------- */
+.point { padding: 10px 12px; }
+.point.ouvert { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--pt) 45%, transparent); }
+.point-bascule {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.point-bascule .row-meta { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.point-corps { display: grid; gap: 10px; animation: advLong var(--t-swap) var(--e-out) both; }
+/* La barre de la courbe, dont chaque rond ouvre son point. Le rond se voit
+   à 8 px, mais se touche sur 30. */
+.courbe.choix { height: 18px; margin: 6px 0; }
+.courbe-pt {
+  position: absolute;
+  top: 50%;
+  width: 30px; height: 30px;
+  margin: -15px 0 0 -15px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.courbe-pt::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 8px; height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--bg);
+  transition: transform var(--t-tap) var(--e-out), background var(--t-swap) var(--e-both);
+}
+.courbe-pt[aria-pressed="true"]::after { transform: scale(1.7); background: var(--accent); }
+
 /* Coupe tout, lavis et trait compris. L'état affiché reste le même. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
