@@ -1441,12 +1441,18 @@ une panne. Pour trancher, attendre en temps réel — piloter Chrome par le
 protocole DevTools — ou parler directement au WebSocket avec le jeton.
 
 **Le 11 septembre 2026 encore : le réveil réglable et les playlists
-épinglées, écrits mais pas encore exécutés.** Les gabarits Jinja du lever, de
-la musique et de « Je suis debout » ont été rendus sur le moteur du Pi par
-`/api/template`, avec des courbes d'essai à la place des helpers : lecture,
-tri, courbe par défaut, interpolation, moment d'entrée de la musique,
-volumes, existence de la scène « Réveillé ». `tsc` et le build passent. Reste
-à voir la chambre se lever pour de vrai, une fois le Pi à jour (3.5).
+épinglées, en place sur le Pi.** Avant le déploiement, les gabarits Jinja du
+lever, de la musique et de « Je suis debout » ont été rendus sur le moteur du
+Pi par `/api/template`, avec des courbes d'essai à la place des helpers :
+lecture, tri, courbe par défaut, interpolation, moment d'entrée de la
+musique, volumes, existence de la scène « Réveillé ». Après `git pull` et un
+redémarrage — sans lequel aucun nouveau helper n'existe —, les onze réglages
+sont là, et l'heure du réveil a survécu au redémarrage. L'app servie par le
+Pi, ouverte dans un vrai navigateur, déplie « Régler le lever » avec les
+quatre lumières, la courbe par défaut et la musique, et trouve 125 playlists
+dans la bibliothèque, dont huit pour « chill ». Aucune erreur dans la page.
+
+Reste à voir la chambre se lever pour de vrai (3.5).
 
 Non vérifiés à ce jour : la chaîne complète micro → réponse dans Home
 Assistant (il faut l'assistant de 1.9, puis un micro ou un satellite), et
