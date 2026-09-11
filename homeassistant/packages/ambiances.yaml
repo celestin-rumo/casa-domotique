@@ -1,5 +1,38 @@
-# Lancer une ambiance à la voix. Les ambiances elles-mêmes sont dans
-# scripts.yaml ; ici, seulement ce qu'Assist en fait. Les phrases sont dans
+# Les ambiances elles-mêmes sont dans scripts.yaml ; ici, ce qu'on y règle
+# depuis Home Assistant, et ce qu'Assist en fait.
+
+# La musique de chaque ambiance, modifiable dans Home Assistant : Paramètres
+# → Appareils et services → Entrées → la ligne, puis taper la valeur. Une
+# playlist se change donc sans commit ni git pull.
+#
+# La valeur : un nom de la table de script.play_playlist (« Chillos »), une
+# URI Spotify, le lien de Spotify > Partager > Copier le lien tel quel, ou une
+# adresse de la bibliothèque de Music Assistant (« library://playlist/83 »).
+# « aucune » : l'ambiance ne touche pas à la musique. Vide : la playlist
+# `defaut` de l'ambiance, dans scripts.yaml. Une valeur qui ne se résout pas
+# fait échouer l'ambiance, et l'app le dit.
+#
+# Pas d'`initial:`, pour la même raison que les réglages du réveil
+# (packages/reveil.yaml) : il effacerait le choix à chaque redémarrage.
+input_text:
+  musique_detente:
+    name: Détente · musique
+    icon: mdi:playlist-music
+    max: 255
+  musique_focus:
+    name: Focus · musique
+    icon: mdi:playlist-music
+    max: 255
+  musique_chillos:
+    name: Chillos · musique
+    icon: mdi:playlist-music
+    max: 255
+  musique_calin:
+    name: Câlin · musique
+    icon: mdi:playlist-music
+    max: 255
+
+# Lancer une ambiance à la voix. Les phrases sont dans
 # custom_sentences/fr/ambiances.yaml, et chacune y donne un mot — « câlin »,
 # « focus » — que ce tableau ramène au script. Un mot absent du tableau ne
 # lance rien et le dit.

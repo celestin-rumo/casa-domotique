@@ -298,20 +298,11 @@ script:
       - service: media_player.volume_set
         target: { entity_id: "{{ enceinte }}" }
         data: { volume_level: "{{ volume_debut }}" }
-      - if:
-          - condition: template
-            value_template: "{{ '://' in choix or choix.startswith('spotify:') }}"
-        then:
-          - service: music_assistant.play_media
-            target: { entity_id: "{{ enceinte }}" }
-            data:
-              media_id: "{{ choix }}"
-              media_type: playlist
-        else:
-          - service: script.play_playlist
-            data:
-              name: "{{ choix }}"
-              player: "{{ enceinte }}"
+      # Un nom comme une adresse : script.play_playlist sait les deux.
+      - service: script.play_playlist
+        data:
+          name: "{{ choix }}"
+          player: "{{ enceinte }}"
       - repeat:
           count: "{{ marches }}"
           sequence:

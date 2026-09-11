@@ -137,10 +137,23 @@ son URI dans la table de `scripts.yaml`, son nom dans `input_selects.yaml`.
 N'ajouter un nom que lorsque son URI est renseignée : une entrée sans adresse
 serait un bouton qui ne joue rien.
 
+`name` accepte aussi une adresse, jouée telle quelle : une URI Spotify, le
+lien de partage de Spotify, ou `library://playlist/83` de Music Assistant.
+Une valeur qui n'est ni un nom de la table ni une adresse fait échouer le
+script, au lieu de ne rien jouer en silence.
+
+**La musique de chaque ambiance se règle dans Home Assistant**, pas dans le
+dépôt : `input_text.musique_detente`, `_focus`, `_chillos`, `_calin`
+(`packages/ambiances.yaml`), à modifier dans Paramètres → Entrées. Vide,
+l'ambiance joue son `defaut` de `scripts.yaml` ; `aucune`, elle laisse la
+musique telle quelle. C'est le même partage que pour les scènes : ce qu'on
+joue est du goût et se change sans commit, l'ordre des étapes et l'écho
+restent de la logique, dans git.
+
 `radio_mode` est un paramètre du script, pas une décision du script. Détente
-le passe à `true` — la playlist sert de graine et la lecture part ailleurs
-après quelques titres. Chillos ne le passe pas, donc sa playlist se joue telle
-quelle.
+le passe à `true` pour sa playlist par défaut — elle sert de graine et la
+lecture part ailleurs après quelques titres. Une playlist choisie dans le
+réglage d'une ambiance se joue toujours telle quelle.
 
 ## Le réveil
 

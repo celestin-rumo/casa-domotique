@@ -7,12 +7,18 @@
 # La seule table nom -> URI. Les ambiances l'appellent au lieu de porter
 # chacune son adresse, et l'app appelle ce script avec le nom choisi.
 # Les mêmes noms sont proposés dans input_selects.yaml.
+#
+# `name` accepte aussi une adresse, jouée telle quelle : une URI Spotify
+# (spotify:playlist:…), le lien que donne Spotify > Partager > Copier le lien,
+# ou une playlist de la bibliothèque de Music Assistant (library://playlist/83).
+# C'est ce qui permet de taper n'importe quelle playlist dans les réglages
+# d'une ambiance ou du réveil, depuis Home Assistant, sans toucher à la table.
 play_playlist:
   alias: Jouer une playlist
   mode: restart
   fields:
     name:
-      description: Le nom tel qu'il apparaît dans input_select.playlist
+      description: Un nom de input_select.playlist, ou l'adresse d'une playlist
       example: Détente
     player:
       description: L'enceinte qui joue
@@ -28,31 +34,77 @@ play_playlist:
       # identifiant : le ?si= du lien copié est un jeton de partage lié au
       # compte, il n'a rien à faire ici.
       Focus: "spotify:playlist:37i9dQZF1DWWQRwui0ExPn"
+    choix: "{{ name | default('') | trim }}"
+    # Le lien de partage est ramené à son URI : son ?si= est un jeton lié au
+    # compte, que Music Assistant n'a pas à recevoir.
+    media_id: >-
+      {%- set lien = choix | regex_findall('open[.]spotify[.]com/(?:intl-[a-z-]+/)?playlist/([A-Za-z0-9]+)') -%}
+      {%- if choix in playlists -%}{{ playlists[choix] }}
+      {%- elif lien -%}spotify:playlist:{{ lien[0] }}
+      {%- elif '://' in choix or choix.startswith('spotify:') -%}{{ choix }}
+      {%- endif -%}
   sequence:
-    # Un nom inconnu s'arrête ici plutôt que d'envoyer un media_id vide.
-    - condition: template
-      value_template: "{{ name in playlists }}"
+    # Ce qui ne se résout pas échoue, et le dit, plutôt que d'envoyer un
+    # media_id vide. Une faute de frappe dans le réglage d'une ambiance la
+    # fait donc échouer : pas d'écho, et l'app le signale au lieu de montrer
+    # une ambiance confirmée qui ne joue rien.
+    - if:
+        - condition: template
+          value_template: "{{ media_id == '' }}"
+      then:
+        - stop: "Playlist introuvable : ni un nom de la table, ni une adresse"
+          error: true
     - service: music_assistant.play_media
       target: { entity_id: "{{ player }}" }
       data:
-        media_id: "{{ playlists[name] }}"
+        media_id: "{{ media_id }}"
         media_type: playlist
         radio_mode: "{{ radio_mode | default(false) }}"
     # C'est cet écho qui confirme le choix côté app, pas la réponse au service.
-    - service: input_select.select_option
-      target: { entity_id: input_select.playlist }
-      data: { option: "{{ name }}" }
+    # Une adresse n'a pas de nom dans input_select.playlist : pas d'écho.
+    - if:
+        - condition: template
+          value_template: "{{ choix in playlists }}"
+      then:
+        - service: input_select.select_option
+          target: { entity_id: input_select.playlist }
+          data: { option: "{{ choix }}" }
 
+# LA MUSIQUE DES AMBIANCES SE RÈGLE DANS HOME ASSISTANT, pas ici. Chaque
+# ambiance lit son input_text (packages/ambiances.yaml) : un nom de la table
+# ci-dessus, une adresse, ou « aucune » pour laisser la musique telle
+# quelle. Vide, elle joue `defaut`. Même partage que pour les scènes : ce
+# qu'on joue est du goût, et se change sans commit ; l'ordre des étapes et
+# l'écho restent de la logique, ici.
 mood_detente:
   alias: Mood Détente
+  variables:
+    reglage: input_text.musique_detente
+    defaut: Détente
+    # La playlist par défaut sert de graine, et la lecture part ailleurs
+    # après quelques titres. Une playlist choisie dans le réglage, elle, se
+    # joue telle quelle.
+    radio: true
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.detente }
-    - service: script.play_playlist
-      data:
-        name: Détente
-        player: media_player.ma_chambre
-        radio_mode: true
+    # Une étape groupée, pour que l'ancre la réutilise d'un bloc dans les
+    # quatre ambiances : chacune ne donne que `reglage` et `defaut`.
+    - &musique_reglee
+      sequence:
+        - variables:
+            brut: "{{ states(reglage) | trim }}"
+            reglee: "{{ brut not in ['', 'unknown', 'unavailable'] }}"
+            choix: "{{ brut if reglee else defaut }}"
+        - if:
+            - condition: template
+              value_template: "{{ choix | lower != 'aucune' }}"
+          then:
+            - service: script.play_playlist
+              data:
+                name: "{{ choix }}"
+                player: media_player.ma_chambre
+                radio_mode: "{{ radio | default(false) and not reglee }}"
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_chambre }
       data: { volume_level: 0.25 }
@@ -68,14 +120,14 @@ mood_detente:
 
 mood_focus:
   alias: Mood Focus
+  # pas de radio : la playlist se joue telle quelle
+  variables:
+    reglage: input_text.musique_focus
+    defaut: Focus
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.focus }
-    # pas de radio_mode : la playlist se joue telle quelle
-    - service: script.play_playlist
-      data:
-        name: Focus
-        player: media_player.ma_chambre
+    - *musique_reglee
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_chambre }
       data: { volume_level: 0.15 }
@@ -83,14 +135,14 @@ mood_focus:
 
 mood_chillos:
   alias: Mood Chillos
+  # pas de radio : une playlist choisie se joue telle quelle
+  variables:
+    reglage: input_text.musique_chillos
+    defaut: Chillos
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.chillos }
-    # pas de radio_mode : une playlist choisie se joue telle quelle
-    - service: script.play_playlist
-      data:
-        name: Chillos
-        player: media_player.ma_chambre
+    - *musique_reglee
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_chambre }
       data: { volume_level: 0.18 }
@@ -98,13 +150,13 @@ mood_chillos:
 
 mood_calin:
   alias: Mood Câlin
+  variables:
+    reglage: input_text.musique_calin
+    defaut: Chillos
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.calin }
-    - service: script.play_playlist
-      data:
-        name: Chillos
-        player: media_player.ma_chambre
+    - *musique_reglee
     - service: media_player.volume_set
       target: { entity_id: media_player.ma_chambre }
       data: { volume_level: 0.15 }

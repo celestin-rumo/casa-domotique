@@ -162,13 +162,25 @@ def config_ts():
 
 def etapes_son(corps):
     """Les étapes d'une ambiance qui touchent au son — celles qui échouent
-    tant que Music Assistant n'est pas branché (étape 1.6)."""
+    tant que Music Assistant n'est pas branché (étape 1.6). Les étapes
+    groupées (sequence, if/then/else) sont parcourues aussi : la musique des
+    ambiances en est une."""
     sons = []
     for etape in corps.get("sequence", []):
         action = etape.get("service") or etape.get("action") or ""
         if action.startswith(("media_player.", "music_assistant.")) or action == "script.play_playlist":
             sons.append(action)
+        for cle in ("sequence", "then", "else"):
+            if isinstance(etape.get(cle), list):
+                sons += etapes_son({"sequence": etape[cle]})
     return sons
+
+
+def se_resout(valeur, table):
+    """Ce que script.play_playlist saurait jouer — la même règle, en Python."""
+    return (valeur in table
+            or re.search(r"open\.spotify\.com/(?:intl-[a-z-]+/)?playlist/[A-Za-z0-9]+", valeur)
+            or "://" in valeur or valeur.startswith("spotify:"))
 
 
 # --- vérifications --------------------------------------------------------
@@ -255,6 +267,35 @@ def verifier_playlists(cli, select):
             echec("« {} » est proposé sans URI dans script.play_playlist".format(nom))
     if all(n in uris for n in attendues):
         ok("chaque nom proposé a son URI")
+
+
+def verifier_musiques_des_ambiances(cli, moods):
+    titre("La musique de chaque ambiance se règle dans Home Assistant, et se résout")
+    scripts = charger("scripts.yaml")
+    table = scripts["play_playlist"]["variables"]["playlists"]
+    for mood in moods:
+        variables = scripts.get(mood.split(".", 1)[1], {}).get("variables", {})
+        reglage, defaut = variables.get("reglage"), variables.get("defaut")
+        if not reglage:
+            continue  # Tout éteindre : pas de musique à régler
+        if defaut not in table:
+            echec("{} retombe sur « {} », absent de la table de script.play_playlist".format(mood, defaut))
+        etat = cli.etat(reglage)
+        if etat is None:
+            echec("{} lit {}, qui n'existe pas (packages/ambiances.yaml)".format(mood, reglage))
+            continue
+        valeur = etat["state"].strip()
+        if valeur in ("", "unknown", "unavailable"):
+            ok("{} : vide, joue « {} »".format(reglage, defaut))
+        elif valeur.lower() == "aucune":
+            ok("{} : aucune, la musique n'est pas touchée".format(reglage))
+        elif se_resout(valeur, table):
+            ok("{} : « {} »".format(reglage, valeur))
+        else:
+            # Pas un simple goût : play_playlist s'arrête en erreur, l'ambiance
+            # ne se confirme jamais.
+            echec("{} vaut « {} », ni un nom de la table ni une adresse — {} échouera".format(
+                reglage, valeur, mood))
 
 
 def verifier_ambiances(cli, moods, mood_select):
@@ -444,6 +485,7 @@ def main():
     verifier_entites(cli, moods, lumieres, select, mood_select, reveil)
     verifier_playlists(cli, select)
     verifier_echo_des_ambiances(moods, mood_select)
+    verifier_musiques_des_ambiances(cli, moods)
     verifier_ambiances(cli, moods, mood_select)
     verifier_ajout_a_chaud(cli, select)
     verifier_phrases_vocales(cli)

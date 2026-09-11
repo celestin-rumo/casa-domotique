@@ -11,9 +11,9 @@
 # de Music Assistant ; ils tiennent tant que sa bibliothèque n'est pas
 # reconstruite de zéro.
 #
-# Les playlists des ambiances — Détente, Chillos, Focus — ne sont pas ici :
-# elles restent dans la table de script.play_playlist (scripts.yaml), parce
-# que les ambiances les appellent par leur nom.
+# Les playlists des ambiances ne sont pas ici : chacune a son réglage
+# (packages/ambiances.yaml), qui retombe sur un nom de la table de
+# script.play_playlist quand il est vide.
 #
 # Pas d'`initial:`, pour la même raison que les réglages du réveil
 # (packages/reveil.yaml) : il viderait la liste à chaque redémarrage.
