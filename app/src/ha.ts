@@ -147,6 +147,72 @@ export async function setNumber(entityId: string, value: number) {
   await callService(conn, "input_number", "set_value", { entity_id: entityId, value });
 }
 
+// Les réglages en texte : la courbe du réveil, ses lumières, sa playlist,
+// les playlists épinglées. 255 caractères au plus — c'est Home Assistant
+// qui refuse au-delà, et le refus remonte comme une faute.
+export async function setText(entityId: string, value: string) {
+  const conn = await connect();
+  await callService(conn, "input_text", "set_value", { entity_id: entityId, value });
+}
+
+export async function setSelect(entityId: string, option: string) {
+  const conn = await connect();
+  await callService(conn, "input_select", "select_option", { entity_id: entityId, option });
+}
+
+// Une playlist de la bibliothèque, jouée par son adresse. Pas de table, et
+// pas d'écho vers input_select.playlist : celui-ci ne connaît que les noms de
+// script.play_playlist.
+export async function playUri(uri: string, player: string) {
+  const conn = await connect();
+  await callService(conn, "music_assistant", "play_media", { media_id: uri, media_type: "playlist" }, { entity_id: player });
+}
+
+// --- La bibliothèque de Music Assistant ---
+//
+// get_library est un service qui RÉPOND : il se demande avec return_response,
+// et il veut l'entrée de configuration de Music Assistant, qu'on ne connaît
+// qu'en la demandant à Home Assistant. Elle ne change pas pendant la vie de
+// l'app — une seule demande, gardée tant qu'elle réussit.
+export type PlaylistBib = { uri: string; name: string; image?: string | null };
+
+let entreeMA: Promise<string> | null = null;
+
+function entreeMusicAssistant(): Promise<string> {
+  if (!entreeMA) {
+    entreeMA = connect().then(async (conn) => {
+      const entrees = await conn.sendMessagePromise<{ entry_id: string; state: string }[]>({
+        type: "config_entries/get",
+        domain: "music_assistant",
+      });
+      const e = entrees.find((x) => x.state === "loaded") ?? entrees[0];
+      if (!e) throw new Error("Music Assistant n'est pas relié à Home Assistant");
+      return e.entry_id;
+    });
+    // Un échec ne reste pas en mémoire : la prochaine demande réessaie.
+    entreeMA.catch(() => (entreeMA = null));
+  }
+  return entreeMA;
+}
+
+// Toute la bibliothèque d'un coup — plus de cent playlists sur ce compte, une
+// seconde de Music Assistant —, puis la recherche se fait sur le natel, lettre
+// par lettre, sans repasser par le Pi. Une playlist sans nom, Music Assistant
+// en garde, n'a rien à afficher.
+export async function bibliotheque(limite = 1000): Promise<PlaylistBib[]> {
+  const conn = await connect();
+  const config_entry_id = await entreeMusicAssistant();
+  const r = (await callService(
+    conn,
+    "music_assistant",
+    "get_library",
+    { config_entry_id, media_type: "playlist", limit: limite },
+    undefined,
+    true,
+  )) as { response?: { items?: PlaylistBib[] } };
+  return (r.response?.items ?? []).filter((p) => p.name?.trim());
+}
+
 // script.turn_on rend la main tout de suite : appeler le script par son
 // propre service bloquerait l'appel jusqu'à la fin — vingt minutes pour un
 // lever de soleil. Les variables sont celles que le script déclare en fields.

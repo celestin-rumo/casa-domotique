@@ -380,8 +380,8 @@ une entrée de la liste. `dev/ecouter.py` le montre.
 
 ## 1.10 Le réveil
 
-`homeassistant/packages/reveil.yaml` est un *package* : ses trois réglages,
-ses scripts, son automatisation et ses réponses vocales tiennent dans un seul
+`homeassistant/packages/reveil.yaml` est un *package* : ses réglages, ses
+scripts, son automatisation et ses réponses vocales tiennent dans un seul
 fichier, fusionné avec le reste par la clé `packages:` des deux
 `configuration.yaml`.
 
@@ -389,11 +389,41 @@ fichier, fusionné avec le reste par la clé `packages:` des deux
 |---|---|
 | `input_datetime.reveil_heure` | l'heure, écrite par l'app ou la voix |
 | `input_boolean.reveil_actif` | sonne ou ne sonne pas |
-| `input_number.reveil_duree` | minutes du lever, 20 par défaut |
-| `script.reveil` | le lever de soleil : `light.chambre` de 2000 K à 4000 K, marche par marche |
-| `script.reveil_musique` | la musique, à mi-chemin, de 3 % à 20 % de volume |
-| `script.reveil_stop` | « je suis debout » |
+| `input_number.reveil_duree` | minutes du lever |
+| `input_text.reveil_lumieres` | les lumières qui se lèvent, séparées par des virgules |
+| `input_text.reveil_courbe` | la courbe : des points « position,intensité,couleur » |
+| `input_number.reveil_musique_delai` | minutes avant que la musique entre |
+| `input_number.reveil_volume_debut`, `reveil_volume_fin` | son volume au départ, et à la fin du lever |
+| `input_text.reveil_playlist` | ce qu'elle joue : un nom de la table, une adresse de la bibliothèque, ou `aucune` |
+| `input_select.reveil_debout` | ce que fait « Je suis debout » : rien, l'éclairage « Réveillé », ou une ambiance |
+| `script.reveil` | le lever : les lumières choisies suivent la courbe, marche par marche |
+| `script.reveil_musique` | la musique, qui entre puis monte |
+| `script.reveil_stop` | « Je suis debout » |
 | `automation.reveil_lever_de_soleil` | à l'heure dite, si actif, lance `script.reveil` |
+
+**Aucun de ces helpers n'a d'`initial:`, et il ne faut pas en remettre.** Un
+helper qui porte `initial:` y revient à chaque démarrage de Home Assistant,
+au lieu de reprendre sa dernière valeur. Jusqu'au 11 septembre 2026,
+`reveil_heure` et `reveil_duree` en avaient un : l'heure réglée depuis le
+natel redevenait 7 h au premier redémarrage, sans que rien ne le dise. La
+contrepartie ne joue qu'une fois, sur une installation neuve : chaque nombre
+part de son minimum — une minute de lever, une musique qui entre tout de
+suite — et les scripts prennent leurs valeurs par défaut quand un texte est
+vide.
+
+**La courbe** s'écrit `0,1,k2000;40,30,ff8a3c;100,80,k4000` : une position en
+pourcentage de la durée, une intensité en pourcentage, et un blanc en
+kelvins ou une teinte en hexadécimal. Allonger le lever étire la courbe sans
+rien régler d'autre. Entre deux blancs, les lampes reçoivent des kelvins ;
+dès qu'une teinte est en jeu, du RVB. Sans courbe valable : braise à 1 % →
+jour à 78 %, le lever d'avant ces réglages. `src/couleur.ts` lit le même
+texte de la même façon, et l'app dessine la courbe en dégradé.
+
+Le script qui la lit et l'interpole est en Jinja, que rien sur le poste de
+dev ne sait exécuter. Il a été rendu sur le moteur du Pi avant d'être livré,
+par `POST /api/template` — qui rend un gabarit sans rien modifier — avec des
+courbes d'essai à la place des helpers. À 25 % d'une courbe braise → orange
+→ jour : 19,1 % d'intensité en `[255, 138, 43]`, le calcul attendu.
 
 La musique n'est pas dans `script.reveil` : il la confie à
 `script.reveil_musique` par un `script.turn_on`, qui n'attend pas et dont les
@@ -402,24 +432,21 @@ réveil qui n'allume pas parce que Spotify ne répond pas ferait rater le
 train. Sans `media_player.ma_chambre`, la lumière se lève et rien ne joue,
 sans erreur dans les logs.
 
-Dans l'app, la carte **Réveil** de l'écran Ambiances : l'heure, l'interrupteur,
-la durée, et **Essai d'une minute**. Attendu sur les fausses ampoules : deux
-marches, `light.chambre` à 100 puis 200 de luminosité, la carte qui dit « le
-jour se lève · 39 % » puis « 78 % », et le bouton qui devient **Je suis
-debout** tant que `script.reveil` est `on`. Sans app :
+Dans l'app, la carte **Réveil** de l'écran Ambiances : l'heure,
+l'interrupteur, la durée, l'aperçu du lever en dégradé, et **Essai d'une
+minute** — la courbe entière en accéléré, la musique entrant au même moment
+*relatif* que le matin. Le reste est replié sous **Régler le lever** : les
+lumières, les points de la courbe, la musique, et ce que fait « Je suis
+debout ». Sans app :
 
 ```bash
 curl -s -X POST -H "$H" -H "Content-Type: application/json" \
   -d '{"entity_id":"script.reveil","variables":{"duree":1}}' \
   http://localhost:8123/api/services/script/turn_on
-sleep 20; curl -s -H "$H" http://localhost:8123/api/states/light.chambre
-# → "brightness":100, puis 200 vingt secondes plus tard
 ```
 
-Pour entendre la moitié son en dev, où seule `media_player.ma_chambre` existe
-(1.6) : Outils de développement → Actions → `script.reveil`, avec
-`player: media_player.ma_chambre` et `duree: 1`. La musique entre à trente
-secondes, presque inaudible, et monte.
+Sur les fausses ampoules, avec la courbe par défaut : trois ordres en une
+minute, à 1 %, 39,5 % puis 78 % — `brightness` 3, 101 puis 199.
 
 Sur le Pi, l'automatisation se déclenche chaque jour à l'heure du helper
 tant que le réveil est actif — il n'y a pas de notion de jour de semaine.
@@ -1145,6 +1172,23 @@ branché, c'est peut-être cette entité-là qu'il pilote en dessous : la retire
 couperait le son sans rien dire. Paramètres → Entités → la masquer suffit à
 ne plus la voir.
 
+**Les playlists, au-delà des trois des ambiances.** Écoute → **Ajouter une
+playlist** cherche dans la bibliothèque de Music Assistant — toutes les
+playlists du compte Spotify, plus de cent ici — et épingle celles qu'on
+choisit. Les épinglées rejoignent la liste d'Écoute et le choix de la
+musique du réveil. Elles vivent sur le Pi, dans
+`input_text.playlists_epinglees` (`packages/playlists.yaml`), sous forme de
+numéros de la bibliothèque : 255 caractères en tiennent une soixantaine. Les
+trois des ambiances restent dans la table de `script.play_playlist`, parce
+que les ambiances les appellent par leur nom.
+
+La bibliothèque se lit par `music_assistant.get_library`, un service qui
+*répond* : l'app le demande avec `return_response`, après avoir demandé à
+Home Assistant l'entrée de configuration de Music Assistant, que le service
+exige. Vérifié le 11 septembre 2026 : cent playlists en une seconde, dont une
+sans nom, que l'app écarte. La recherche se fait ensuite sur le natel, à
+chaque lettre, sans repasser par le Pi.
+
 Les URI Spotify de `script.play_playlist` résolvent enfin. Chaque nom de
 `input_selects.yaml` doit avoir son URI dans la table : décommentez-les au fur
 et à mesure, jamais avant.
@@ -1196,11 +1240,22 @@ synthèse elles-mêmes : jusqu'ici, l'API de conversation les contournait.
 
 ## 3.5 Le réveil pour de vrai
 
-Le NPA de `input_text.meteo_npa`, une fois. Puis un réveil dans cinq minutes
-depuis l'app, avec la Hue de la chambre et `media_player.ma_chambre` : la
-lampe doit monter **sans saut visible** — chaque marche demande une
-transition de trente secondes à l'ampoule, ce que les fausses ampoules ne
-montrent pas — et la musique entrer à mi-chemin, à peine audible.
+Le NPA de `input_text.meteo_npa`, une fois. Puis, dans l'app, **Régler le
+lever** : les lumières, la courbe, la playlist, et le moment où la musique
+entre — ce dernier part de 0 minute sur un helper neuf, donc dès la première
+lueur, tant qu'on ne l'a pas réglé. Puis un réveil dans cinq minutes.
+
+Les Hue doivent monter **sans saut visible** : chaque marche leur demande une
+transition de trente secondes, ce que les fausses ampoules ne montrent pas.
+Les WiZ, qui ne savent pas les transitions, font un petit pas toutes les
+trente secondes. C'est attendu, et c'est pour elles que le lever avance par
+marches plutôt que par une seule longue transition, qu'elles franchiraient
+d'un bond.
+
+Puis **Je suis debout**, avec chacun des choix de « Ensuite » : rien, une
+ambiance, et l'éclairage « Réveillé » — qui n'existe qu'une fois enregistré
+depuis Ambiances → Enregistrer les lumières → Réveillé. Tant qu'il n'existe
+pas, ce choix laisse la pièce telle quelle, sans erreur.
 
 ## 3.6 Les films du Synology
 
@@ -1384,6 +1439,14 @@ temps virtuel s'écoule avant la fin de la poignée de main WebSocket, et la
 capture fige l'app dans un état qu'aucun utilisateur ne verra. Ce n'est pas
 une panne. Pour trancher, attendre en temps réel — piloter Chrome par le
 protocole DevTools — ou parler directement au WebSocket avec le jeton.
+
+**Le 11 septembre 2026 encore : le réveil réglable et les playlists
+épinglées, écrits mais pas encore exécutés.** Les gabarits Jinja du lever, de
+la musique et de « Je suis debout » ont été rendus sur le moteur du Pi par
+`/api/template`, avec des courbes d'essai à la place des helpers : lecture,
+tri, courbe par défaut, interpolation, moment d'entrée de la musique,
+volumes, existence de la scène « Réveillé ». `tsc` et le build passent. Reste
+à voir la chambre se lever pour de vrai, une fois le Pi à jour (3.5).
 
 Non vérifiés à ce jour : la chaîne complète micro → réponse dans Home
 Assistant (il faut l'assistant de 1.9, puis un micro ou un satellite), et

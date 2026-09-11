@@ -53,20 +53,46 @@ export const CLIMAT = {
 // et `media_player.sonos_beam` le jour où ils existent.
 export const DEVICES: { id: string; label: string }[] = [];
 
-// Le réveil (homeassistant/packages/reveil.yaml). Les trois réglages sont des
+// Le réveil (homeassistant/packages/reveil.yaml). Tous ses réglages sont des
 // helpers que l'app écrit directement ; le script s'allume (state « on »)
 // tant que le jour se lève, et c'est cet état qui dit « en cours ».
+//
+// Ce bloc ne contient QUE des entity_id : dev/verifier.py le lit avec une
+// expression régulière et vérifie que chaque chaîne existe sur le Pi. Pas
+// d'objet imbriqué non plus, sa lecture s'arrête à la première accolade
+// fermante.
 export const REVEIL = {
   heure: "input_datetime.reveil_heure",
   actif: "input_boolean.reveil_actif",
   duree: "input_number.reveil_duree",
+  lumieres: "input_text.reveil_lumieres",
+  courbe: "input_text.reveil_courbe",
+  musiqueDelai: "input_number.reveil_musique_delai",
+  volumeDebut: "input_number.reveil_volume_debut",
+  volumeFin: "input_number.reveil_volume_fin",
+  playlist: "input_text.reveil_playlist",
+  debout: "input_select.reveil_debout",
   script: "script.reveil",
   stop: "script.reveil_stop",
-  // La lampe, pas le bandeau : le lever de soleil monte une seule lumière,
-  // marche par marche. Mettre `light.chambre_bandeau` ici lèverait la pièce
-  // par le bandeau à la place — une ligne à changer, rien d'autre.
-  lumiere: "light.chambre",
 };
+
+// Ce que « Je suis debout » peut faire de la pièce : les options de
+// input_select.reveil_debout, dans le même ordre, avec un nom lisible.
+export const APRES_REVEIL = [
+  { id: "rien", label: "Laisser la pièce comme le lever l'a mise" },
+  { id: "scene.reveil_debout", label: "Allumer l'éclairage « Réveillé »" },
+  ...MOODS.flatMap((m) => (m.scene ? [{ id: m.id, label: `Lancer ${m.label}` }] : [])),
+];
+
+// Les scènes que « Enregistrer les lumières » peut réécrire : celles des
+// ambiances, plus l'éclairage « Réveillé » que « Je suis debout » allume.
+export const CIBLES_ENREGISTREMENT = [
+  ...MOODS.flatMap((m) => (m.scene ? [{ id: m.id, label: m.label, scene: m.scene }] : [])),
+  { id: "scene.reveil_debout", label: "Réveillé", scene: "reveil_debout" },
+];
+
+// Les playlists épinglées depuis Écoute (homeassistant/packages/playlists.yaml).
+export const PLAYLISTS_EPINGLEES = "input_text.playlists_epinglees";
 
 // La liste des playlists n'est pas ici : elle vit sur le Pi, dans
 // input_selects.yaml, et arrive par le subscribeEntities que fait déjà ha.ts.

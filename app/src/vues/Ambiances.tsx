@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { useMaison } from "../maison";
-import { MOODS, MOOD_SELECT, LIGHTS } from "../config";
+import { MOODS, MOOD_SELECT, LIGHTS, CIBLES_ENREGISTREMENT } from "../config";
 import { enregistrerScene, scenePourLumieres, type EtatLumiere } from "../ha";
 import { Carte, Etiquette, LigneEtat, NoteFaute } from "../ui";
 import { Reveil } from "./Reveil";
@@ -102,14 +102,15 @@ export function Ambiances() {
 // appuis : le premier arme, le second écrit — un seul suffirait à écraser
 // une ambiance par mégarde, et rien ne permettrait de la retrouver.
 //
-// « Tout éteindre » est absent de la liste : il n'a pas de `scene` dans
-// config.ts, parce qu'enregistrer une pièce noire n'apprendrait rien.
+// La liste vient de CIBLES_ENREGISTREMENT : les ambiances qui ont une scène,
+// plus l'éclairage « Réveillé » que « Je suis debout » peut allumer. « Tout
+// éteindre » n'y est pas : enregistrer une pièce noire n'apprendrait rien.
 function Enregistrer({ entities }: { entities: Record<string, EtatLumiere | undefined> }) {
   const [arme, setArme] = useState<string | null>(null);
   const [dit, setDit] = useState<string | null>(null);
   const [rate, setRate] = useState(false);
 
-  const enregistrables = MOODS.filter((m) => m.scene);
+  const enregistrables = CIBLES_ENREGISTREMENT;
   const allumees = LIGHTS.filter((id) => entities[id]?.state === "on").length;
 
   async function ecrire(scene: string, nom: string) {
@@ -139,7 +140,7 @@ function Enregistrer({ entities }: { entities: Record<string, EtatLumiere | unde
           <button
             key={m.id}
             className={`btn${arme === m.id ? " primary" : ""}`}
-            onClick={() => (arme === m.id ? ecrire(m.scene!, m.label) : (setArme(m.id), setDit(null)))}
+            onClick={() => (arme === m.id ? ecrire(m.scene, m.label) : (setArme(m.id), setDit(null)))}
           >
             {arme === m.id ? `Écraser ${m.label} ?` : m.label}
           </button>

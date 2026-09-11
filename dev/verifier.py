@@ -151,6 +151,9 @@ def config_ts():
     # Le climat : les capteurs, simulés en dev, que la carte Climat affiche.
     bloc_climat = re.search(r"CLIMAT\s*=\s*\{(.*?)\}", source, re.S)
     reveil += re.findall(r'"([^"]+)"', bloc_climat.group(1)) if bloc_climat else []
+    # Les playlists épinglées depuis Écoute (packages/playlists.yaml).
+    epinglees = re.search(r'PLAYLISTS_EPINGLEES\s*=\s*"([^"]+)"', source)
+    reveil += [epinglees.group(1)] if epinglees else []
     return (moods, lumieres,
             select.group(1) if select else None,
             mood_select.group(1) if mood_select else None,

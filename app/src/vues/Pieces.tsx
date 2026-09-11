@@ -4,33 +4,14 @@ import { useMaison } from "../maison";
 import { LIGHTS, DEVICES, CLIMAT } from "../config";
 import { toggleLight, setLight } from "../ha";
 import { Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, Pastille } from "../ui";
+import { css, hsRgb, kelvinRgb } from "../couleur";
 
 const MODES_COULEUR = ["hs", "rgb", "xy", "rgbw", "rgbww"];
 
 // Deux façons de dire la même chose à une ampoule : des kelvins, ou une
-// teinte. La puce montre la couleur qui partirait — calculée pendant le
-// geste, puis remplacée par ce que l'ampoule rapporte vraiment.
-function lerp(a: number, b: number, t: number) {
-  return Math.round(a + (b - a) * t);
-}
-function kelvinRgb(k: number): [number, number, number] {
-  const chaud = [255, 180, 107], neutre = [255, 241, 224], froid = [207, 227, 255];
-  if (k <= 4000) {
-    const t = Math.min(1, Math.max(0, (k - 2200) / 1800));
-    return [lerp(chaud[0], neutre[0], t), lerp(chaud[1], neutre[1], t), lerp(chaud[2], neutre[2], t)];
-  }
-  const u = Math.min(1, (k - 4000) / 2500);
-  return [lerp(neutre[0], froid[0], u), lerp(neutre[1], froid[1], u), lerp(neutre[2], froid[2], u)];
-}
-function hsRgb(h: number, sPct: number): [number, number, number] {
-  const s = sPct / 100, l = 0.55;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = l - c / 2;
-  const r = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(h / 60) % 6];
-  return [Math.round((r[0] + m) * 255), Math.round((r[1] + m) * 255), Math.round((r[2] + m) * 255)];
-}
-const css = (rgb: [number, number, number]) => `rgb(${rgb.join(", ")})`;
+// teinte — les conversions vivent dans couleur.ts, partagé avec le réveil.
+// La puce montre la couleur qui partirait, calculée pendant le geste, puis
+// remplacée par ce que l'ampoule rapporte vraiment.
 
 export function Pieces() {
   const { entities, fautes, agir } = useMaison();

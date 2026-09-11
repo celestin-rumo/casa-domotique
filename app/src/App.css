@@ -335,6 +335,51 @@ input[type="time"]:disabled { color: var(--muted); }
 .btn:disabled { color: var(--muted); cursor: default; }
 .btn.primary { background: var(--accent); color: var(--bg); }
 
+/* le lever : l'aperçu de la courbe, puis ses réglages repliés */
+.courbe {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.courbe i {
+  position: absolute;
+  top: 50%;
+  width: 6px; height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+/* .adv.open s'arrête à 320 px de haut : les réglages du lever en font bien
+   plus, et seraient coupés net. Ici, l'opacité seule. */
+.adv.open.long { animation: advLong var(--t-swap) var(--e-out) both; }
+@keyframes advLong { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.sous { display: grid; gap: 10px; }
+.sous + .sous { padding-top: 13px; border-top: 1px solid var(--line); }
+.sous-titre { margin: 0; font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.point { display: grid; gap: 10px; padding: 12px; border-radius: 14px; background: color-mix(in oklab, var(--panel-2) 55%, transparent); }
+.point-tete { display: flex; align-items: center; gap: 9px; }
+.point-puce { flex: none; width: 14px; height: 14px; border-radius: 50%; background: var(--pt); box-shadow: inset 0 0 0 1px var(--line-2); }
+.point-nom { flex: 1; font: 600 14px var(--titre); }
+.lien { border: 0; padding: 0; background: transparent; color: var(--muted); font: 12px var(--mono); text-decoration: underline; cursor: pointer; }
+.lien:hover { color: var(--err); }
+.champ { display: grid; gap: 6px; }
+select,
+input.recherche {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  color-scheme: dark;
+}
+select:disabled,
+input.recherche:disabled { color: var(--muted); }
+
 /* la faute, sur la carte de l'entité qui a refusé */
 .fault-note { margin: 0; display: grid; gap: 3px; font-size: 12.5px; color: var(--err); }
 .fault-note.show { animation: noteIn var(--t-swap) var(--e-out) both; }

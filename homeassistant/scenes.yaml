@@ -57,3 +57,14 @@
   entities:
     light.chambre: { state: "off" }
     light.chambre_bandeau: { state: "off" }
+# « Je suis debout », quand on a choisi d'allumer la pièce plutôt que de
+# lancer une ambiance (input_select.reveil_debout, packages/reveil.yaml). Tout
+# allumé, en blanc franc. Graine comme les autres : le vrai réglage se fait
+# dans la pièce, puis Ambiances → Enregistrer les lumières → Réveillé.
+- id: reveil_debout
+  name: Réveillé
+  entities:
+    light.chambre: { state: "on", brightness: 230, color_temp_kelvin: 4000 }
+    light.chambre_bandeau: { state: "on", brightness: 180, color_temp_kelvin: 4000 }
+    light.chambre_wiz_1: { state: "on", brightness: 200, color_temp_kelvin: 4000 }
+    light.chambre_wiz_2: { state: "on", brightness: 200, color_temp_kelvin: 4000 }

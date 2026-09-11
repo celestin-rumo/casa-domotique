@@ -1,0 +1,24 @@
+# Les playlists épinglées depuis l'app (Écoute → Ajouter une playlist).
+# Music Assistant voit déjà toute la bibliothèque Spotify — plus de cent
+# playlists sur ce compte —, trop pour une liste qu'on parcourt : on ne garde
+# ici que celles qu'on a choisies.
+#
+# Le format : les numéros de playlist de la bibliothèque de Music Assistant,
+# séparés par des virgules — « 83,50,72 » pour library://playlist/83, /50 et
+# /72. Des numéros plutôt que les adresses entières, parce qu'un input_text
+# ne tient que 255 caractères : une soixantaine d'épingles, là où les
+# adresses n'en laisseraient qu'une dizaine. Ces numéros sont ceux de la base
+# de Music Assistant ; ils tiennent tant que sa bibliothèque n'est pas
+# reconstruite de zéro.
+#
+# Les playlists des ambiances — Détente, Chillos, Focus — ne sont pas ici :
+# elles restent dans la table de script.play_playlist (scripts.yaml), parce
+# que les ambiances les appellent par leur nom.
+#
+# Pas d'`initial:`, pour la même raison que les réglages du réveil
+# (packages/reveil.yaml) : il viderait la liste à chaque redémarrage.
+input_text:
+  playlists_epinglees:
+    name: Playlists épinglées
+    icon: mdi:pin
+    max: 255
