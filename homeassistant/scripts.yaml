@@ -115,6 +115,12 @@ mood_off:
   sequence:
     - service: scene.turn_on
       target: { entity_id: scene.tout_eteindre }
+    # Toutes les lumières, pas seulement celles de la scène. scene.tout_eteindre
+    # appartient à Home Assistant et ne connaît que ce qu'on y a mis : les deux
+    # WiZ, ajoutées à la chambre après coup, n'y étaient pas, et Tout éteindre
+    # les laissait allumées. Même logique que media_stop juste en dessous.
+    - service: light.turn_off
+      target: { entity_id: all }
     - service: media_player.media_stop
       target: { entity_id: all }
     - *ambiance_confirmee

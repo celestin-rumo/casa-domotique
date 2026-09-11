@@ -2,8 +2,8 @@
 # dev : sur le Pi, c'est homeassistant/configuration.yaml qui sert.
 #
 # Il inclut les vrais fichiers du dépôt, montés sur /config/casa, et ajoute
-# une fausse ampoule pour que light.chambre existe sans qu'aucune ampoule
-# soit branchée.
+# quatre fausses ampoules — celles de la chambre — pour que light.chambre et
+# les autres existent sans qu'aucune ampoule soit branchée.
 default_config:
 
 # Pas de bloc « http: » ici, pour deux raisons.
@@ -34,7 +34,7 @@ default_config:
 
 # --- les fichiers du dépôt, tels quels ---
 # Les packages (le réveil, la météo) : leurs input_boolean se fusionnent avec
-# ceux de la fausse ampoule ci-dessous, et leurs automatisations se chargent
+# ceux des fausses ampoules ci-dessous, et leurs automatisations se chargent
 # ici comme sur le Pi.
 homeassistant:
   packages: !include_dir_named casa/packages
@@ -56,13 +56,17 @@ scene: !include scenes.yaml
 # Pas d'`automation:` : le dépôt n'a pas d'automations.yaml. Les seules
 # automatisations sont celles des packages, chargées ci-dessus.
 
-# --- de quoi porter l'état des deux lumières qui n'existent pas ---
-# Deux, comme dans la chambre : la lampe et le bandeau.
+# --- de quoi porter l'état des quatre lumières qui n'existent pas ---
+# Quatre, comme dans la chambre : la lampe, le bandeau et les deux WiZ.
 input_boolean:
   chambre_on:
     name: Chambre allumée
   chambre_bandeau_on:
     name: Bandeau allumé
+  chambre_wiz_1_on:
+    name: WiZ 1 allumée
+  chambre_wiz_2_on:
+    name: WiZ 2 allumée
 
 input_number:
   chambre_niveau:
@@ -75,6 +79,16 @@ input_number:
     min: 0
     max: 255
     initial: 60
+  chambre_wiz_1_niveau:
+    name: WiZ 1 niveau
+    min: 0
+    max: 255
+    initial: 80
+  chambre_wiz_2_niveau:
+    name: WiZ 2 niveau
+    min: 0
+    max: 255
+    initial: 80
   # Le faux capteur de la pièce : à bouger dans l'interface pour voir la
   # carte Climat de l'app suivre.
   temperature_interieure:
@@ -89,7 +103,11 @@ input_number:
     max: 100
     initial: 48
 
-# --- light.chambre et light.chambre_bandeau : allumage et intensité ---
+# --- light.chambre, light.chambre_bandeau et les deux WiZ : allumage et intensité ---
+# Les `initial:` des helpers ci-dessus sont voulus ici, et seulement ici :
+# de fausses ampoules qui repartent des mêmes valeurs à chaque démarrage
+# font un banc d'essai reproductible. Le réveil, lui, n'en a aucun
+# (packages/reveil.yaml dit pourquoi).
 # Les entités template vivent sous la clé « template: ». L'ancienne forme,
 # « light: - platform: template », n'est plus acceptée depuis HA 2026.x : elle
 # ne fait pas échouer le démarrage, elle laisse une ligne d'erreur dans les
@@ -159,3 +177,37 @@ template:
             data: { value: "{{ brightness }}" }
           - action: input_boolean.turn_on
             target: { entity_id: input_boolean.chambre_bandeau_on }
+
+      - name: Chambre WiZ 1
+        unique_id: casa_dev_chambre_wiz_1
+        state: "{{ is_state('input_boolean.chambre_wiz_1_on', 'on') }}"
+        level: "{{ states('input_number.chambre_wiz_1_niveau') | int(0) }}"
+        turn_on:
+          action: input_boolean.turn_on
+          target: { entity_id: input_boolean.chambre_wiz_1_on }
+        turn_off:
+          action: input_boolean.turn_off
+          target: { entity_id: input_boolean.chambre_wiz_1_on }
+        set_level:
+          - action: input_number.set_value
+            target: { entity_id: input_number.chambre_wiz_1_niveau }
+            data: { value: "{{ brightness }}" }
+          - action: input_boolean.turn_on
+            target: { entity_id: input_boolean.chambre_wiz_1_on }
+
+      - name: Chambre WiZ 2
+        unique_id: casa_dev_chambre_wiz_2
+        state: "{{ is_state('input_boolean.chambre_wiz_2_on', 'on') }}"
+        level: "{{ states('input_number.chambre_wiz_2_niveau') | int(0) }}"
+        turn_on:
+          action: input_boolean.turn_on
+          target: { entity_id: input_boolean.chambre_wiz_2_on }
+        turn_off:
+          action: input_boolean.turn_off
+          target: { entity_id: input_boolean.chambre_wiz_2_on }
+        set_level:
+          - action: input_number.set_value
+            target: { entity_id: input_number.chambre_wiz_2_niveau }
+            data: { value: "{{ brightness }}" }
+          - action: input_boolean.turn_on
+            target: { entity_id: input_boolean.chambre_wiz_2_on }

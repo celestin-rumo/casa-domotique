@@ -12,10 +12,18 @@ YAML ni l'app, puisque l'étape 1 les a déjà prouvés.
 
 ## Une seule pièce, la chambre
 
-**Le dépôt ne connaît qu'une pièce.** Deux lumières Hue — la lampe
-`light.chambre` et le bandeau `light.chambre_bandeau`. Une enceinte,
+**Le dépôt ne connaît qu'une pièce.** Quatre lumières : la lampe Hue
+`light.chambre`, le bandeau Hue `light.chambre_bandeau`, et deux ampoules
+WiZ, `light.chambre_wiz_1` et `light.chambre_wiz_2`. Une enceinte,
 `media_player.ma_chambre`. Cinq ambiances qui ne pilotent qu'elles : Détente,
 Focus, Chillos, Câlin et Tout éteindre.
+
+Les WiZ, ajoutées le 11 septembre 2026, se comportent autrement que les Hue
+sur un point : elles **ne savent pas les transitions** (leur
+`supported_features` n'a pas le bit 32). Là où une Hue fond d'un réglage à
+l'autre, une WiZ saute. Et leur nom d'origine, « WiZ RGBW Tunable B561F8 »,
+s'affiche tel quel dans l'app, qui lit le `friendly_name` : c'est dans Home
+Assistant qu'on le change, pas dans le dépôt.
 
 Les deux lumières ne font jamais la même chose, et c'est délibéré : la lampe
 éclaire, le bandeau colore. Câlin met le rouge rosé au bandeau et laisse la

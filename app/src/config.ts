@@ -32,8 +32,11 @@ export const PLAYERS = [
   { id: "media_player.ma_chambre", label: "Chambre" },
 ];
 
-// La lampe d'abord, le bandeau ensuite : c'est l'ordre de l'écran Pièces.
-export const LIGHTS = ["light.chambre", "light.chambre_bandeau"];
+// L'ordre de l'écran Pièces : la lampe, le bandeau, puis les deux WiZ.
+// Les WiZ ne savent pas les transitions — leur supported_features n'a pas
+// le bit 32, là où les Hue l'ont — : elles sautent d'un réglage à l'autre
+// quand les Hue fondent.
+export const LIGHTS = ["light.chambre", "light.chambre_bandeau", "light.chambre_wiz_1", "light.chambre_wiz_2"];
 
 // Le climat, en tête de l'écran Pièces : le capteur de la pièce, renommé
 // ainsi sur le Pi, et la température dehors telle que MétéoSuisse la donne
