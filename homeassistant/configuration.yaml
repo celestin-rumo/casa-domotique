@@ -13,7 +13,7 @@
 default_config:
 
 # Pas de bloc « http: ». L'app parle par WebSocket, où le CORS ne s'applique
-# pas — sauf l'enregistrement d'une ambiance, seule requête REST, qui n'en
+# pas — sauf l'enregistrement d'une ambiance, seul usage du REST, qui n'en
 # a pas besoin tant que l'app est servie par Home Assistant lui-même. « http: » en YAML est de toute façon déprécié
 # depuis HA 2026.x (retiré en 2027.2) — il s'importe une fois dans .storage/ à
 # l'essai, puis se révoque tout seul avec un redémarrage si personne ne le

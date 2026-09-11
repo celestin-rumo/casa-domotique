@@ -767,8 +767,17 @@ l'origine sur `/api/websocket`.
 **Une requête fait exception : enregistrer une ambiance.** Ambiances →
 Ajuster → « Enregistrer les lumières » fige l'état actuel des lampes dans une
 scène, et Home Assistant n'expose pas l'écriture des scènes par WebSocket —
-son propre éditeur passe par `POST /api/config/scene/config/<id>`. C'est la
-seule requête HTTP de toute l'app, et le CORS s'y applique.
+son propre éditeur passe par `/api/config/scene/config/<id>`. L'app y fait
+deux requêtes — lire la scène, puis l'écrire — et ce sont les seules
+requêtes HTTP de toute l'app ; le CORS s'y applique.
+
+L'enregistrement **fusionne**, il ne remplace pas. Il ne touche qu'aux
+lumières que l'app connaît (`LIGHTS` dans `config.ts`) et laisse intactes
+celles qu'on a ajoutées à la scène dans l'interface de Home Assistant,
+ainsi que son icône. C'est à ça que sert la lecture préalable : sans elle,
+enregistrer depuis l'app effacerait en silence tout ce qu'elle ne connaît
+pas — constaté le 11 septembre 2026 avec deux ampoules WiZ ajoutées à Câlin
+dans l'interface, que la première version du bouton aurait retirées.
 
 Ce que ça change, selon d'où l'app est servie :
 

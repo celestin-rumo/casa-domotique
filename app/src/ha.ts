@@ -163,8 +163,9 @@ export async function runScript(entityId: string, variables?: Record<string, unk
 // bien en service, mais il fabrique une scène en mémoire, perdue au
 // redémarrage — inutilisable ici.
 //
-// D'où la seule requête HTTP de toute l'app, et sa conséquence : le CORS
-// s'applique, contrairement aux WebSockets. Servie par Home Assistant depuis
+// D'où le seul usage du REST dans toute l'app — lire la scène, puis
+// l'écrire — et sa conséquence : le CORS s'applique, contrairement aux
+// WebSockets. Servie par Home Assistant depuis
 // /local/casa/, l'app est sur la même origine et rien n'est à régler. En
 // développement, sur localhost:5173, il faut déclarer l'origine dans
 // Paramètres → Système → Réseau — et surtout pas par un bloc « http: » en
@@ -175,10 +176,19 @@ export async function runScript(entityId: string, variables?: Record<string, unk
 
 export type EtatLumiere = { state: string; attributes: Record<string, unknown> };
 
-// Ce qu'une scène retient d'une lampe allumée. Tout le reste des attributs
-// — friendly_name, supported_features, les modes disponibles — décrirait
-// l'ampoule et non l'ambiance, et Home Assistant les refuse à l'écriture.
-const RETENUS = ["brightness", "color_temp_kelvin", "rgb_color", "hs_color", "xy_color", "effect"];
+// Ce qu'une scène retient d'une lampe allumée : ce qui décrit l'ambiance, pas
+// l'ampoule. L'éditeur de Home Assistant, lui, stocke tout — friendly_name,
+// supported_features, la liste des effets — et les ignore à l'application ;
+// les écarter ici garde simplement la scène lisible.
+//
+// `color_mode` n'est pas un détail : c'est lui qui dit à Home Assistant
+// laquelle des couleurs appliquer quand la scène en porte plusieurs. Sans
+// lui, une Hue réglée en xy peut revenir dans une autre teinte. Et
+// `rgbw_color` est la seule couleur des ampoules WiZ.
+const RETENUS = [
+  "brightness", "color_mode", "color_temp_kelvin",
+  "rgb_color", "rgbw_color", "rgbww_color", "hs_color", "xy_color", "effect",
+];
 
 export function scenePourLumieres(
   lumieres: string[],
@@ -202,25 +212,43 @@ export function scenePourLumieres(
   return entities;
 }
 
+type ConfigScene = { id: string; name: string; entities: Record<string, unknown>; [cle: string]: unknown };
+
+// Un fetch que le CORS bloque ne reçoit aucune réponse : il échoue avant,
+// sur une TypeError. C'est donc là, et pas sur un code HTTP, qu'on le
+// reconnaît — avec son jumeau indiscernable, le Pi injoignable.
+async function requete(chemin: string, init: RequestInit = {}): Promise<Response> {
+  try {
+    return await fetch(`${HA_URL}${chemin}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json", ...init.headers },
+    });
+  } catch {
+    throw new Error("requête bloquée — origine à déclarer dans Paramètres → Système → Réseau, ou Pi injoignable");
+  }
+}
+
+// Fusionner, jamais remplacer. La scène peut porter des lumières que l'app
+// ne connaît pas — ajoutées dans l'interface de Home Assistant, absentes de
+// config.ts — ainsi qu'une icône et des métadonnées posées par l'éditeur.
+// Réécrire la scène avec les seules lumières de l'app les effacerait toutes,
+// sans un mot : l'enregistrement ne touche donc qu'à ce qu'il connaît.
 export async function enregistrerScene(
   sceneId: string,
   nom: string,
-  entities: Record<string, Record<string, unknown>>,
+  lumieres: Record<string, Record<string, unknown>>,
 ) {
-  const r = await fetch(`${HA_URL}/api/config/scene/config/${encodeURIComponent(sceneId)}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ id: sceneId, name: nom, entities }),
-  });
-  if (!r.ok) {
-    // 405 est le symptôme du CORS bloqué, pas d'un refus de Home Assistant :
-    // le navigateur n'a jamais laissé partir la requête.
-    throw new Error(
-      r.status === 405
-        ? "origine refusée — déclarez-la dans Paramètres → Système → Réseau"
-        : `Home Assistant a refusé l'enregistrement (${r.status})`,
-    );
+  const chemin = `/api/config/scene/config/${encodeURIComponent(sceneId)}`;
+  const lue = await requete(chemin);
+  if (!lue.ok && lue.status !== 404) {
+    throw new Error(`Home Assistant refuse de lire la scène (${lue.status})`);
   }
+  const existante: ConfigScene | null = lue.ok ? await lue.json() : null;
+  const scene: ConfigScene = existante ?? { id: sceneId, name: nom, entities: {} };
+  scene.entities = { ...scene.entities, ...lumieres };
+
+  const r = await requete(chemin, { method: "POST", body: JSON.stringify(scene) });
+  if (!r.ok) throw new Error(`Home Assistant a refusé l'enregistrement (${r.status})`);
 }
 
 // L'aller-retour WebSocket, en millisecondes — ce que l'écran Réglages affiche.

@@ -14,10 +14,11 @@ default_config:
 #    dans le message d'authentification, pas dans un appel REST.
 #
 #    Une exception, et une seule : enregistrer une ambiance depuis l'app
-#    (Ambiances → Ajuster) passe par POST /api/config/scene/config/<id>,
-#    parce que Home Assistant n'expose pas l'écriture des scènes par
-#    WebSocket. Ici, l'app tourne sur localhost:5173 et Home Assistant sur
-#    :8123 — deux origines, donc le CORS s'applique à cette requête-là.
+#    (Ambiances → Ajuster) passe par /api/config/scene/config/<id> — une
+#    lecture, puis une écriture — parce que Home Assistant n'expose pas
+#    l'écriture des scènes par WebSocket. Ici, l'app tourne sur
+#    localhost:5173 et Home Assistant sur :8123 — deux origines, donc le
+#    CORS s'applique à ces deux requêtes-là.
 #    Sans rien déclarer, le bouton répond « origine refusée », et tout le
 #    reste de l'app marche normalement.
 #
