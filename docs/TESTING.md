@@ -799,13 +799,42 @@ Construire sur le poste de dev, avec dans `app/.env` l'adresse du Pi
 cd app && npm run build
 ```
 
-Puis déposer le résultat sur le Pi, au choix par le module **Samba** en
-glissant le dossier, ou par le terminal du module SSH :
+Puis déposer le résultat sur le Pi. Trois chemins, et les deux évidents
+demandent quelque chose qu'une installation neuve n'a pas :
 
-```bash
-# depuis le poste de dev
-scp -r app/dist/* root@homeassistant.local:/config/www/casa/
-```
+- **`scp`** exige le serveur SSH du module Terminal & SSH, sur le port 22.
+  Or le module officiel, tel qu'installé en 2.2, n'ouvre que le terminal
+  web : le port 22 reste fermé tant qu'on ne l'active pas dans ses options
+  réseau.
+- **Samba** exige son propre module (Boutique → Samba share), après quoi le
+  partage `config` s'ouvre dans le gestionnaire de fichiers et on glisse le
+  contenu de `app/dist/` dans `www/casa/`.
+- **Le Pi va chercher les fichiers**, sans rien installer. C'est ce qui a
+  servi le 11 septembre 2026. Sur le poste de dev, une archive servie le
+  temps du transfert, et le port ouvert au seul Pi — le pare-feu refuse
+  tout ce qui arrive par défaut :
+
+  ```bash
+  mkdir -p /tmp/casa-serve && tar -C app/dist -czf /tmp/casa-serve/casa.tar.gz .
+  sudo ufw allow from IP-du-Pi to any port 8765 proto tcp
+  timeout 900 python3 -m http.server 8765 --directory /tmp/casa-serve
+  ```
+
+  Un dossier dédié, surtout : `http.server` publie tout ce qu'il contient
+  sur le réseau. Puis, dans le terminal du Pi :
+
+  ```bash
+  [ -d /config/www ] || echo "www NOUVEAU : redémarrer Home Assistant après"
+  mkdir -p /config/www/casa
+  curl -fsS -o /tmp/casa.tar.gz http://IP-du-poste:8765/casa.tar.gz \
+    && tar -xzf /tmp/casa.tar.gz -C /config/www/casa && rm /tmp/casa.tar.gz
+  ```
+
+  Et refermer : `sudo ufw delete allow from IP-du-Pi to any port 8765 proto tcp`.
+
+**Si `/config/www` n'existait pas avant, redémarrer Home Assistant.** Il ne
+publie `/local` que si ce dossier existe *à son démarrage* ; créé après coup,
+il reste invisible et la page répond 404 sans autre explication.
 
 L'app est alors sur **`http://IP-du-Pi/local/casa/index.html`**. Sur le
 natel : ouvrir cette adresse, puis **Partager → Sur l'écran d'accueil**
@@ -1323,6 +1352,21 @@ désormais jusqu'au bout : lampes, playlist, volume, et l'écho vers
 L'heure perdue, ici, tient à l'intégration créée à la main avec une adresse
 au lieu d'être découverte — l'encadré de 2.3 raconte le symptôme et le
 remède.
+
+**Le 11 septembre 2026, 2.6 : la page servie par le Pi.** Construite avec
+`VITE_HA_URL=http://192.168.1.142`, sans port. Le Pi n'avait ni port 22 ni
+Samba : il est allé chercher l'archive sur le poste de dev, comme décrit en
+2.6. `/local/casa/index.html` et chacun des fichiers qu'il charge répondent
+200, donc le `base: "./"` de `vite.config.ts` tient sous `/local/casa/`.
+Ouverte dans un vrai navigateur, l'app se connecte : « 2 allumées sur 2 »,
+l'ambiance Détente en cours, aucune erreur dans la console.
+
+Un piège pour qui vérifie avec un navigateur automatisé : **Chrome headless
+avec `--virtual-time-budget` montre « connexion à… » indéfiniment.** Son
+temps virtuel s'écoule avant la fin de la poignée de main WebSocket, et la
+capture fige l'app dans un état qu'aucun utilisateur ne verra. Ce n'est pas
+une panne. Pour trancher, attendre en temps réel — piloter Chrome par le
+protocole DevTools — ou parler directement au WebSocket avec le jeton.
 
 Non vérifiés à ce jour : la chaîne complète micro → réponse dans Home
 Assistant (il faut l'assistant de 1.9, puis un micro ou un satellite), et
