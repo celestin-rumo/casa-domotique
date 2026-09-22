@@ -306,6 +306,20 @@ n'apprendrait que l'anglais. `docker logs casa-parole` doit montrer
 `custom_sentences/` demande donc de redémarrer les deux : Home Assistant
 pour la comprendre, `casa-parole` pour l'entendre.
 
+> **Sur le Pi, ce n'est pas le même dossier, et c'est le piège le plus coûteux
+> de ce guide.** Le compose de dev monte `homeassistant/custom_sentences` dans
+> le conteneur, donc tout y marche. Le **module** Speech-to-Phrase de Home
+> Assistant OS, lui, ne déclare que `map: [share:rw]` : son conteneur n'a
+> aucun `/config`, et `/config/custom_sentences` lui est invisible même
+> lorsqu'un `ls` le montre. Il lit `/share/speech-to-phrase/custom_sentences/<langue>/`,
+> et y prend tous les `*.yaml`. Les phrases doivent donc y être **recopiées** ;
+> `dev/mettre-a-jour-pi.sh` le fait à chaque `git pull`.
+>
+> Le symptôme, si on l'oublie : la phrase marche au clavier et le satellite ne
+> renvoie aucun texte, `stt-no-text-recognized`. On croit le micro sourd, alors
+> que le mot n'a jamais été appris. Diagnostiqué le 22 septembre 2026, après
+> avoir soupçonné à tort les liens symboliques.
+
 Comme Music Assistant, leur intégration ne se configure que par l'interface.
 Quatre fois Paramètres → Appareils et services → Ajouter une intégration →
 **Wyoming Protocol** :
@@ -746,7 +760,7 @@ Boutique, installer, démarrer. Dans l'ordre :
 | Module | À quoi il sert | Réglage |
 |---|---|---|
 | **Music Assistant** | le son | fournisseur Filesystem, dossier `/media` |
-| **Speech-to-Phrase** | la reconnaissance | rien, il lit `custom_sentences/` seul |
+| **Speech-to-Phrase** | la reconnaissance | il ne voit PAS `/config` : les phrases se recopient dans `/share/speech-to-phrase/custom_sentences/` |
 | **Piper** | la voix | voix `fr_FR-siwis-medium` |
 | **openWakeWord** | le mot d'appel | inutile avec un Voice PE |
 

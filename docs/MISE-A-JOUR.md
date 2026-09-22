@@ -1,11 +1,12 @@
 # Mettre à jour le Pi
 
-Un changement poussé sur GitHub n'arrive pas tout seul dans la maison. Trois
+Un changement poussé sur GitHub n'arrive pas tout seul dans la maison. Quatre
 choses vivent sur le Pi, et chacune y arrive par son propre chemin :
 
 | Quoi | Où, sur le Pi | Comment ça arrive |
 |---|---|---|
 | La configuration Home Assistant — scripts, réveil, playlists, phrases vocales | `/config/casa-domotique`, un clone du dépôt | `git pull`, **puis un redémarrage** |
+| Les phrases vocales, **une seconde fois**, pour Speech-to-Phrase | `/share/speech-to-phrase/custom_sentences/fr/` | une **copie**, puis un redémarrage du module |
 | `configuration.yaml` | `/config/configuration.yaml` | une **copie** de `pi/configuration.yaml`, que `git pull` ne touche jamais |
 | L'app | `/config/www/casa`, publiée sous `/local/casa/` | construite **sur le portable**, puis déposée : le Pi n'a pas Node |
 
@@ -70,7 +71,7 @@ Le script du Pi fait ce tri tout seul. Le voici en clair :
 | Ce qui a changé | Ce qu'il faut sur le Pi |
 |---|---|
 | `homeassistant/packages/…`, `scripts.yaml`, `input_selects.yaml` | redémarrer |
-| `homeassistant/custom_sentences/…` (ce que la voix comprend) | redémarrer : les phrases sont lues au démarrage |
+| `homeassistant/custom_sentences/…` (ce que la voix comprend) | redémarrer Home Assistant, **et** recopier vers `/share` puis redémarrer Speech-to-Phrase — le script fait les deux |
 | `pi/configuration.yaml` | le recopier dans `/config`, puis redémarrer |
 | `app/…` | redéployer l'app depuis le portable |
 | `homeassistant/scenes.yaml` | **rien** — c'est la graine |

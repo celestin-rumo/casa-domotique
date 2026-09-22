@@ -102,20 +102,44 @@ else
   echo "$tete" > "$MARQUE"
 fi
 
-# 4. Les phrases vocales : seul un redémarrage du module les fait réapprendre.
-if [ "$phrases" = 1 ]; then
-  echo "== les phrases vocales ont changé"
-  echo "   Speech-to-Phrase n'entend que ce qu'il a appris, et il réapprend au"
-  echo "   démarrage. Sans ce redémarrage, le micro reste sourd aux nouvelles"
-  echo "   phrases alors qu'Assist les comprend déjà au clavier."
-  if demander "Redémarrer Speech-to-Phrase maintenant ?"; then
-    if ha addons restart core_speech-to-phrase; then
-      echo "   redémarré : il réapprend son vocabulaire"
-    else
-      echo "   échec : module absent ou sous un autre nom (ha addons list)"
-    fi
+# 4. Les phrases vocales, qui doivent vivre à DEUX endroits.
+#
+# Home Assistant les lit dans /config/custom_sentences, et c'est pour lui que
+# le lien symbolique existe. Le module Speech-to-Phrase, lui, ne voit pas ce
+# dossier DU TOUT : son config.yaml ne déclare que `map: [share:rw]`, donc son
+# conteneur n'a pas de /config. Il lit /share/speech-to-phrase/custom_sentences,
+# et y prend n'importe quel *.yaml du sous-dossier de langue.
+#
+# Sans cette recopie, une phrase ajoutée est comprise au clavier et reste
+# inaudible au micro : le satellite ne renvoie aucun texte, et tout donne à
+# croire qu'il est sourd alors qu'il n'a jamais appris le mot.
+#
+# Diagnostiqué le 22 septembre 2026, après avoir cherché du côté du lien
+# symbolique, qui n'y était pour rien : le fichier était bien là, mais dans un
+# dossier que le module ne monte pas.
+PHRASES_SRC=$DEPOT/homeassistant/custom_sentences
+PHRASES_DST=${CASA_PHRASES:-/share/speech-to-phrase/custom_sentences}
+if [ "$phrases" = 1 ] || [ ! -d "$PHRASES_DST" ]; then
+  echo "== les phrases vocales, vers $PHRASES_DST"
+  if [ ! -d "$PHRASES_SRC" ]; then
+    echo "   $PHRASES_SRC est absent : rien à copier"
   else
-    echo "   pas redémarré : les nouvelles phrases ne seront pas entendues"
+    for langue in "$PHRASES_SRC"/*/; do
+      [ -d "$langue" ] || continue
+      nom=$(basename "$langue")
+      mkdir -p "$PHRASES_DST/$nom"
+      cp "$langue"*.yaml "$PHRASES_DST/$nom/" 2>/dev/null || true
+      echo "   $nom : $(ls "$PHRASES_DST/$nom" 2>/dev/null | tr '\n' ' ')"
+    done
+    if demander "Redémarrer Speech-to-Phrase pour qu'il les réapprenne ?"; then
+      if ha addons restart core_speech-to-phrase; then
+        echo "   redémarré : il réapprend son vocabulaire"
+      else
+        echo "   échec : module absent ou sous un autre nom (ha addons list)"
+      fi
+    else
+      echo "   pas redémarré : les nouvelles phrases ne seront pas entendues"
+    fi
   fi
 fi
 
