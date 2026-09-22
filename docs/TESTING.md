@@ -365,6 +365,35 @@ d'**exposer** les entités à Assist : Paramètres → Assistants vocaux →
 Exposer. Les phrases du dépôt, elles, n'en ont pas besoin — leurs intents
 visent directement les entités.
 
+**Et ils demandent aussi des noms de pièces en français.** Home Assistant
+crée `Bedroom`, `Kitchen` et `Living Room` au premier démarrage, quelle que
+soit la langue choisie. Speech-to-Phrase apprend les noms de pièces depuis
+Home Assistant : tant qu'ils sont anglais, le mot « chambre » n'existe pas
+dans son vocabulaire, et il le rapproche du voisin le plus proche qu'il
+connaît.
+
+Constaté le 22 septembre 2026, dans le journal d'un échange réel du Voice PE
+(Paramètres → Assistants vocaux → l'assistant → Déboguer) :
+
+```
+demandé  : éteins les lumières de la chambre
+entendu  : éteins les lumières de la Kitchen
+réponse  : Désolé, je n'ai pas compris
+```
+
+Rien n'était cassé : ni l'exposition des entités, ni le satellite, ni les
+modules. Seuls les noms de pièces l'étaient. La correction tient en deux
+gestes, Paramètres → Zones et pièces pour renommer en Chambre, Cuisine,
+Salon, puis un **redémarrage du module Speech-to-Phrase**, qui réapprend au
+démarrage. Sans ce redémarrage, il continue d'entendre l'ancien vocabulaire.
+
+Rien dans ce dépôt ne dépend des noms de zones : les scènes et les scripts
+visent des `entity_id`. Renommer ne casse donc rien.
+
+La leçon vaut au-delà des pièces : **Speech-to-Phrase n'entend que ce qu'il
+a appris**, et il l'apprend de Home Assistant. Une entité mal nommée est une
+entité qu'on ne pourra pas demander.
+
 Les ambiances se lancent aussi à la voix : « mode cinéma », « ambiance
 détente », « passe en focus », et les tournures propres à une ambiance,
 comme « donne-moi envie de faire l'amour » pour Câlin. La liste
