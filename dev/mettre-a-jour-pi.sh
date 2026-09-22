@@ -35,9 +35,24 @@ demander() {
 }
 
 cd "$DEPOT"
+avant=$(git rev-parse HEAD)
 echo "== git pull"
 git pull --ff-only
 tete=$(git rev-parse --short HEAD)
+
+# Ce script se met à jour LUI-MÊME. Le `git pull` ci-dessus peut réécrire ce
+# fichier pendant que sh le lit — sh lit un script au fur et à mesure, pas
+# d'un bloc — et la suite exécutée devient alors un mélange des deux
+# versions, aux décalages d'octets près. On relance donc la version fraîche,
+# une seule fois : CASA_RELANCE empêche la boucle.
+#
+# Constaté le 22 septembre 2026 : la recopie des phrases vocales, ajoutée
+# dans le même commit que le reste, n'a pas eu lieu au premier passage.
+if [ "${CASA_RELANCE:-}" != 1 ] \
+   && ! git diff --quiet "$avant" HEAD -- dev/mettre-a-jour-pi.sh 2>/dev/null; then
+  echo "== ce script vient d'être mis à jour : on relance la nouvelle version"
+  CASA_RELANCE=1 exec sh "$DEPOT/dev/mettre-a-jour-pi.sh"
+fi
 
 # 1. Ce qui n'a pas encore été appliqué.
 appliquee=$(cat "$MARQUE" 2>/dev/null || true)
@@ -119,27 +134,38 @@ fi
 # dossier que le module ne monte pas.
 PHRASES_SRC=$DEPOT/homeassistant/custom_sentences
 PHRASES_DST=${CASA_PHRASES:-/share/speech-to-phrase/custom_sentences}
-if [ "$phrases" = 1 ] || [ ! -d "$PHRASES_DST" ]; then
-  echo "== les phrases vocales, vers $PHRASES_DST"
-  if [ ! -d "$PHRASES_SRC" ]; then
-    echo "   $PHRASES_SRC est absent : rien à copier"
-  else
-    for langue in "$PHRASES_SRC"/*/; do
-      [ -d "$langue" ] || continue
-      nom=$(basename "$langue")
-      mkdir -p "$PHRASES_DST/$nom"
-      cp "$langue"*.yaml "$PHRASES_DST/$nom/" 2>/dev/null || true
-      echo "   $nom : $(ls "$PHRASES_DST/$nom" 2>/dev/null | tr '\n' ' ')"
+echo "== les phrases vocales, vers $PHRASES_DST"
+if [ ! -d "$PHRASES_SRC" ]; then
+  echo "   $PHRASES_SRC est absent : rien à copier"
+else
+  # Sans condition, à chaque passage. Le drapeau `phrases` ne dit que ce qui a
+  # changé DANS LE DÉPÔT depuis la dernière version appliquée : il vaut 0 alors
+  # que /share est vide, si le module a été réinstallé, si /share a été effacé,
+  # ou — le cas réel du 22 septembre 2026 — si la recopie n'a jamais eu lieu
+  # parce que ce bloc n'existait pas encore. Comparer et copier cinq petits
+  # fichiers ne coûte rien, et supprime toute une famille de pannes muettes.
+  neuf=0
+  for langue in "$PHRASES_SRC"/*/; do
+    [ -d "$langue" ] || continue
+    nom=$(basename "$langue")
+    mkdir -p "$PHRASES_DST/$nom"
+    for f in "$langue"*.yaml; do
+      [ -f "$f" ] || continue
+      cible=$PHRASES_DST/$nom/$(basename "$f")
+      cmp -s "$f" "$cible" || { cp "$f" "$cible"; neuf=1; }
     done
-    if demander "Redémarrer Speech-to-Phrase pour qu'il les réapprenne ?"; then
-      if ha addons restart core_speech-to-phrase; then
-        echo "   redémarré : il réapprend son vocabulaire"
-      else
-        echo "   échec : module absent ou sous un autre nom (ha addons list)"
-      fi
+    echo "   $nom : $(ls "$PHRASES_DST/$nom" 2>/dev/null | tr '\n' ' ')"
+  done
+  if [ "$neuf" = 0 ]; then
+    echo "   déjà identiques : rien à réapprendre"
+  elif demander "Redémarrer Speech-to-Phrase pour qu'il les réapprenne ?"; then
+    if ha addons restart core_speech-to-phrase; then
+      echo "   redémarré : il réapprend son vocabulaire"
     else
-      echo "   pas redémarré : les nouvelles phrases ne seront pas entendues"
+      echo "   échec : module absent ou sous un autre nom (ha addons list)"
     fi
+  else
+    echo "   pas redémarré : les nouvelles phrases ne seront pas entendues"
   fi
 fi
 
