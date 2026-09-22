@@ -31,8 +31,6 @@ intent_script:
       text: >-
         {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
           L'enceinte ne répond pas.
-        {%- else -%}
-          Voilà.
         {%- endif -%}
 
   ReprendreMusique:
@@ -48,8 +46,6 @@ intent_script:
       text: >-
         {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
           L'enceinte ne répond pas.
-        {%- else -%}
-          C'est reparti.
         {%- endif -%}
 
   MusiqueSuivante:
@@ -65,6 +61,4 @@ intent_script:
       text: >-
         {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
           L'enceinte ne répond pas.
-        {%- else -%}
-          Suivante.
         {%- endif -%}

@@ -93,15 +93,11 @@ intent_script:
         value_template: "{{ casa_ambiance in scripts }}"
       - service: script.turn_on
         target: { entity_id: "{{ scripts[casa_ambiance] }}" }
-    speech:
-      # « Ambiance Câlin. » plutôt que « Câlin. » : un mot seul est une
-      # mauvaise phrase pour la synthèse vocale. Vérifié le 22 septembre 2026
-      # en faisant prononcer les deux par piper, puis réécouter par whisper —
-      # « Câlin. » seul revenait en « A la ! », la phrase entière revenait
-      # intacte. Un peu de contexte autour du mot, et la voix retombe dessus.
-      text: >-
-        {%- if casa_ambiance == 'tout éteindre' -%}
-          Tout est éteint.
-        {%- else -%}
-          Ambiance {{ casa_ambiance }}.
-        {%- endif -%}
+    # Pas de `speech` : l'assistant ne répète pas ce qu'il vient de faire.
+    # Une ambiance se voit et s'entend — les lampes changent, la musique
+    # part. Le satellite joue déjà son petit son de fin ; une phrase en plus
+    # ne renseigne personne et retarde le silence qu'on cherchait.
+    #
+    # La règle du dépôt : on se tait quand l'effet est perceptible, on parle
+    # quand il ne l'est pas. L'heure du réveil se confirme donc toujours
+    # (packages/reveil.yaml), et la météo répond, évidemment.
