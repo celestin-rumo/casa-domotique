@@ -4,7 +4,7 @@
 #
 #     sh /config/casa-domotique/dev/mettre-a-jour-pi.sh
 #
-# Il tire le dépôt, puis vérifie trois choses. Faite à la main, la mise à
+# Il tire le dépôt, puis vérifie quatre choses. Faite à la main, la mise à
 # jour en oublie toujours une (docs/MISE-A-JOUR.md) :
 #
 #   - la configuration de Home Assistant : ce qui a changé sous homeassistant/
@@ -13,6 +13,9 @@
 #     suivant répond « Already up to date » comme si tout était en place ;
 #   - /config/configuration.yaml : une copie de pi/configuration.yaml, que git
 #     ne met jamais à jour ;
+#   - les phrases vocales : Home Assistant les relit en redémarrant, mais
+#     Speech-to-Phrase, lui, ne réapprend qu'en redémarrant lui aussi. Sans
+#     ça le micro reste sourd à une phrase que le clavier comprend déjà ;
 #   - l'app servie par le Pi : son version.txt, face au dernier commit qui
 #     touche app/. Elle ne se construit pas ici, mais sur le portable avec
 #     dev/deployer-app.sh.
@@ -48,12 +51,18 @@ fi
 
 redemarrer=0
 graine=0
+phrases=0
 for f in $changes; do
   case "$f" in
     # La graine des scènes : celles du Pi appartiennent à Home Assistant.
     homeassistant/scenes.yaml) graine=1 ;;
     # Une référence, chargée par aucune installation.
     homeassistant/configuration.yaml) ;;
+    # Les phrases vocales sont lues DEUX FOIS : par Home Assistant, qui en
+    # tire les intents, et par Speech-to-Phrase, qui en tire son vocabulaire.
+    # Redémarrer Home Assistant seul laisse donc le micro sourd aux nouvelles
+    # phrases, sans que rien ne le dise. Doit précéder le motif générique.
+    homeassistant/custom_sentences/*) redemarrer=1; phrases=1; echo "   $f" ;;
     homeassistant/*) redemarrer=1; echo "   $f" ;;
   esac
 done
@@ -93,7 +102,24 @@ else
   echo "$tete" > "$MARQUE"
 fi
 
-# 4. L'app servie par le Pi.
+# 4. Les phrases vocales : seul un redémarrage du module les fait réapprendre.
+if [ "$phrases" = 1 ]; then
+  echo "== les phrases vocales ont changé"
+  echo "   Speech-to-Phrase n'entend que ce qu'il a appris, et il réapprend au"
+  echo "   démarrage. Sans ce redémarrage, le micro reste sourd aux nouvelles"
+  echo "   phrases alors qu'Assist les comprend déjà au clavier."
+  if demander "Redémarrer Speech-to-Phrase maintenant ?"; then
+    if ha addons restart core_speech-to-phrase; then
+      echo "   redémarré : il réapprend son vocabulaire"
+    else
+      echo "   échec : module absent ou sous un autre nom (ha addons list)"
+    fi
+  else
+    echo "   pas redémarré : les nouvelles phrases ne seront pas entendues"
+  fi
+fi
+
+# 5. L'app servie par le Pi.
 derniere=$(git log -1 --format=%h -- app)
 servie=$(cat "$CONFIG/www/casa/version.txt" 2>/dev/null || true)
 construite=${servie%%+*}
