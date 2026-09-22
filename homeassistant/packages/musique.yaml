@@ -1,0 +1,70 @@
+# Ce que la voix fait de la musique. Les phrases sont dans
+# custom_sentences/fr/musique.yaml, qui explique pourquoi elles existent :
+# Speech-to-Phrase ne sait pas transcrire « éteins la musique », alors que
+# Home Assistant saurait la comprendre.
+#
+# Ces intents visent `media_player.ma_chambre` en toutes lettres, comme tous
+# les scripts du dépôt. Ce n'est pas un oubli de la pièce courante : il n'y a
+# qu'une enceinte qui joue de la musique dans cette maison, et viser la zone
+# du satellite ferait dépendre l'ordre de l'endroit où l'on parle, alors que
+# la musique, elle, ne bouge pas.
+#
+# « Éteindre » fait une PAUSE, pas un arrêt. Le résultat est le même pour
+# l'oreille, mais la file de lecture survit, et « remets la musique » reprend
+# où l'on en était. Un vrai `media_stop` la viderait.
+#
+# Chaque intent répond même quand l'enceinte est absente, plutôt que
+# d'échouer en silence : un assistant doit dire ce qui manque. C'est aussi ce
+# qui permet à dev/verifier.py de les vérifier sans enceinte.
+
+intent_script:
+  ArreterMusique:
+    action:
+      - if:
+          - condition: template
+            value_template: >-
+              {{ states('media_player.ma_chambre') not in ['unknown', 'unavailable'] }}
+        then:
+          - service: media_player.media_pause
+            target: { entity_id: media_player.ma_chambre }
+    speech:
+      text: >-
+        {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
+          L'enceinte ne répond pas.
+        {%- else -%}
+          Voilà.
+        {%- endif -%}
+
+  ReprendreMusique:
+    action:
+      - if:
+          - condition: template
+            value_template: >-
+              {{ states('media_player.ma_chambre') not in ['unknown', 'unavailable'] }}
+        then:
+          - service: media_player.media_play
+            target: { entity_id: media_player.ma_chambre }
+    speech:
+      text: >-
+        {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
+          L'enceinte ne répond pas.
+        {%- else -%}
+          C'est reparti.
+        {%- endif -%}
+
+  MusiqueSuivante:
+    action:
+      - if:
+          - condition: template
+            value_template: >-
+              {{ states('media_player.ma_chambre') not in ['unknown', 'unavailable'] }}
+        then:
+          - service: media_player.media_next_track
+            target: { entity_id: media_player.ma_chambre }
+    speech:
+      text: >-
+        {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
+          L'enceinte ne répond pas.
+        {%- else -%}
+          Suivante.
+        {%- endif -%}

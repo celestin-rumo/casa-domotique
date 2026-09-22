@@ -38,7 +38,15 @@ lists:
         out: "câlin"
       - in: "on se fait un câlin"
         out: "câlin"
+      # « Tout éteindre » coupe les lumières ET la musique : script.mood_off
+      # fait un light.turn_off et un media_stop sur `all`, pas seulement sur
+      # ce que la scène connaît. C'est donc la phrase à dire pour arrêter la
+      # maison d'un coup, et elle mérite toutes ses tournures.
       - in: "tout éteindre"
         out: "tout éteindre"
       - in: "(éteins|éteindre) tout"
+        out: "tout éteindre"
+      - in: "(arrête|arrete|arrêter|arreter|stop|stoppe|coupe|couper) tout"
+        out: "tout éteindre"
+      - in: "(éteins|coupe) (tout|la maison)"
         out: "tout éteindre"

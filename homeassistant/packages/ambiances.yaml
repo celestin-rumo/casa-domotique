@@ -94,4 +94,14 @@ intent_script:
       - service: script.turn_on
         target: { entity_id: "{{ scripts[casa_ambiance] }}" }
     speech:
-      text: "{{ casa_ambiance | capitalize }}."
+      # « Ambiance Câlin. » plutôt que « Câlin. » : un mot seul est une
+      # mauvaise phrase pour la synthèse vocale. Vérifié le 22 septembre 2026
+      # en faisant prononcer les deux par piper, puis réécouter par whisper —
+      # « Câlin. » seul revenait en « A la ! », la phrase entière revenait
+      # intacte. Un peu de contexte autour du mot, et la voix retombe dessus.
+      text: >-
+        {%- if casa_ambiance == 'tout éteindre' -%}
+          Tout est éteint.
+        {%- else -%}
+          Ambiance {{ casa_ambiance }}.
+        {%- endif -%}

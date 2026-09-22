@@ -1,0 +1,45 @@
+# Commander la musique à la voix. Les intents sont traités par intent_script
+# dans packages/musique.yaml.
+#
+# POURQUOI CE FICHIER EXISTE. Home Assistant, lui, comprend déjà « éteins la
+# musique » : il en fait un HassMediaPause. Mais Speech-to-Phrase ne
+# transcrit que ce qu'il a appris, et son vocabulaire français ne connaît,
+# pour arrêter la lecture, que :
+#
+#     pause
+#     arrête[r] la musique
+#     arrête[r] la musique dans|de la <pièce>
+#     (mets|mettre) <lecteur> (en|sur) pause
+#
+# « éteins la musique » n'y est pas. Le satellite ne renvoie alors AUCUN
+# texte — dans le journal des échanges, `stt-no-text-recognized` — et Home
+# Assistant n'a jamais l'occasion de comprendre. Constaté le 22 septembre
+# 2026 sur le Voice PE.
+#
+# On n'ajoute donc ici que les tournures qui MANQUENT. « arrête la musique »
+# et « pause » restent au moteur intégré : les redéclarer ferait deux intents
+# candidats pour une même phrase, et rien ne dirait lequel gagne.
+language: "fr"
+
+intents:
+  ArreterMusique:
+    data:
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) la musique"
+          - "(stop|stoppe|stopper) la musique"
+          - "(éteins|coupe) le son"
+          - "plus de musique"
+
+  ReprendreMusique:
+    data:
+      - sentences:
+          - "(remets|remettre|relance|relancer|rallume) la musique"
+          - "(remets|relance) le son"
+          - "continue la musique"
+
+  MusiqueSuivante:
+    data:
+      - sentences:
+          - "(chanson|morceau|titre) suivant[e]"
+          - "(passe|passer) (au suivant|à la suivante)"
+          - "(passe|change) de (chanson|morceau|titre)"
