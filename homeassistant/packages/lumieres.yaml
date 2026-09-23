@@ -39,22 +39,38 @@ script:
     fields:
       pas:
         description: Le pas en pourcent, négatif pour baisser
-        example: 10
+        example: -15
+      plancher:
+        description: La luminosité sous laquelle on ne descend jamais
+        example: 7
     variables:
       allumees: >-
         {{ expand('light.chambre', 'light.chambre_bandeau',
                   'light.chambre_wiz_1', 'light.chambre_wiz_2')
            | selectattr('state', 'eq', 'on')
            | map(attribute='entity_id') | list }}
+      mini: "{{ plancher | int(7) }}"
     sequence:
       # Rien d'allumé : on s'arrête sans erreur et sans un mot. La pièce est
       # noire, la personne le voit.
       - condition: template
         value_template: "{{ allumees | count > 0 }}"
-      - service: light.turn_on
-        target: { entity_id: "{{ allumees }}" }
-        data:
-          brightness_step_pct: "{{ pas | int(10) }}"
+
+      # Lampe par lampe, et non toutes d'un coup. `brightness_step_pct`
+      # appliquait le même pas à tout le monde et, surtout, ne savait pas
+      # s'arrêter : à 10 % moins 15, la lampe s'éteignait. Ici chacune part de
+      # SA luminosité et bute sur le plancher, jamais sur zéro. Une lampe
+      # baissée à répétition finit donc à 7 % et y reste, allumée.
+      - repeat:
+          for_each: "{{ allumees }}"
+          sequence:
+            - variables:
+                actuel: "{{ (state_attr(repeat.item, 'brightness') | int(0) / 2.55) | round(0) | int }}"
+                vise: "{{ [[actuel + (pas | int(0)), 100] | min, mini | int] | max }}"
+            - service: light.turn_on
+              target: { entity_id: "{{ repeat.item }}" }
+              data:
+                brightness_pct: "{{ vise }}"
 
   # Tout éteindre sauf le bandeau, qui reste comme veilleuse.
   #
@@ -82,13 +98,15 @@ intent_script:
       - service: script.turn_on
         target: { entity_id: script.eteindre_sauf_bandeau }
 
+  # Les trois pas. Le plancher de 7 % vit dans le script, pas ici : il vaut
+  # pour toute baisse, d'où qu'elle vienne.
   LuminositePlus:
     action:
       - service: script.turn_on
         target: { entity_id: script.lumiere_pas }
         data:
           variables:
-            pas: 10
+            pas: 15
 
   LuminositeMoins:
     action:
@@ -96,7 +114,43 @@ intent_script:
         target: { entity_id: script.lumiere_pas }
         data:
           variables:
-            pas: -10
+            pas: -15
+
+  # Tamiser n'est plus un synonyme de baisser : c'est le grand pas, celui du
+  # soir, quand on veut passer de la lumière de travail à la veilleuse d'un
+  # seul mot.
+  Tamise:
+    action:
+      - service: script.turn_on
+        target: { entity_id: script.lumiere_pas }
+        data:
+          variables:
+            pas: -30
+
+  # « Mets bandeau à 100 pourcent ». Home Assistant comprend déjà la phrase,
+  # mais le micro ne connaît, pour la luminosité, que « règle » et « allume » :
+  # même manque que pour la couleur, même remède.
+  #
+  # La table des lampes est la jumelle de celle de CouleurLampe. Les deux
+  # doivent rester d'accord : une lampe ajoutée à l'une manque à l'autre.
+  LuminositeLampe:
+    action:
+      - variables:
+          lampes:
+            bandeau: light.chambre_bandeau
+            led droite: light.chambre_wiz_1
+            led gauche: light.chambre_wiz_2
+            lampe chambre: light.chambre
+            les lampes: light.lampes_chambre
+      - condition: template
+        value_template: "{{ casa_lampe in lampes }}"
+      - service: light.turn_on
+        target: { entity_id: "{{ lampes[casa_lampe] }}" }
+        data:
+          # Le plancher ne s'applique pas ici : une valeur demandée en toutes
+          # lettres est un choix, pas une dérive. Zéro reste impossible, la
+          # liste commençant à 5.
+          brightness_pct: "{{ casa_pourcent | int }}"
 
   # « Mets le bandeau en rouge ». Deux traductions, parce que la phrase arrive
   # en français des deux côtés : le mot de la lampe vers son entity_id, et le

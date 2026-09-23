@@ -39,20 +39,37 @@ intents:
           - "(garde|garder|laisse|laisser) (seulement|uniquement) (le bandeau|le flux gradient|le gradient)"
           - "(juste|seulement|uniquement) (le bandeau|le flux gradient|le gradient)"
 
+  # L'article est FACULTATIF partout : à l'oral on dit « baisse luminosité »
+  # aussi souvent que « baisse la luminosité », et la phrase sans article ne
+  # correspondait à rien.
   LuminositePlus:
     data:
       - sentences:
-          - "(augmente|augmenter|monte|monter) (la luminosité|la lumière)"
+          - "(augmente|augmenter|monte|monter) [la] (luminosité|lumière)"
           - "plus de lumière"
           - "(éclaire|éclairer) plus"
 
   LuminositeMoins:
     data:
       - sentences:
-          - "(baisse|baisser|diminue|diminuer|réduis|réduire) (la luminosité|la lumière)"
+          - "(baisse|baisser|diminue|diminuer|réduis|réduire) [la] (luminosité|lumière)"
           - "moins de lumière"
           - "(éclaire|éclairer) moins"
-          - "(tamise|tamiser) [la lumière]"
+
+  # Tamiser a quitté LuminositeMoins pour son propre intent : c'est le grand
+  # pas, deux fois celui de « baisse ».
+  Tamise:
+    data:
+      - sentences:
+          - "(tamise|tamiser) [la lumière|la chambre|les lampes]"
+          - "(mets|mettre) en (veilleuse|tamisé)"
+
+  # La luminosité d'une lampe précise, avec le verbe « mets » qui manque au
+  # micro. « pourcent » reste facultatif : on le dit rarement en entier.
+  LuminositeLampe:
+    data:
+      - sentences:
+          - "(mets|mettre|passe|passer) [le|la|l'] {casa_lampe} à {casa_pourcent} [pourcent|pour cent]"
 
   # « Les lampes de la chambre » = les deux LED, et elles seules.
   #
@@ -112,6 +129,16 @@ lists:
       # Le groupe des deux LED, pour « mets les lampes en rouge ».
       - in: "(les lampes|lampes) [de la chambre]"
         out: "les lampes"
+  # Les pourcentages dicibles. Par pas de 5, comme la liste de Home
+  # Assistant : à l'oral on ne demande pas 43 %. Elle commence à 5, donc
+  # « mets bandeau à zéro » n'existe pas — on éteint, on ne met pas à zéro.
+  casa_pourcent:
+    range:
+      type: number
+      from: 5
+      to: 100
+      step: 5
+
   casa_couleur:
     values:
       - in: "rouge"
