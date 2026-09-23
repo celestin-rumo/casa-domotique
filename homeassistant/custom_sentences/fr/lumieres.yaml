@@ -42,12 +42,23 @@ intents:
   # L'article est FACULTATIF partout : à l'oral on dit « baisse luminosité »
   # aussi souvent que « baisse la luminosité », et la phrase sans article ne
   # correspondait à rien.
+  # Chaque pas se dit avec ou sans lampe. Sans lampe, il porte sur tout ce
+  # qui est allumé ; avec, sur elle seule.
+  #
+  # Les deux ordres de mots sont acceptés, « augmente bandeau luminosité »
+  # comme « augmente la luminosité du bandeau » : à l'oral on place le nom là
+  # où il vient. Sans la première forme, le micro entendait « augmente
+  # luminosité » et perdait le mot de la lampe en chemin, faute de tournure
+  # qui l'accueille — constaté le 23 septembre 2026.
   LuminositePlus:
     data:
       - sentences:
           - "(augmente|augmenter|monte|monter) [la] (luminosité|lumière)"
           - "plus de lumière"
           - "(éclaire|éclairer) plus"
+          - "(augmente|augmenter|monte|monter) {casa_lampe} [la] (luminosité|lumière)"
+          - "(augmente|augmenter|monte|monter) [la] (luminosité|lumière) (de|du|de la|des) {casa_lampe}"
+          - "(augmente|augmenter|monte|monter) {casa_lampe}"
 
   LuminositeMoins:
     data:
@@ -55,14 +66,28 @@ intents:
           - "(baisse|baisser|diminue|diminuer|réduis|réduire) [la] (luminosité|lumière)"
           - "moins de lumière"
           - "(éclaire|éclairer) moins"
+          - "(baisse|baisser|diminue|diminuer|réduis|réduire) {casa_lampe} [la] (luminosité|lumière)"
+          - "(baisse|baisser|diminue|diminuer|réduis|réduire) [la] (luminosité|lumière) (de|du|de la|des) {casa_lampe}"
+          - "(baisse|baisser|diminue|diminuer|réduis|réduire) {casa_lampe}"
 
   # Tamiser a quitté LuminositeMoins pour son propre intent : c'est le grand
-  # pas, deux fois celui de « baisse ».
+  # pas, deux fois celui de « baisse ». « les lampes » a quitté le suffixe
+  # facultatif, sinon la phrase aurait deux lectures.
   Tamise:
     data:
       - sentences:
-          - "(tamise|tamiser) [la lumière|la chambre|les lampes]"
+          - "(tamise|tamiser) [la lumière|la chambre]"
           - "(mets|mettre) en (veilleuse|tamisé)"
+          - "(tamise|tamiser) {casa_lampe}"
+
+  # Le geste du soir : tout ce qui est allumé descend au plancher, d'un coup,
+  # sans passer par des paliers.
+  TamiseBeaucoup:
+    data:
+      - sentences:
+          - "(tamise|tamiser) (beaucoup|à fond|au maximum)"
+          - "(mets|mettre) [tout] au minimum"
+          - "(tamise|tamiser) {casa_lampe} (beaucoup|à fond)"
 
   # La luminosité d'une lampe précise, avec le verbe « mets » qui manque au
   # micro. « pourcent » reste facultatif : on le dit rarement en entier.

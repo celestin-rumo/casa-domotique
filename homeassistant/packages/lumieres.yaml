@@ -40,16 +40,40 @@ script:
       pas:
         description: Le pas en pourcent, négatif pour baisser
         example: -15
+      cible:
+        description: Une luminosité absolue, qui remplace le pas
+        example: 7
+      lampe:
+        description: Le mot d'une lampe ; vide, toutes celles qui sont allumées
+        example: bandeau
       plancher:
         description: La luminosité sous laquelle on ne descend jamais
         example: 7
     variables:
+      # `default()` PARTOUT, et c'est vital. Un champ non fourni est indéfini,
+      # et référencer un indéfini ici ne lève pas d'erreur : l'appel se fige,
+      # le script ne démarre même pas, et rien n'apparaît dans les journaux.
+      # Diagnostiqué le 23 septembre 2026, vingt secondes d'expiration à
+      # chaque « tamise », pendant que « baisse » répondait en neuf
+      # millisecondes — la seule différence était un `plancher` absent.
+      mini: "{{ plancher | default(7) | int }}"
+      # La table vit ici plutôt que dans chaque intent : trois copies
+      # finiraient par diverger. Le `trim` compte, la valeur reçue peut
+      # traîner une espace.
+      mots:
+        bandeau: light.chambre_bandeau
+        led droite: light.chambre_wiz_1
+        led gauche: light.chambre_wiz_2
+        lampe chambre: light.chambre
+        les lampes: light.lampes_chambre
+      mot: "{{ lampe | default('') | trim }}"
+      candidates: >-
+        {{ [mots[mot]] if mot in mots else
+           ['light.chambre', 'light.chambre_bandeau',
+            'light.chambre_wiz_1', 'light.chambre_wiz_2'] }}
       allumees: >-
-        {{ expand('light.chambre', 'light.chambre_bandeau',
-                  'light.chambre_wiz_1', 'light.chambre_wiz_2')
-           | selectattr('state', 'eq', 'on')
+        {{ expand(candidates) | selectattr('state', 'eq', 'on')
            | map(attribute='entity_id') | list }}
-      mini: "{{ plancher | int(7) }}"
     sequence:
       # Rien d'allumé : on s'arrête sans erreur et sans un mot. La pièce est
       # noire, la personne le voit.
@@ -66,7 +90,11 @@ script:
           sequence:
             - variables:
                 actuel: "{{ (state_attr(repeat.item, 'brightness') | int(0) / 2.55) | round(0) | int }}"
-                vise: "{{ [[actuel + (pas | int(0)), 100] | min, mini | int] | max }}"
+                # Une cible absolue l'emporte sur le pas : c'est « tamise
+                # beaucoup », qui ne descend pas d'un cran mais va au plancher.
+                vers: "{{ cible | default(0) | int }}"
+                brut: "{{ vers if vers > 0 else actuel + (pas | default(0) | int) }}"
+                vise: "{{ [[brut | int, 100] | min, mini | int] | max }}"
             - service: light.turn_on
               target: { entity_id: "{{ repeat.item }}" }
               data:
@@ -100,6 +128,9 @@ intent_script:
 
   # Les trois pas. Le plancher de 7 % vit dans le script, pas ici : il vaut
   # pour toute baisse, d'où qu'elle vienne.
+  # Les trois pas, chacun avec ou sans lampe nommée. `casa_lampe` est
+  # INDÉFINI quand la phrase n'en contient pas : d'où le `default('')`, sans
+  # lequel l'appel se figerait — c'est exactement la panne du 23 septembre.
   LuminositePlus:
     action:
       - service: script.turn_on
@@ -107,6 +138,7 @@ intent_script:
         data:
           variables:
             pas: 15
+            lampe: "{{ casa_lampe | default('') }}"
 
   LuminositeMoins:
     action:
@@ -115,6 +147,7 @@ intent_script:
         data:
           variables:
             pas: -15
+            lampe: "{{ casa_lampe | default('') }}"
 
   # Tamiser n'est plus un synonyme de baisser : c'est le grand pas, celui du
   # soir, quand on veut passer de la lumière de travail à la veilleuse d'un
@@ -126,6 +159,18 @@ intent_script:
         data:
           variables:
             pas: -30
+            lampe: "{{ casa_lampe | default('') }}"
+
+  # « Tamise beaucoup » ne descend pas d'un cran : il va droit au plancher.
+  # D'où une cible absolue plutôt qu'un pas, sur tout ce qui est allumé.
+  TamiseBeaucoup:
+    action:
+      - service: script.turn_on
+        target: { entity_id: script.lumiere_pas }
+        data:
+          variables:
+            cible: 7
+            lampe: "{{ casa_lampe | default('') }}"
 
   # « Mets bandeau à 100 pourcent ». Home Assistant comprend déjà la phrase,
   # mais le micro ne connaît, pour la luminosité, que « règle » et « allume » :
