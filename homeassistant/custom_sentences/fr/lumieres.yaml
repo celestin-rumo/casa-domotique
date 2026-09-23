@@ -1,0 +1,55 @@
+# Ce que la voix sait faire des lampes en plus des ordres intégrés. Les
+# intents sont traités par intent_script dans packages/lumieres.yaml.
+#
+# CE QUI EST DÉJÀ COUVERT, ET QU'ON N'AJOUTE DONC PAS :
+#
+#   allumer, éteindre          « éteins les lumières », « allume la chambre »
+#   une luminosité ABSOLUE     « règle la luminosité à 50 pourcent »
+#   une COULEUR                « allume Led droite en rouge »
+#                              « règle les lumières en bleu »
+#
+# Les redéclarer créerait deux intents candidats pour une même phrase, et
+# rien ne dirait lequel gagne.
+#
+# CE QUI MANQUE, ET QUI EST ICI :
+#
+#   - éteindre tout SAUF une lampe. L'ordre intégré ne sait pas faire
+#     d'exception : « éteins les lumières sauf le bandeau » est compris comme
+#     « éteins les lumières », et le bandeau s'éteint avec les autres ;
+#   - la luminosité RELATIVE. Rien dans le vocabulaire de Speech-to-Phrase ne
+#     monte ni ne baisse la lumière par tranches, vérifié le 22 septembre 2026
+#     dans sa grammaire française.
+#
+# « Baisse la luminosité » mérite une mention : sans ce fichier, Home
+# Assistant la comprenait comme un HassTurnOff, donc une extinction complète
+# au lieu d'une baisse. Ces phrases corrigent ce contresens plutôt qu'elles
+# n'ajoutent une fonction.
+language: "fr"
+
+intents:
+  EteindreSaufBandeau:
+    data:
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) (les lumières|les lampes|toutes les lumières|toutes les lampes|tout) sauf (le bandeau|le flux gradient|le gradient)"
+          - "(éteins|coupe) tout sauf (le bandeau|le flux gradient|le gradient)"
+          - "(garde|laisse) (le bandeau|le flux gradient) [allumé] et (éteins|coupe) le reste"
+          # Dit à l'envers : ce qu'on garde plutôt que ce qu'on éteint. Avec
+          # et sans le « ne », parce que personne ne le prononce à l'oral.
+          - "[ne] (garde|garder|laisse|laisser) que (le bandeau|le flux gradient|le gradient)"
+          - "(garde|garder|laisse|laisser) (seulement|uniquement) (le bandeau|le flux gradient|le gradient)"
+          - "(juste|seulement|uniquement) (le bandeau|le flux gradient|le gradient)"
+
+  LuminositePlus:
+    data:
+      - sentences:
+          - "(augmente|augmenter|monte|monter) (la luminosité|la lumière)"
+          - "plus de lumière"
+          - "(éclaire|éclairer) plus"
+
+  LuminositeMoins:
+    data:
+      - sentences:
+          - "(baisse|baisser|diminue|diminuer|réduis|réduire) (la luminosité|la lumière)"
+          - "moins de lumière"
+          - "(éclaire|éclairer) moins"
+          - "(tamise|tamiser) [la lumière]"

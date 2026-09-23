@@ -1,0 +1,84 @@
+# Ce que la voix fait des lampes au-delà des ordres intégrés. Les phrases sont
+# dans custom_sentences/fr/lumieres.yaml, qui dit ce qui manquait et pourquoi.
+#
+# Les scripts vivent ICI plutôt que dans scripts.yaml. Un package porte sa
+# fonction entière, comme le réveil et la météo, et cela évite de toucher un
+# fichier que d'autres modifient au même moment.
+#
+# Les quatre lampes sont nommées en toutes lettres. C'est volontaire : viser
+# la zone du satellite ferait dépendre l'ordre de l'endroit où l'on parle, et
+# `light.turn_off` sur `all` emporterait aussi l'anneau lumineux du Voice PE,
+# qui n'est pas un éclairage de la pièce.
+
+script:
+  # Un pas de luminosité, vers le haut ou vers le bas.
+  #
+  # Seules les lampes ALLUMÉES bougent. Sans ce filtre, un pas positif
+  # rallumerait les lampes éteintes : `brightness_step_pct` sur une lampe
+  # éteinte l'allume au niveau du pas. « Augmente la luminosité » doit
+  # éclaircir la pièce telle qu'elle est, pas la rallumer entière.
+  lumiere_pas:
+    alias: Lumières · un pas de luminosité
+    icon: mdi:brightness-6
+    mode: restart
+    fields:
+      pas:
+        description: Le pas en pourcent, négatif pour baisser
+        example: 10
+    variables:
+      allumees: >-
+        {{ expand('light.chambre', 'light.chambre_bandeau',
+                  'light.chambre_wiz_1', 'light.chambre_wiz_2')
+           | selectattr('state', 'eq', 'on')
+           | map(attribute='entity_id') | list }}
+    sequence:
+      # Rien d'allumé : on s'arrête sans erreur et sans un mot. La pièce est
+      # noire, la personne le voit.
+      - condition: template
+        value_template: "{{ allumees | count > 0 }}"
+      - service: light.turn_on
+        target: { entity_id: "{{ allumees }}" }
+        data:
+          brightness_step_pct: "{{ pas | int(10) }}"
+
+  # Tout éteindre sauf le bandeau, qui reste comme veilleuse.
+  #
+  # L'ordre intégré ne sait pas faire d'exception : il n'a pas de notion de
+  # « sauf ». D'où cette liste explicite des trois autres lampes. Une lampe
+  # ajoutée à la chambre devra être ajoutée ici, et c'est le prix de la
+  # précision — une zone entière emporterait l'anneau du satellite.
+  eteindre_sauf_bandeau:
+    alias: Lumières · tout sauf le bandeau
+    icon: mdi:lightbulb-night
+    sequence:
+      - service: light.turn_off
+        target:
+          entity_id:
+            - light.chambre
+            - light.chambre_wiz_1
+            - light.chambre_wiz_2
+
+# Aucun `speech` nulle part : l'assistant ne confirme pas ce qui se voit. La
+# règle du dépôt, posée le 22 septembre 2026, vaut ici comme pour les
+# ambiances et la musique.
+intent_script:
+  EteindreSaufBandeau:
+    action:
+      - service: script.turn_on
+        target: { entity_id: script.eteindre_sauf_bandeau }
+
+  LuminositePlus:
+    action:
+      - service: script.turn_on
+        target: { entity_id: script.lumiere_pas }
+        data:
+          variables:
+            pas: 10
+
+  LuminositeMoins:
+    action:
+      - service: script.turn_on
+        target: { entity_id: script.lumiere_pas }
+        data:
+          variables:
+            pas: -10
