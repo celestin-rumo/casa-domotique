@@ -10,6 +10,21 @@
 # `light.turn_off` sur `all` emporterait aussi l'anneau lumineux du Voice PE,
 # qui n'est pas un éclairage de la pièce.
 
+# « Les lampes de la chambre », ce sont les deux LED et elles seules.
+#
+# Le groupe leur donne un destinataire unique, et il vit dans le dépôt plutôt
+# que dans le registre : contrairement aux alias, il survit à une
+# réinstallation. La forme `platform: group` est toujours vivante en 2026.9,
+# vérifié dans le composant lui-même — ce dépôt s'est déjà fait surprendre
+# deux fois par des formes YAML retirées en silence.
+light:
+  - platform: group
+    name: Lampes chambre
+    unique_id: casa_lampes_chambre
+    entities:
+      - light.chambre_wiz_1
+      - light.chambre_wiz_2
+
 script:
   # Un pas de luminosité, vers le haut ou vers le bas.
   #
@@ -91,6 +106,22 @@ intent_script:
   # couleur : parce qu'il ne connaît que les verbes « allume » et « règle »
   # côté micro. Ce bloc n'existe que pour le verbe « mets ». Les deux autres
   # tournures continuent de passer par Home Assistant, et c'est très bien.
+  # « Les lampes de la chambre » désigne le groupe, pas la pièce entière.
+  #
+  # Home Assistant lit déjà cette phrase, mais comme un ordre sur toute la
+  # zone : il emporterait le bandeau et jusqu'à l'anneau lumineux du Voice PE.
+  # Ces deux intents détournent donc la phrase vers le groupe. Un intent du
+  # dépôt l'emporte sur l'ordre intégré, constaté deux fois dans ce projet.
+  LampesChambreOff:
+    action:
+      - service: light.turn_off
+        target: { entity_id: light.lampes_chambre }
+
+  LampesChambreOn:
+    action:
+      - service: light.turn_on
+        target: { entity_id: light.lampes_chambre }
+
   CouleurLampe:
     action:
       - variables:
@@ -99,6 +130,7 @@ intent_script:
             led droite: light.chambre_wiz_1
             led gauche: light.chambre_wiz_2
             lampe chambre: light.chambre
+            les lampes: light.lampes_chambre
           # `color_name` attend les noms CSS, donc de l'anglais. C'est la
           # seule traduction du dépôt, et elle vit ici plutôt que dans les
           # phrases : là-bas, un `out` anglais casserait la relecture.

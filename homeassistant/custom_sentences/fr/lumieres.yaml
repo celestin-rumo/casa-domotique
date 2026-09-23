@@ -54,6 +54,28 @@ intents:
           - "(éclaire|éclairer) moins"
           - "(tamise|tamiser) [la lumière]"
 
+  # « Les lampes de la chambre » = les deux LED, et elles seules.
+  #
+  # Home Assistant lit déjà cette phrase, mais comme un ordre sur toute la
+  # ZONE : « éteins les lampes de la chambre » emporte aujourd'hui le bandeau,
+  # la lampe de chevet et jusqu'à l'anneau lumineux du Voice PE. Ces deux
+  # intents détournent la phrase vers le groupe `light.lampes_chambre`.
+  #
+  # Le suffixe est facultatif : il n'y a qu'une pièce, « éteins les lampes »
+  # veut dire la même chose. Et ces phrases ne mangent pas la couleur :
+  # « allume les lampes en rouge » ne correspond à aucune d'elles, puisque
+  # hassil exige que la phrase entière soit couverte, et part donc vers
+  # CouleurLampe.
+  LampesChambreOff:
+    data:
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) les lampes [de la chambre]"
+
+  LampesChambreOn:
+    data:
+      - sentences:
+          - "(allume|allumer) les lampes [de la chambre]"
+
   # La couleur avec le verbe « mets », qui manque au micro.
   #
   # Home Assistant, lui, comprend déjà « mets le bandeau en rouge ». Mais la
@@ -87,6 +109,9 @@ lists:
         out: "led gauche"
       - in: "(lampe chambre|lampe de la chambre)"
         out: "lampe chambre"
+      # Le groupe des deux LED, pour « mets les lampes en rouge ».
+      - in: "(les lampes|lampes) [de la chambre]"
+        out: "les lampes"
   casa_couleur:
     values:
       - in: "rouge"
