@@ -66,17 +66,24 @@ intent_script:
         {#- Les codes d'icône de MétéoSuisse, regroupés par ce qu'on en dit.
             D'après la légende de leurs icônes de jour ; un code inconnu
             donne « un ciel changeant » plutôt qu'une erreur. -#}
+        {#- Les mots disent d'abord l'ENSOLEILLEMENT, puisque c'est ce qu'on
+            veut savoir en s'habillant : complètement ensoleillé, un peu,
+            nuageux, pluvieux. Les regroupements de codes ne changent pas,
+            seule leur formulation — ils viennent de la légende des icônes de
+            jour de MétéoSuisse, et les redécouper à l'aveugle ferait dire au
+            bulletin des choses fausses. Un code absent donne « un ciel
+            changeant », jamais une erreur. -#}
         {%- set CIEL = {
-          'grand soleil': [1, 26],
-          'quelques nuages': [2, 3, 4],
-          'un ciel couvert': [5, 35],
-          'du brouillard': [27, 28],
-          'des averses': [6, 9, 14, 17, 29, 33],
-          'de la pluie': [20],
-          'des orages': [12, 13, 23, 24, 25, 32],
-          'de la grêle': [10, 11],
-          'de la neige': [8, 16, 19, 22, 30, 34],
-          'de la neige mêlée de pluie': [7, 15, 18, 21, 31],
+          'complètement ensoleillé': [1, 26],
+          'un peu nuageux, avec du soleil': [2, 3, 4],
+          'nuageux': [5, 35],
+          'brumeux': [27, 28],
+          'pluvieux, avec des averses': [6, 9, 14, 17, 29, 33],
+          'pluvieux': [20],
+          'orageux': [12, 13, 23, 24, 25, 32],
+          'grêleux': [10, 11],
+          'neigeux': [8, 16, 19, 22, 30, 34],
+          'neigeux, avec de la pluie mêlée': [7, 15, 18, 21, 31],
         } -%}
         {%- set s = states.sensor.meteosuisse -%}
         {%- if s is none or s.state in ['unknown', 'unavailable'] or s.attributes.forecast is not defined -%}
