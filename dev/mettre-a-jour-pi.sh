@@ -159,10 +159,16 @@ else
   if [ "$neuf" = 0 ]; then
     echo "   déjà identiques : rien à réapprendre"
   elif demander "Redémarrer Speech-to-Phrase pour qu'il les réapprenne ?"; then
-    if ha addons restart core_speech-to-phrase; then
+    # `ha addons` fonctionne encore, mais le Supervisor le déprécie au profit
+    # de `ha apps` — message vu sur le Pi le 22 septembre 2026. On demande donc
+    # le nouveau nom, et on retombe sur l'ancien pour un Supervisor plus âgé.
+    # Dans cet ordre, et pas l'inverse : un script qui privilégie le nom
+    # déprécié vieillit mal, et cessera de marcher sans prévenir.
+    if ha apps restart core_speech-to-phrase 2>/dev/null \
+       || ha addons restart core_speech-to-phrase; then
       echo "   redémarré : il réapprend son vocabulaire"
     else
-      echo "   échec : module absent ou sous un autre nom (ha addons list)"
+      echo "   échec : module absent ou sous un autre nom (ha apps list)"
     fi
   else
     echo "   pas redémarré : les nouvelles phrases ne seront pas entendues"
