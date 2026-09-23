@@ -1168,6 +1168,24 @@ dépôt n'a alors rien à changer. Les ampoules des autres
 pièces peuvent être appairées dès maintenant, mais rien ne les pilotera tant
 que le dépôt n'a qu'une pièce.
 
+**L'identifiant sert au dépôt, le nom sert à la voix.** Ce sont deux choses
+différentes, et la confusion coûte du temps. `light.chambre_bandeau` est ce
+que visent les scripts ; à l'oral, la lampe s'appelle par son **nom affiché**,
+« Flux Gradient », que Home Assistant tire de l'appareil. Dire « mets bandeau
+en rouge » ne désignait donc rien, et la couleur partait sans destinataire.
+
+La réponse est un **alias**, pas un renommage : Paramètres → Entités →
+l'entité → **Alias vocaux**. `bandeau` et `gradient` y ont été ajoutés le
+23 septembre 2026. Un alias débloque d'un coup **tout** le vocabulaire
+intégré pour ce mot — allumer, éteindre, la luminosité, la couleur — sans
+qu'on écrive une seule phrase. Speech-to-Phrase les apprend aussi : son code
+lit `aliases` en même temps que les noms, donc le micro gagne le mot après un
+redémarrage du module.
+
+> **Les alias ne sont pas dans le dépôt.** Ils vivent dans le registre des
+> entités, comme les identifiants eux-mêmes, et une installation neuve les
+> perdrait. À reposer à la main, au même titre que les renommages.
+
 **Le bandeau Gradient ne fera pas de dégradé sur ZHA.** Il s'affichera d'une
 seule couleur, unie. Le dégradé est un flux du pont Hue vers le bandeau, que
 ni ZHA ni Home Assistant ne savent produire — et même avec le pont, Home

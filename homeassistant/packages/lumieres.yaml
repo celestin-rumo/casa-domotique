@@ -82,3 +82,39 @@ intent_script:
         data:
           variables:
             pas: -10
+
+  # « Mets le bandeau en rouge ». Deux traductions, parce que la phrase arrive
+  # en français des deux côtés : le mot de la lampe vers son entity_id, et le
+  # mot de la couleur vers le nom anglais qu'attend `color_name`.
+  #
+  # Pourquoi ne pas laisser faire l'ordre intégré, qui sait déjà poser une
+  # couleur : parce qu'il ne connaît que les verbes « allume » et « règle »
+  # côté micro. Ce bloc n'existe que pour le verbe « mets ». Les deux autres
+  # tournures continuent de passer par Home Assistant, et c'est très bien.
+  CouleurLampe:
+    action:
+      - variables:
+          lampes:
+            bandeau: light.chambre_bandeau
+            led droite: light.chambre_wiz_1
+            led gauche: light.chambre_wiz_2
+            lampe chambre: light.chambre
+          # `color_name` attend les noms CSS, donc de l'anglais. C'est la
+          # seule traduction du dépôt, et elle vit ici plutôt que dans les
+          # phrases : là-bas, un `out` anglais casserait la relecture.
+          teintes:
+            rouge: red
+            bleu: blue
+            vert: green
+            violet: purple
+            orange: orange
+            jaune: yellow
+            rose: pink
+            blanc: white
+      # Un mot inconnu s'arrête ici plutôt que d'allumer au hasard.
+      - condition: template
+        value_template: "{{ casa_lampe in lampes and casa_couleur in teintes }}"
+      - service: light.turn_on
+        target: { entity_id: "{{ lampes[casa_lampe] }}" }
+        data:
+          color_name: "{{ teintes[casa_couleur] }}"

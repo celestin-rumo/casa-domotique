@@ -53,3 +53,55 @@ intents:
           - "moins de lumière"
           - "(éclaire|éclairer) moins"
           - "(tamise|tamiser) [la lumière]"
+
+  # La couleur avec le verbe « mets », qui manque au micro.
+  #
+  # Home Assistant, lui, comprend déjà « mets le bandeau en rouge ». Mais la
+  # grammaire française de Speech-to-Phrase ne connaît, pour la couleur, que
+  # « allume … en … » et « règle … en … » : vérifié dans son vocabulaire le
+  # 23 septembre 2026. Le verbe le plus naturel était donc le seul inaudible.
+  #
+  # On ne redéclare pas `color` ni `name`, qui sont les listes de Home
+  # Assistant : une liste du même nom les remplacerait au lieu de les
+  # compléter, et rétrécirait le vocabulaire intégré. D'où des listes à nous,
+  # et un intent à nous qui fait la traduction.
+  #
+  # `out` reste un mot FRANÇAIS, jamais un entity_id ni un nom de couleur
+  # anglais : Speech-to-Phrase transcrit la valeur de sortie, et Home
+  # Assistant relit cette transcription comme une phrase. « red » ne se
+  # relirait pas, « rouge » oui. Même raison que pour casa_ambiance.
+  CouleurLampe:
+    data:
+      - sentences:
+          - "(mets|mettre|passe|passer) [le|la|l'] {casa_lampe} en {casa_couleur}"
+          - "(mets|mettre|passe|passer) [le|la|l'] {casa_lampe} {casa_couleur}"
+
+lists:
+  casa_lampe:
+    values:
+      - in: "(bandeau|flux gradient|gradient)"
+        out: "bandeau"
+      - in: "led droite"
+        out: "led droite"
+      - in: "led gauche"
+        out: "led gauche"
+      - in: "(lampe chambre|lampe de la chambre)"
+        out: "lampe chambre"
+  casa_couleur:
+    values:
+      - in: "rouge"
+        out: "rouge"
+      - in: "bleu"
+        out: "bleu"
+      - in: "vert"
+        out: "vert"
+      - in: "violet"
+        out: "violet"
+      - in: "orange"
+        out: "orange"
+      - in: "jaune"
+        out: "jaune"
+      - in: "rose"
+        out: "rose"
+      - in: "blanc"
+        out: "blanc"
