@@ -118,6 +118,10 @@ export const PLAYLIST_COURANTE = "input_text.playlist_courante";
 // Les noms donnés aux playlists depuis Écoute : « 30=Soirée;Détente=Le soir ».
 export const PLAYLISTS_NOMS = "input_text.playlists_noms";
 
+// Ce que joue un nom de la table, changé depuis Écoute : « Chillos=83 ».
+// script.play_playlist le préfère à l'adresse de scripts.yaml.
+export const PLAYLISTS_ADRESSES = "input_text.playlists_adresses";
+
 // La liste des playlists n'est pas ici : elle vit sur le Pi, dans
 // input_selects.yaml, et arrive par le subscribeEntities que fait déjà ha.ts.
 // En ajouter une ne demande donc pas de reconstruire l'app.

@@ -6,12 +6,13 @@ import {
   activateScene, enregistrerScene, messageDe, playPlaylist, scenePourLumieres, setLight, setNumber, setText,
   setVolume, supprimerScene, toggleLight,
 } from "../ha";
-import { usePlaylists } from "../bibliotheque";
+import { nomDansBibliotheque, numeroDe, useBibliotheque, usePlaylists } from "../bibliotheque";
 import {
   NOM_MAX, PLACES, TEINTES, ecrirePerso, listeAmbiances, plafond, sansMusique, sceneDe, volumeRegle,
 } from "../ambiances";
 import { Carte, Curseur, Etiquette, LigneEtat, NoteFaute, OptionsPlaylists, Question } from "../ui";
 import { Lumiere } from "./Pieces";
+import { RecherchePlaylist } from "./Recherche";
 
 const lisible = (s: string | undefined) => (s === undefined || s === "unknown" || s === "unavailable" ? "" : s);
 
@@ -71,6 +72,11 @@ export function Edition({ id, nouvelle = false }: { id: string; nouvelle?: boole
   // null : rien de choisi ici, l'écran montre le réglage du Pi.
   const [choix, setChoix] = useState<string | null>(null);
   useEffect(() => setChoix(null), [lu]);
+  // Toute la bibliothèque, pas seulement la table et les épinglées. Une
+  // playlist choisie là n'a de nom que dans la bibliothèque : on la demande
+  // pour l'afficher.
+  const [chercher, setChercher] = useState(false);
+  const { items } = useBibliotheque(!!numeroDe(choix ?? lu));
 
   // Le volume : celui de l'ambiance, sinon — neuve, ou ajoutée qui n'y
   // touche pas — celui de la WiiM en ce moment. Jamais au-dessus du plafond,
@@ -230,9 +236,27 @@ export function Edition({ id, nouvelle = false }: { id: string; nouvelle?: boole
             <option value="aucune">Ne pas toucher à la musique</option>
             {/* Un réglage que ces listes ne connaissent pas — une adresse tapée
                 dans Home Assistant — reste visible tel quel. */}
-            {!connue && <option value={valeur}>{valeur}</option>}
+            {!connue && <option value={valeur}>{nomDansBibliotheque(valeur, items)}</option>}
           </select>
         </label>
+        {musiqueReglable && (
+          <div className="btn-row">
+            <button className="btn" aria-expanded={chercher} onClick={() => setChercher(!chercher)}>
+              {chercher ? "Fermer la recherche" : "Chercher dans la bibliothèque"}
+            </button>
+          </div>
+        )}
+        {chercher && (
+          <RecherchePlaylist
+            autoFocus
+            active={(p) => p.uri === valeur}
+            sousTitre={(_, a) => (a ? `ce que ${titre} jouera` : "toucher pour la choisir")}
+            surChoisir={(p) => {
+              setChoix(p.uri);
+              setChercher(false);
+            }}
+          />
+        )}
         {!musiqueReglable && !place && (
           <p className="row-meta">packages/ambiances.yaml n'est pas à jour sur le Pi : la musique ne se règle pas encore.</p>
         )}

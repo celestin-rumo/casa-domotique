@@ -150,6 +150,20 @@ musique telle quelle. C'est le même partage que pour les scènes : ce qu'on
 joue est du goût et se change sans commit, l'ordre des étapes et l'écho
 restent de la logique, dans git.
 
+**Ce que joue un nom de la table se change aussi sans commit** : appui long
+sur Chillos dans Écoute, puis « Changer la playlist ». L'app écrit
+`input_text.playlists_adresses` (`packages/playlists.yaml`), « Chillos=83 »,
+et `script.play_playlist` préfère cette adresse à celle de la table. Tout ce
+qui appelle le nom suit — ambiances, réveil, voix — sans qu'on touche à leurs
+réglages. « Playlist d'origine » retire la ligne, et le nom rejoue l'adresse
+de `scripts.yaml`.
+
+**Une ambiance mélange toujours** : elle passe `aleatoire: true` à
+`script.play_playlist`, qui règle l'aléatoire de l'enceinte *avant* la
+lecture — Music Assistant mélange la file au chargement, premier morceau
+compris. Le réveil et Écoute, qui ne le passent pas, gardent le réglage de
+l'enceinte.
+
 `radio_mode` est un paramètre du script, pas une décision du script. Détente
 le passe à `true` pour sa playlist par défaut — elle sert de graine et la
 lecture part ailleurs après quelques titres. Une playlist choisie dans le

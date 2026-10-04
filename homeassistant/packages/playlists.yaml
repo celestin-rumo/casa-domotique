@@ -41,3 +41,14 @@ input_text:
     name: Playlists · noms
     icon: mdi:rename
     max: 255
+
+  # Ce que joue un nom de la table de script.play_playlist, quand on l'a
+  # changé depuis l'app (appui long sur Chillos, dans Écoute, puis « Changer
+  # la playlist ») : « Chillos=83;Focus=spotify:playlist:… ». La valeur est
+  # le numéro d'une playlist de la bibliothèque de Music Assistant, ou une
+  # adresse. Elle l'emporte sur l'adresse de la table, partout où le nom sert :
+  # ambiances, réveil, voix. Retirée, le nom rejoue l'adresse de scripts.yaml.
+  playlists_adresses:
+    name: Playlists · adresses
+    icon: mdi:swap-horizontal
+    max: 255

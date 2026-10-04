@@ -6,7 +6,7 @@
 import type { HassEntities } from "home-assistant-js-websocket";
 import { MOODS, PERSO_PLACES, VOLUME_MAX } from "./config";
 import { useMaison } from "./maison";
-import { usePlaylists } from "./bibliotheque";
+import { nomDansBibliotheque, useBibliotheque, usePlaylists } from "./bibliotheque";
 
 // Le JSON d'une place remplie : le nom, la teinte de la tuile, la musique
 // (comme un réglage d'ambiance — "" ou « aucune » n'y touche pas), et le
@@ -93,7 +93,15 @@ export function listeAmbiances(entities: HassEntities, nomDe: (valeur: string) =
 export function useAmbiances(): Ambiance[] {
   const { entities } = useMaison();
   const { playlists } = usePlaylists();
-  return listeAmbiances(entities, (v) => playlists.find((p) => p.valeur === v)?.nom ?? v);
+  // Une playlist choisie dans toute la bibliothèque, sans être épinglée :
+  // seule la bibliothèque connaît son nom, et on ne la demande que pour ça.
+  const nomme = (v: string) => playlists.find((p) => p.valeur === v)?.nom;
+  const inconnue = PLACES.some((p) => {
+    const m = lirePerso(entities[p.texte]?.state)?.m ?? "";
+    return m.startsWith("library://") && !nomme(m);
+  });
+  const { items } = useBibliotheque(inconnue);
+  return listeAmbiances(entities, (v) => nomme(v) ?? nomDansBibliotheque(v, items));
 }
 
 // La première place libre, ou null si les six sont prises — ou si le Pi ne

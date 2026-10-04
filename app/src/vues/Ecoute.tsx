@@ -1,17 +1,18 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMaison } from "../maison";
 import {
-  PLAYER, PLAYERS, PLAYLIST_COURANTE, PLAYLIST_SELECT, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS,
+  PLAYER, PLAYERS, PLAYLIST_COURANTE, PLAYLIST_SELECT, PLAYLISTS_ADRESSES, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS,
 } from "../config";
 import {
   mediaPlayPause, mediaNext, mediaPrevious, joinPlayers, unjoinPlayer, setShuffle, setVolume, playPlaylist,
 } from "../ha";
 import {
-  ecrireNoms, lireEpingles, lireNoms, nettoyerNom, numeroDe, useBibliotheque, usePlaylists, type Playlist,
+  ecrireAdresses, ecrireNoms, lireAdresses, lireEpingles, lireNoms, nettoyerNom, numeroDe, usePlaylists, type Playlist,
 } from "../bibliotheque";
 import { useTexte } from "../useTexte";
 import { plafond } from "../ambiances";
 import { Barres, Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, useAppuiLong } from "../ui";
+import { RecherchePlaylist } from "./Recherche";
 
 export function Ecoute() {
   const { entities, fautes, agir } = useMaison();
@@ -39,6 +40,9 @@ export function Ecoute() {
   const [nomsBrut, ecrireNomsBrut] = useTexte(PLAYLISTS_NOMS);
   const [trop, setTrop] = useState(false);
   const renommable = !!entities[PLAYLISTS_NOMS];
+  const [adressesBrut, ecrireAdressesBrut] = useTexte(PLAYLISTS_ADRESSES);
+  const [tropAdresses, setTropAdresses] = useState(false);
+  const reassignable = !!entities[PLAYLISTS_ADRESSES];
 
   // Le nom d'origine, ou un nom vide, efface le nom donné : la ligne
   // retrouve celui de Spotify ou de la table.
@@ -54,6 +58,20 @@ export function Ecoute() {
     setTrop(false);
     setARenommer(null);
     ecrireNomsBrut(texte);
+  };
+
+  // Ce que joue un nom de la table : un numéro de la bibliothèque, ou rien
+  // pour retrouver l'adresse de scripts.yaml. Les ambiances, le réveil et la
+  // voix appellent le nom : ils suivent sans qu'on touche à leurs réglages.
+  const reassigner = (p: Playlist, numero: string | null) => {
+    const adresses = lireAdresses(adressesBrut);
+    if (numero) adresses.set(p.cle, numero);
+    else adresses.delete(p.cle);
+    const texte = ecrireAdresses(adresses);
+    if (texte.length > 255) return setTropAdresses(true);
+    setTropAdresses(false);
+    setARenommer(null);
+    ecrireAdressesBrut(texte);
   };
 
   return (
@@ -108,7 +126,7 @@ export function Ecoute() {
           <div>
             <div className="row-name">Aléatoire</div>
             <div className="row-meta">
-              {aleatoire ? "playlists mélangées" : "dans l'ordre de la playlist"} · ambiances et réveil aussi
+              {aleatoire ? "playlists mélangées" : "dans l'ordre de la playlist"} · réveil aussi · une ambiance mélange toujours
             </div>
           </div>
           <Interrupteur
@@ -171,16 +189,19 @@ export function Ecoute() {
           <Etiquette>Playlists</Etiquette>
           {/* Toutes passent par script.play_playlist, épinglées comprises :
               c'est lui qui laisse l'écho de ce qui joue. */}
-          <Carte faute={!!fautes[PLAYLIST_SELECT] || !!fautes[PLAYLISTS_NOMS]}>
+          <Carte faute={!!fautes[PLAYLIST_SELECT] || !!fautes[PLAYLISTS_NOMS] || !!fautes[PLAYLISTS_ADRESSES]}>
             {playlists.map((p) =>
               aRenommer === p.cle ? (
-                <Renommer
+                <Modifier
                   key={p.valeur}
                   p={p}
-                  surValider={(nom) => renommer(p, nom)}
+                  reassignable={reassignable && !p.epinglee}
+                  surRenommer={(nom) => renommer(p, nom)}
+                  surReassigner={(numero) => reassigner(p, numero)}
                   surAnnuler={() => {
                     setARenommer(null);
                     setTrop(false);
+                    setTropAdresses(false);
                   }}
                 />
               ) : (
@@ -200,10 +221,18 @@ export function Ecoute() {
               entite={PLAYLISTS_NOMS}
               message={fautes[PLAYLISTS_NOMS] ?? (trop ? "plus de place pour les noms : raccourcis-en un, ou rends-lui son nom d'origine" : undefined)}
             />
+            <NoteFaute
+              entite={PLAYLISTS_ADRESSES}
+              message={fautes[PLAYLISTS_ADRESSES] ?? (tropAdresses ? "plus de place : rends sa playlist d'origine à un autre nom d'abord" : undefined)}
+            />
             <NoteFaute entite="music_assistant.get_library" message={erreur ?? undefined} />
           </Carte>
           <p className="astuce">
-            {renommable ? "Maintiens une playlist pour la renommer." : "Renommer : packages/playlists.yaml n'est pas à jour sur le Pi."}
+            {!renommable
+              ? "Renommer : packages/playlists.yaml n'est pas à jour sur le Pi."
+              : reassignable
+                ? "Maintiens une playlist pour la renommer, ou changer ce que joue un nom des ambiances."
+                : "Maintiens une playlist pour la renommer."}
           </p>
         </>
       )}
@@ -229,19 +258,27 @@ function LignePlaylist({ p, active, joue, disabled, surJouer, surRenommer }: {
     <button className="prow" aria-pressed={active} disabled={disabled} {...appui}>
       <span className="prow-text">
         <span className="prow-name">{p.nom}</span>
-        <span className="prow-sub">{quoi}{p.nom !== p.origine ? ` · ${p.origine}` : ""}</span>
+        <span className="prow-sub">
+          {quoi}{p.nom !== p.origine ? ` · ${p.origine}` : ""}{p.joue ? ` · joue ${p.joue}` : ""}
+        </span>
       </span>
       {active && joue && <Barres />}
     </button>
   );
 }
 
-function Renommer({ p, surValider, surAnnuler }: {
+// L'appui long sur une playlist : la renommer, et, pour un nom de la table,
+// changer ce qu'il joue. Le nom d'origine reste affiché, pour savoir de quoi
+// on parle.
+function Modifier({ p, reassignable, surRenommer, surReassigner, surAnnuler }: {
   p: Playlist;
-  surValider: (nom: string) => void;
+  reassignable: boolean;
+  surRenommer: (nom: string) => void;
+  surReassigner: (numero: string | null) => void;
   surAnnuler: () => void;
 }) {
   const [texte, setTexte] = useState(p.nom);
+  const [chercher, setChercher] = useState(false);
   return (
     <div className="prow-edit">
       <input
@@ -252,40 +289,54 @@ function Renommer({ p, surValider, surAnnuler }: {
         aria-label={`Nouveau nom pour ${p.origine}`}
         onChange={(e) => setTexte(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") surValider(texte);
+          if (e.key === "Enter") surRenommer(texte);
           if (e.key === "Escape") surAnnuler();
         }}
       />
       <span className="row-meta">nom d'origine : {p.origine}</span>
       <div className="btn-row">
         <button className="btn" onClick={surAnnuler}>Annuler</button>
-        {p.nom !== p.origine && <button className="btn" onClick={() => surValider("")}>Nom d'origine</button>}
-        <button className="btn primary" onClick={() => surValider(texte)}>Renommer</button>
+        {p.nom !== p.origine && <button className="btn" onClick={() => surRenommer("")}>Nom d'origine</button>}
+        <button className="btn primary" onClick={() => surRenommer(texte)}>Renommer</button>
       </div>
+
+      {reassignable && (
+        <>
+          <span className="row-meta">
+            {p.nom} joue {p.joue ?? "sa playlist d'origine"} · les ambiances et le réveil qui l'utilisent suivent
+          </span>
+          <div className="btn-row">
+            {p.joue && <button className="btn" onClick={() => surReassigner(null)}>Playlist d'origine</button>}
+            <button className="btn" aria-expanded={chercher} onClick={() => setChercher(!chercher)}>
+              Changer la playlist
+            </button>
+          </div>
+          {chercher && (
+            <RecherchePlaylist
+              autoFocus
+              active={(b) => !!p.adresse && numeroDe(b.uri) === p.adresse}
+              sousTitre={(_, a) => (a ? `ce que joue ${p.nom}` : `toucher pour que ${p.nom} la joue`)}
+              surChoisir={(b) => {
+                const numero = numeroDe(b.uri);
+                if (numero) surReassigner(numero);
+              }}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-const normaliser = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-
 // Ajouter une playlist : chercher dans la bibliothèque de Music Assistant et
-// épingler. La bibliothèque entière n'est demandée qu'à l'ouverture, puis la
-// recherche se fait sur le natel, à chaque lettre, sans repasser par le Pi.
+// épingler.
 function Chercher() {
   const { entities, fautes } = useMaison();
   const [ouvert, setOuvert] = useState(false);
-  const [q, setQ] = useState("");
-  const { items, erreur } = useBibliotheque(ouvert);
   const [brut, ecrire] = useTexte(PLAYLISTS_EPINGLEES);
   const numeros = lireEpingles(brut);
   const present = !!entities[PLAYLISTS_EPINGLEES];
   const [trop, setTrop] = useState(false);
-
-  const trouvees = useMemo(() => {
-    const n = normaliser(q.trim());
-    if (!items || n.length < 2) return [];
-    return items.filter((p) => normaliser(p.name).includes(n)).slice(0, 20);
-  }, [items, q]);
 
   const basculer = (numero: string) => {
     const suivant = (numeros.includes(numero) ? numeros.filter((n) => n !== numero) : [...numeros, numero]).join(",");
@@ -295,6 +346,7 @@ function Chercher() {
     setTrop(false);
     ecrire(suivant);
   };
+  const epinglee = (uri: string) => numeros.includes(numeroDe(uri) ?? "");
 
   return (
     <>
@@ -304,36 +356,19 @@ function Chercher() {
              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {ouvert && (
-        <Carte faute={!!erreur || !!fautes[PLAYLISTS_EPINGLEES]}>
+        <Carte faute={!!fautes[PLAYLISTS_EPINGLEES]}>
           <div id="chercher-playlist" className="sous">
             {!present && <p className="row-meta">packages/playlists.yaml n'est pas chargé sur le Pi : rien ne peut être épinglé.</p>}
-            <input
-              type="search"
-              className="recherche"
-              placeholder="Chercher dans ta bibliothèque…"
-              aria-label="Chercher une playlist"
-              value={q}
-              disabled={!present}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <NoteFaute entite="music_assistant.get_library" message={erreur ?? undefined} />
             <NoteFaute entite={PLAYLISTS_EPINGLEES} message={fautes[PLAYLISTS_EPINGLEES] ?? (trop ? "plus de place : retire une épingle d'abord" : undefined)} />
-            {!items && !erreur && <p className="row-meta">bibliothèque en chargement…</p>}
-            {items && q.trim().length < 2 && <p className="row-meta">{items.length} playlists dans ta bibliothèque · deux lettres suffisent</p>}
-            {items && q.trim().length >= 2 && trouvees.length === 0 && <p className="row-meta">rien ne correspond</p>}
-            {trouvees.map((p) => {
-              const numero = numeroDe(p.uri);
-              if (!numero) return null;
-              const epinglee = numeros.includes(numero);
-              return (
-                <button key={p.uri} className="prow" aria-pressed={epinglee} disabled={!present} onClick={() => basculer(numero)}>
-                  <span className="prow-text">
-                    <span className="prow-name">{p.name}</span>
-                    <span className="prow-sub">{epinglee ? "épinglée · toucher pour retirer" : "toucher pour épingler"}</span>
-                  </span>
-                </button>
-              );
-            })}
+            <RecherchePlaylist
+              disabled={!present}
+              active={(p) => epinglee(p.uri)}
+              sousTitre={(_, a) => (a ? "épinglée · toucher pour retirer" : "toucher pour épingler")}
+              surChoisir={(p) => {
+                const numero = numeroDe(p.uri);
+                if (numero) basculer(numero);
+              }}
+            />
           </div>
         </Carte>
       )}

@@ -13,6 +13,11 @@
 # ou une playlist de la bibliothèque de Music Assistant (library://playlist/83).
 # C'est ce qui permet de taper n'importe quelle playlist dans les réglages
 # d'une ambiance ou du réveil, depuis Home Assistant, sans toucher à la table.
+#
+# Ce que joue un NOM de la table se change aussi sans commit :
+# input_text.playlists_adresses (packages/playlists.yaml), écrit depuis Écoute,
+# l'emporte sur l'adresse ci-dessous. Chillos réassignée l'est partout à la
+# fois — ambiances, réveil, voix —, puisque tous appellent ce script par le nom.
 play_playlist:
   alias: Jouer une playlist
   mode: restart
@@ -26,6 +31,9 @@ play_playlist:
     radio_mode:
       description: Se servir de la playlist comme graine plutôt que la jouer telle quelle
       example: false
+    aleatoire:
+      description: Mélanger la playlist ; absent, l'enceinte garde son réglage
+      example: true
   variables:
     playlists:
       Détente: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"
@@ -35,13 +43,26 @@ play_playlist:
       # compte, il n'a rien à faire ici.
       Focus: "spotify:playlist:37i9dQZF1DWWQRwui0ExPn"
     choix: "{{ name | default('') | trim }}"
+    # La réassignation d'un nom, « Chillos=83;Focus=spotify:playlist:… » : un
+    # numéro de la bibliothèque de Music Assistant, ou une adresse. Un Pi qui
+    # n'a pas encore ce réglage lit « unknown », sans « = » : la table seule.
+    reassignee: >-
+      {%- set ns = namespace(cible='') -%}
+      {%- for morceau in (states('input_text.playlists_adresses') ~ '').split(';') -%}
+        {%- set kv = morceau.split('=', 1) -%}
+        {%- if kv | count == 2 and kv[0] | trim == choix and choix in playlists -%}
+          {%- set ns.cible = kv[1] | trim -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if ns.cible | regex_match('^[0-9]+$') -%}library://playlist/{{ ns.cible }}
+      {%- else -%}{{ ns.cible }}{%- endif -%}
     # Le lien de partage est ramené à son URI : son ?si= est un jeton lié au
     # compte, que Music Assistant n'a pas à recevoir.
     media_id: >-
-      {%- set lien = choix | regex_findall('open[.]spotify[.]com/(?:intl-[a-z-]+/)?playlist/([A-Za-z0-9]+)') -%}
-      {%- if choix in playlists -%}{{ playlists[choix] }}
-      {%- elif lien -%}spotify:playlist:{{ lien[0] }}
-      {%- elif '://' in choix or choix.startswith('spotify:') -%}{{ choix }}
+      {%- set cible = reassignee if reassignee else playlists.get(choix, choix) -%}
+      {%- set lien = cible | regex_findall('open[.]spotify[.]com/(?:intl-[a-z-]+/)?playlist/([A-Za-z0-9]+)') -%}
+      {%- if lien -%}spotify:playlist:{{ lien[0] }}
+      {%- elif '://' in cible or cible.startswith('spotify:') -%}{{ cible }}
       {%- endif -%}
   sequence:
     # Ce qui ne se résout pas échoue, et le dit, plutôt que d'envoyer un
@@ -54,6 +75,17 @@ play_playlist:
       then:
         - stop: "Playlist introuvable : ni un nom de la table, ni une adresse"
           error: true
+    # L'aléatoire avant la lecture : Music Assistant mélange la file au
+    # chargement, premier morceau compris. Après, seule la suite le serait.
+    # Une enceinte qui le refuse joue quand même, dans l'ordre.
+    - if:
+        - condition: template
+          value_template: "{{ aleatoire is defined and aleatoire not in ['', none] }}"
+      then:
+        - service: media_player.shuffle_set
+          target: { entity_id: "{{ player }}" }
+          data: { shuffle: "{{ aleatoire | bool }}" }
+          continue_on_error: true
     - service: music_assistant.play_media
       target: { entity_id: "{{ player }}" }
       data:
@@ -131,6 +163,9 @@ mood_detente:
                 name: "{{ choix }}"
                 player: media_player.ma_chambre
                 radio_mode: "{{ radio | default(false) and not reglee }}"
+                # Une ambiance mélange toujours : on n'y veut pas le même
+                # premier morceau à chaque fois.
+                aleatoire: true
     # L'écho qui confirme l'ambiance côté app, comme play_playlist écrit
     # input_select.playlist. En dernier, donc absent si une étape a échoué :
     # l'app revient alors en arrière en nommant le script. `this` est le
@@ -254,6 +289,7 @@ mood_perso_1:
           data:
             name: "{{ choix }}"
             player: media_player.ma_chambre
+            aleatoire: true
     - service: input_select.select_option
       target: { entity_id: input_select.mood }
       data: { option: "{{ this.entity_id }}" }
@@ -284,7 +320,8 @@ test_lampes_musique:
       data: { volume_level: 0.18 }
     # L'aléatoire avant la lecture : Music Assistant mélange la file au
     # chargement, premier morceau compris. Après, seule la suite le serait.
-    # Le réglage reste sur l'enceinte — les ambiances en héritent ensuite.
+    # Le réglage reste sur l'enceinte ; les ambiances, elles, le remettent
+    # elles-mêmes (script.play_playlist, `aleatoire`).
     - service: media_player.shuffle_set
       target: { entity_id: media_player.ma_chambre }
       data: { shuffle: true }

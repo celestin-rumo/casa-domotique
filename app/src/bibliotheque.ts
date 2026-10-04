@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { bibliotheque, messageDe, type PlaylistBib } from "./ha";
 import { useMaison } from "./maison";
-import { PLAYLIST_SELECT, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS } from "./config";
+import { PLAYLIST_SELECT, PLAYLISTS_ADRESSES, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS } from "./config";
 
 let toute: Promise<PlaylistBib[]> | null = null;
 
@@ -94,7 +94,32 @@ export type Playlist = {
   origine: string; // le nom d'origine
   nom: string; // le nom affiché : celui donné dans l'app, sinon l'origine
   epinglee: boolean;
+  // Un nom de la table réassigné depuis Écoute : ce qu'il joue désormais, par
+  // son nom dans la bibliothèque, et la valeur écrite (un numéro, d'ordinaire).
+  // Absents, il joue l'adresse de scripts.yaml.
+  joue?: string;
+  adresse?: string;
 };
+
+// --- Ce que joue un nom de la table ---
+//
+// input_text.playlists_adresses (packages/playlists.yaml), au même format que
+// les noms : « Chillos=83;Focus=spotify:playlist:… ». Le numéro d'une
+// playlist de la bibliothèque, ou une adresse tapée dans Home Assistant.
+// script.play_playlist le préfère à la table : les ambiances, le réveil et la
+// voix suivent donc le nom, sans qu'on touche à leurs réglages.
+export const lireAdresses = lireNoms;
+export const ecrireAdresses = ecrireNoms;
+
+// Un numéro ou une adresse, sous le nom qu'il a dans la bibliothèque quand
+// elle le connaît.
+export function nomDansBibliotheque(valeur: string, items: PlaylistBib[] | null): string {
+  const uri = /^\d+$/.test(valeur) ? uriDe(valeur) : valeur;
+  const trouvee = items?.find((p) => p.uri === uri);
+  if (trouvee) return trouvee.name;
+  const numero = numeroDe(uri);
+  return numero ? `playlist n° ${numero}` : valeur;
+}
 
 // Toutes les playlists que l'app propose — la table, puis les épinglées —,
 // sous leur nom affiché. Écoute, le réveil et l'édition d'une ambiance lisent
@@ -103,9 +128,19 @@ export function usePlaylists() {
   const { entities } = useMaison();
   const { epingles, erreur } = useEpingles();
   const noms = lireNoms(entities[PLAYLISTS_NOMS]?.state);
+  const adresses = lireAdresses(entities[PLAYLISTS_ADRESSES]?.state);
+  // La bibliothèque n'est demandée que si un nom a été réassigné : c'est
+  // elle qui dit ce que « 83 » joue.
+  const { items } = useBibliotheque(adresses.size > 0);
   const table: string[] = entities[PLAYLIST_SELECT]?.attributes.options ?? [];
   const playlists: Playlist[] = [
-    ...table.map((n) => ({ cle: n, valeur: n, origine: n, nom: noms.get(n) ?? n, epinglee: false })),
+    ...table.map((n) => {
+      const a = adresses.get(n);
+      return {
+        cle: n, valeur: n, origine: n, nom: noms.get(n) ?? n, epinglee: false,
+        ...(a ? { joue: nomDansBibliotheque(a, items), adresse: a } : {}),
+      };
+    }),
     ...epingles.map((p) => ({
       cle: p.numero, valeur: p.uri, origine: p.name, nom: noms.get(p.numero) ?? p.name, epinglee: true,
     })),
