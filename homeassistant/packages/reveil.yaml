@@ -98,6 +98,18 @@ input_text:
     icon: mdi:playlist-music
     max: 255
 
+# Le moment du bonjour : lancé avec le lever, pour sa durée, il sonne à la
+# fin — script.reveil_bonjour donne alors l'heure, la météo, et dit de se
+# lever. « Prolonger » (l'app, ou « encore cinq minutes ») le repousse, et
+# le relance s'il a déjà sonné : c'est le rappel. « Je suis debout »
+# l'annule. Un minuteur plutôt qu'une attente dans script.reveil, parce
+# qu'une attente ne se repousse pas, et qu'il survit à un redémarrage.
+timer:
+  reveil_bonjour:
+    name: Réveil · bonjour
+    icon: mdi:account-voice
+    restore: true
+
 input_select:
   # Ce que fait « Je suis debout », une fois le lever et la musique coupés.
   # Les options sont des entity_id : l'app les nomme (APRES_REVEIL dans
@@ -136,6 +148,16 @@ automation:
         state: "on"
     action:
       - service: script.reveil
+
+  - id: reveil_bonjour
+    alias: Réveil → bonjour
+    description: À la fin du lever, prolongations comprises, dit bonjour.
+    trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data: { entity_id: timer.reveil_bonjour }
+    action:
+      - service: script.reveil_bonjour
 
 script:
   # Le lever de soleil, lu dans les helpers : les lumières de
@@ -226,6 +248,12 @@ script:
       attente_s: "{{ (([delai_min / duree_reglee, 1] | min) * minutes * 60) | int }}"
       montee_s: "{{ [minutes * 60 - attente_s, 60] | max | int }}"
     sequence:
+      # Le bonjour, à la fin du lever : l'essai d'une minute dit donc bonjour
+      # au bout d'une minute, comme une miniature du matin.
+      - service: timer.start
+        target: { entity_id: timer.reveil_bonjour }
+        data:
+          duration: "{{ '%02d:%02d:00' | format(minutes // 60, minutes % 60) }}"
       - service: script.turn_on
         target: { entity_id: script.reveil_musique }
         data:
@@ -380,7 +408,10 @@ script:
         {%- endif -%}
     sequence:
       - service: script.turn_off
-        target: { entity_id: [script.reveil, script.reveil_musique] }
+        target: { entity_id: [script.reveil, script.reveil_musique, script.reveil_bonjour] }
+      # Debout avant la fin du lever : pas de bonjour pour dire de se lever.
+      - service: timer.cancel
+        target: { entity_id: timer.reveil_bonjour }
       - if:
           - condition: template
             value_template: "{{ states(enceinte) not in ['unknown', 'unavailable'] }}"
@@ -403,6 +434,83 @@ script:
               - service: script.turn_on
                 target: { entity_id: "{{ ensuite }}" }
 
+  # Le bonjour : l'heure, l'ordre de se lever, la météo du jour, et bonne
+  # journée. Le bulletin est celui que donne « quelle météo »
+  # (sensor.meteo_bulletin, packages/meteo.yaml) ; absent, le bonjour s'en
+  # passe plutôt que de dire qu'il ne l'a pas.
+  #
+  # Dit par le satellite Voice PE, la voix qui répond d'habitude — piper,
+  # en français, sur l'assistant local. S'il ne répond pas, par la WiiM, en
+  # annonce : Music Assistant baisse la musique le temps de la phrase.
+  reveil_bonjour:
+    alias: Réveil · bonjour
+    icon: mdi:account-voice
+    mode: restart
+    variables:
+      satellite: assist_satellite.home_assistant_voice_0ac124_satellite_assist
+      enceinte: media_player.ma_chambre
+      heure: >-
+        {%- set h = now().hour -%}{%- set m = now().minute -%}
+        {{ 'minuit' if h == 0 else 'midi' if h == 12 else h ~ (' heure' if h == 1 else ' heures') }}{{ ' ' ~ m if m else '' }}
+      meteo: "{{ state_attr('sensor.meteo_bulletin', 'texte') | default('', true) | trim }}"
+      message: >-
+        Bonjour ! Il est {{ heure }}, c'est l'heure de te lever.
+        {{ meteo }} Bonne journée !
+    sequence:
+      - if:
+          - condition: template
+            value_template: "{{ states(satellite) not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: assist_satellite.announce
+            target: { entity_id: "{{ satellite }}" }
+            data: { message: "{{ message }}" }
+        else:
+          - service: tts.speak
+            target: { entity_id: tts.piper }
+            data:
+              media_player_entity_id: "{{ enceinte }}"
+              message: "{{ message }}"
+
+  # Encore quelques minutes : le bonjour recule d'autant. Pendant le lever,
+  # la fin du lever reste où elle est — seule la phrase attend. Le bonjour
+  # déjà dit, il revient dans ces minutes-là : le rappel. Hors d'un réveil
+  # (rien en cours, pas de bonjour dans l'heure), rien : un « encore cinq
+  # minutes » dit l'après-midi ne doit pas faire parler la chambre.
+  reveil_prolonger:
+    alias: Réveil · prolonger
+    icon: mdi:alarm-snooze
+    fields:
+      minutes: { description: Minutes de plus, example: 5 }
+    variables:
+      ajout: "{{ (minutes | default(5) | int(5)) * 60 }}"
+      # Lu directement à chaque fois : une variable de script ne garde pas
+      # un objet d'état, elle le réduirait en texte.
+      actif: "{{ is_state('timer.reveil_bonjour', 'active') }}"
+      reste: >-
+        {%- set fin = state_attr('timer.reveil_bonjour', 'finishes_at') -%}
+        {{ [(as_datetime(fin) - now()).total_seconds(), 0] | max | int if actif and fin else 0 }}
+      # Le bonjour dit il y a moins d'une heure — mais pas annulé par « Je
+      # suis debout » : levé, on ne se fait pas rappeler. reveil_stop annule
+      # le minuteur juste après s'être lancé, d'où la minute d'écart.
+      recent: >-
+        {%- set t = states.timer.reveil_bonjour -%}
+        {%- set debout = state_attr('script.reveil_stop', 'last_triggered') -%}
+        {{ t is not none and (now() - t.last_changed).total_seconds() < 3600
+           and (debout is none or (t.last_changed - as_datetime(debout | string)).total_seconds() > 60) }}
+      total: "{{ reste + ajout }}"
+    sequence:
+      # Sans erreur : la phrase vocale relit le minuteur et dit elle-même
+      # qu'il n'y a rien en cours.
+      - if:
+          - condition: template
+            value_template: "{{ not (actif or recent or is_state('script.reveil', 'on')) }}"
+        then:
+          - stop: "Pas de réveil en cours : rien à prolonger"
+      - service: timer.start
+        target: { entity_id: timer.reveil_bonjour }
+        data:
+          duration: "{{ '%02d:%02d:%02d' | format(total // 3600, (total % 3600) // 60, total % 60) }}"
+
 # Ce que la voix peut faire au réveil. Les phrases sont dans
 # custom_sentences/fr/reveil.yaml ; ici, ce que chacune déclenche et ce
 # qu'Assist répond. Les mots entre accolades de la phrase ({reveil_heure},
@@ -416,9 +524,15 @@ intent_script:
           time: "{{ '%02d:%02d:00' | format(reveil_heure | int, reveil_minutes | default(0) | int) }}"
       - service: input_boolean.turn_on
         target: { entity_id: input_boolean.reveil_actif }
+    # La confirmation relit le réglage APRÈS l'avoir écrit : elle dit ce que
+    # le Pi a retenu, pas ce qu'il a cru entendre. Une heure mal comprise
+    # s'entend donc tout de suite, et pas le lendemain matin.
     speech:
       text: >-
-        Réveil à {{ reveil_heure | int }} heures{% if reveil_minutes | default(0) | int %} {{ reveil_minutes | int }}{% endif %}.
+        {%- set h = states('input_datetime.reveil_heure').split(':') -%}
+        {%- set hh = h[0] | int(0) -%}{%- set mm = h[1] | int(0) if h | count > 1 else 0 -%}
+        {%- set jour = 'demain' if (hh * 60 + mm) <= (now().hour * 60 + now().minute) else "aujourd'hui" -%}
+        C'est noté : réveil {{ jour }} à {{ hh }} {{ 'heure' if hh == 1 else 'heures' }}{% if mm %} {{ mm }}{% endif %}.
   ActiverReveil:
     action:
       - service: input_boolean.turn_on
@@ -432,9 +546,24 @@ intent_script:
       - service: input_boolean.turn_off
         target: { entity_id: input_boolean.reveil_actif }
     speech:
-      text: "Pas de réveil."
+      text: "Réveil désactivé : pas de réveil demain matin."
   ArreterReveil:
     action:
       - service: script.reveil_stop
     speech:
       text: "Bonjour."
+  ProlongerReveil:
+    action:
+      - service: script.reveil_prolonger
+        data:
+          minutes: "{{ reveil_prolonge | default(5) | int(5) }}"
+    # Pas d'effet qui s'entende : la phrase confirme, en relisant le
+    # minuteur — appelé directement, le script a fini quand elle se dit.
+    speech:
+      text: >-
+        {%- if is_state('timer.reveil_bonjour', 'active') -%}
+          {%- set fin = as_local(as_datetime(state_attr('timer.reveil_bonjour', 'finishes_at'))) -%}
+          Encore {{ reveil_prolonge | default(5) | int(5) }} minutes. Je te redis bonjour à {{ fin.hour }} heures{{ ' ' ~ fin.minute if fin.minute else '' }}.
+        {%- else -%}
+          Pas de réveil en cours.
+        {%- endif -%}

@@ -98,6 +98,9 @@ export const REVEIL = {
   debout: "input_select.reveil_debout",
   script: "script.reveil",
   stop: "script.reveil_stop",
+  // Le moment du bonjour, et ce qui le repousse (packages/reveil.yaml).
+  bonjour: "timer.reveil_bonjour",
+  prolonger: "script.reveil_prolonger",
 };
 
 // L'éclairage « Réveillé », que « Je suis debout » peut allumer. `id` est

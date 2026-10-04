@@ -23,27 +23,52 @@ intents:
       # « 7h30 » et « 7 h 30 » tels que whisper les écrit. Speech-to-Phrase
       # sort toujours des chiffres et le mot « heures ».
       - sentences:
-          - "(règle|mets|programme) [le] réveil (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
-          - "(règle|mets|programme) [le] réveil (à|pour) {reveil_heure}[ ]h[ ][{reveil_minutes}]"
+          #
+          # « met » sans s et « 7heures » collé : c'est ce que whisper écrit
+          # parfois, et sans eux la phrase partait en commande de lumière
+          # (HassLightSet), vérifié sur le Pi le 4 octobre 2026.
+          - "(règle|mets|met|programme) [le] réveil [demain] (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
+          - "(règle|mets|met|programme) [le] réveil [demain] (à|pour) {reveil_heure}(heure|heures) [{reveil_minutes}]"
+          - "(règle|mets|met|programme) [le] réveil [demain] (à|pour) {reveil_heure}[ ]h[ ][{reveil_minutes}]"
           - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure} [heure|heures] [{reveil_minutes}]"
           - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure}[ ]h[ ][{reveil_minutes}]"
           - "réveil (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
   ActiverReveil:
     data:
       - sentences:
-          - "(active|allume|remets) [le] réveil"
+          - "(active|allume|remets|réactive) [le] réveil [(de|pour) demain] [matin]"
   DesactiverReveil:
     data:
       - sentences:
-          - "(désactive|enlève|coupe|annule) [le] réveil"
-          - "pas de réveil [demain]"
+          # « pour demain » est dit souvent, et sans lui la phrase partait
+          # ailleurs : « désactive le réveil pour demain » en aspirateur
+          # (HassVacuumReturnToBase), « annule le réveil de demain » en liste
+          # de courses — vérifié sur le Pi le 4 octobre 2026.
+          - "(désactive|enlève|coupe|annule|supprime) [le] réveil [(de|pour) demain] [matin]"
+          - "pas de réveil [demain] [matin]"
   ArreterReveil:
     data:
       - sentences:
           - "(arrête|stop|stoppe) [le] réveil"
-          - "je suis (debout|réveillé|réveillée|levé|levée)"
+          - "[c'est bon[,] ]je suis (debout|réveillé|réveillée|levé|levée)"
+          - "[c'est bon[,] |ok[,] ]je me lève"
+
+  # Encore cinq ou dix minutes : le bonjour recule d'autant
+  # (script.reveil_prolonger).
+  ProlongerReveil:
+    data:
+      - sentences:
+          - "encore {reveil_prolonge} minutes"
+          - "(prolonge|repousse) [le réveil] [de] {reveil_prolonge} minutes"
+          - "(laisse-moi|laisse moi) [encore] {reveil_prolonge} minutes"
 
 lists:
+  reveil_prolonge:
+    range:
+      type: number
+      from: 5
+      to: 10
+      step: 5
   reveil_heure:
     range:
       type: number

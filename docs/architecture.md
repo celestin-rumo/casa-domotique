@@ -189,7 +189,22 @@ flowchart LR
     stop["« je suis debout »<br/>ou le bouton de l'app"] --> s["script.reveil_stop"]
     s -- "turn_off" --> r
     s -- "turn_off + media_stop" --> m
+    r -- "timer.start, durée du lever" --> t["timer.reveil_bonjour"]
+    t -- "timer.finished" --> b["script.reveil_bonjour<br/>l'heure, se lever, la météo"]
+    pro["« encore cinq minutes »<br/>ou +5 / +10 dans l'app"] --> p["script.reveil_prolonger"]
+    p -- "repousse, ou relance" --> t
+    s -- "cancel" --> t
 ```
+
+**Le bonjour** vient à la fin du lever : l'heure, « c'est l'heure de te
+lever », le bulletin de `sensor.meteo_bulletin` — le même que « quelle
+météo » —, et bonne journée. Il est dit par le satellite Voice PE, ou par la
+WiiM en annonce si le satellite ne répond pas. Son moment est un minuteur,
+pas une attente dans `script.reveil`, parce qu'une attente ne se repousse
+pas : « prolonger » de 5 ou 10 minutes recule le minuteur, et, le bonjour
+déjà dit, le relance — c'est le rappel. La lumière et la musique, elles,
+restent où le lever les a mises. « Je suis debout » annule le minuteur ; dans
+l'heure qui suit, prolonger ne fait plus rien.
 
 La musique n'est **pas** dans `script.reveil`. Il la confie à
 `script.reveil_musique` par un `script.turn_on`, qui rend la main tout de suite

@@ -442,6 +442,9 @@ fichier, fusionné avec le reste par la clé `packages:` des deux
 | `script.reveil` | le lever : les lumières choisies suivent la courbe, marche par marche |
 | `script.reveil_musique` | la musique, qui entre puis monte |
 | `script.reveil_stop` | « Je suis debout » |
+| `timer.reveil_bonjour` | le moment du bonjour : la fin du lever, prolongations comprises |
+| `script.reveil_bonjour` | le bonjour : l'heure, se lever, la météo, bonne journée |
+| `script.reveil_prolonger` | encore 5 ou 10 minutes avant le bonjour, ou de nouveau après |
 | `automation.reveil_lever_de_soleil` | à l'heure dite, si actif, lance `script.reveil` |
 
 **Aucun de ces helpers n'a d'`initial:`, et il ne faut pas en remettre.** Un

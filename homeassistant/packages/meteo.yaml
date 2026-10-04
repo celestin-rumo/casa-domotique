@@ -59,42 +59,59 @@ automation:
       - service: homeassistant.update_entity
         target: { entity_id: sensor.meteosuisse }
 
+# Le bulletin du jour, en une phrase, pour tous ceux qui le disent : la
+# question « quelle météo » ci-dessous, et le bonjour du réveil
+# (packages/reveil.yaml). Dans un attribut plutôt que dans l'état, qui ne
+# tient que 255 caractères. L'état dit seulement si le bulletin existe.
+template:
+  - sensor:
+      - name: Météo · bulletin
+        unique_id: casa_meteo_bulletin
+        icon: mdi:text-box-outline
+        state: >-
+          {%- set s = states.sensor.meteosuisse -%}
+          {{ 'absent' if s is none or s.state in ['unknown', 'unavailable'] or s.attributes.forecast is not defined else 'pret' }}
+        attributes:
+          texte: >-
+            {#- Les codes d'icône de MétéoSuisse, regroupés par ce qu'on en dit.
+                D'après la légende de leurs icônes de jour ; un code inconnu
+                donne « un ciel changeant » plutôt qu'une erreur. -#}
+            {#- Les mots disent d'abord l'ENSOLEILLEMENT, puisque c'est ce qu'on
+                veut savoir en s'habillant : complètement ensoleillé, un peu,
+                nuageux, pluvieux. Les regroupements de codes ne changent pas,
+                seule leur formulation — ils viennent de la légende des icônes de
+                jour de MétéoSuisse, et les redécouper à l'aveugle ferait dire au
+                bulletin des choses fausses. Un code absent donne « un ciel
+                changeant », jamais une erreur. -#}
+            {%- set CIEL = {
+              'complètement ensoleillé': [1, 26],
+              'un peu nuageux, avec du soleil': [2, 3, 4],
+              'nuageux': [5, 35],
+              'brumeux': [27, 28],
+              'pluvieux, avec des averses': [6, 9, 14, 17, 29, 33],
+              'pluvieux': [20],
+              'orageux': [12, 13, 23, 24, 25, 32],
+              'grêleux': [10, 11],
+              'neigeux': [8, 16, 19, 22, 30, 34],
+              'neigeux, avec de la pluie mêlée': [7, 15, 18, 21, 31],
+            } -%}
+            {%- set s = states.sensor.meteosuisse -%}
+            {%- if s is none or s.state in ['unknown', 'unavailable'] or s.attributes.forecast is not defined -%}
+              {#- vide : celui qui le dit a sa phrase de repli -#}
+            {%- else -%}
+              {%- set jours = s.attributes.forecast | selectattr('dayDate', 'eq', now().date() | string) | list -%}
+              {%- set jour = jours[0] if jours else s.attributes.forecast[0] -%}
+              {%- set ciel = namespace(mot='un ciel changeant') -%}
+              {%- for mot, codes in CIEL.items() if jour.iconDay in codes -%}{%- set ciel.mot = mot -%}{%- endfor -%}
+              {%- set pluie = jour.precipitation | float(0) -%}
+              Aujourd'hui, {{ ciel.mot }}, entre {{ jour.temperatureMin | round(0) | int }} et {{ jour.temperatureMax | round(0) | int }} degrés,
+              {%- if pluie >= 1 %} {{ pluie | round(0) | int }} millimètres de pluie.{% else %} pas de pluie.{% endif %}
+              Il fait {{ s.state | float | round(0) | int }} degrés en ce moment.
+            {%- endif -%}
+
 intent_script:
   MeteoDuJour:
     speech:
       text: >-
-        {#- Les codes d'icône de MétéoSuisse, regroupés par ce qu'on en dit.
-            D'après la légende de leurs icônes de jour ; un code inconnu
-            donne « un ciel changeant » plutôt qu'une erreur. -#}
-        {#- Les mots disent d'abord l'ENSOLEILLEMENT, puisque c'est ce qu'on
-            veut savoir en s'habillant : complètement ensoleillé, un peu,
-            nuageux, pluvieux. Les regroupements de codes ne changent pas,
-            seule leur formulation — ils viennent de la légende des icônes de
-            jour de MétéoSuisse, et les redécouper à l'aveugle ferait dire au
-            bulletin des choses fausses. Un code absent donne « un ciel
-            changeant », jamais une erreur. -#}
-        {%- set CIEL = {
-          'complètement ensoleillé': [1, 26],
-          'un peu nuageux, avec du soleil': [2, 3, 4],
-          'nuageux': [5, 35],
-          'brumeux': [27, 28],
-          'pluvieux, avec des averses': [6, 9, 14, 17, 29, 33],
-          'pluvieux': [20],
-          'orageux': [12, 13, 23, 24, 25, 32],
-          'grêleux': [10, 11],
-          'neigeux': [8, 16, 19, 22, 30, 34],
-          'neigeux, avec de la pluie mêlée': [7, 15, 18, 21, 31],
-        } -%}
-        {%- set s = states.sensor.meteosuisse -%}
-        {%- if s is none or s.state in ['unknown', 'unavailable'] or s.attributes.forecast is not defined -%}
-          Je n'ai pas les prévisions de MétéoSuisse pour le moment.
-        {%- else -%}
-          {%- set jours = s.attributes.forecast | selectattr('dayDate', 'eq', now().date() | string) | list -%}
-          {%- set jour = jours[0] if jours else s.attributes.forecast[0] -%}
-          {%- set ciel = namespace(mot='un ciel changeant') -%}
-          {%- for mot, codes in CIEL.items() if jour.iconDay in codes -%}{%- set ciel.mot = mot -%}{%- endfor -%}
-          {%- set pluie = jour.precipitation | float(0) -%}
-          Aujourd'hui, {{ ciel.mot }}, entre {{ jour.temperatureMin | round(0) | int }} et {{ jour.temperatureMax | round(0) | int }} degrés,
-          {%- if pluie >= 1 %} {{ pluie | round(0) | int }} millimètres de pluie.{% else %} pas de pluie.{% endif %}
-          Il fait {{ s.state | float | round(0) | int }} degrés en ce moment.
-        {%- endif -%}
+        {%- set t = state_attr('sensor.meteo_bulletin', 'texte') -%}
+        {{ t if t else "Je n'ai pas les prévisions de MétéoSuisse pour le moment." }}

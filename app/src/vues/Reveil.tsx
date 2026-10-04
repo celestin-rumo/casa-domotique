@@ -72,6 +72,18 @@ export function Reveil() {
   const present = !!(heure && actif && duree && script);
   const on = actif?.state === "on";
   const enCours = script?.state === "on";
+
+  // Le bonjour : attendu tant que son minuteur tourne, à l'heure qu'il dit.
+  // Dit depuis moins d'une heure, il peut encore être repoussé — sauf si
+  // « Je suis debout » l'a annulé : même règle que script.reveil_prolonger.
+  const bonjour = entities[REVEIL.bonjour];
+  const attendu = bonjour?.state === "active";
+  const finit = attendu && bonjour?.attributes.finishes_at ? new Date(bonjour.attributes.finishes_at) : null;
+  const change = bonjour ? Date.parse(bonjour.last_changed) : 0;
+  const debout = Date.parse(entities[REVEIL.stop]?.attributes.last_triggered ?? "") || 0;
+  const dit = !!bonjour && !attendu && Date.now() - change < 3_600_000 && change - debout > 60_000;
+  const reveille = enCours || attendu || dit;
+  const prolongeable = !!entities[REVEIL.prolonger];
   const hhmm = (heure?.state ?? "07:00:00").slice(0, 5);
   const minutes = Number(duree?.state ?? 20);
 
@@ -85,18 +97,20 @@ export function Reveil() {
     : "";
   const quoi = lampes.length > 1 ? `${lampes.length} lumières` : "1 lumière";
   const meta = !present ? "absent du Pi"
-    : enCours ? `le jour se lève${niveau ? ` · ${niveau}` : ""}`
+    : finit && !enCours ? `bonjour à ${finit.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" })}`
+    : enCours ? `le jour se lève${niveau ? ` · ${niveau}` : ""}${finit ? ` · bonjour à ${finit.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" })}` : ""}`
+    : dit ? "bonjour dit · encore quelques minutes ?"
     : on ? `${hhmm} · lever en ${minutes} min · ${quoi}`
     : "désactivé";
 
   // Les fautes des gestes de cette carte ; celles des réglages s'affichent
   // dans Réglages, là où on les a faits.
-  const ici = [REVEIL.actif, REVEIL.heure, REVEIL.duree, REVEIL.script, REVEIL.stop];
+  const ici = [REVEIL.actif, REVEIL.heure, REVEIL.duree, REVEIL.script, REVEIL.stop, REVEIL.prolonger];
   const entiteFautive = ici.find((id) => fautes[id]) ?? REVEIL.script;
   const faute = fautes[entiteFautive];
 
   return (
-    <Carte lit={enCours} faute={!!faute}>
+    <Carte lit={reveille} faute={!!faute}>
       <div className="row">
         <div>
           <div className="row-name">Réveil</div>
@@ -152,10 +166,20 @@ export function Reveil() {
       )}
 
       <div className="btn-row">
-        {enCours ? (
-          <button className="btn primary" onClick={() => agir(REVEIL.stop, () => runScript(REVEIL.stop))}>
-            Je suis debout
-          </button>
+        {reveille ? (
+          <>
+            <button className="btn primary" onClick={() => agir(REVEIL.stop, () => runScript(REVEIL.stop))}>
+              Je suis debout
+            </button>
+            {/* Le bonjour recule ; la lumière et la musique restent où elles
+                en sont. Déjà dit, il revient dans ces minutes-là. */}
+            {prolongeable && [5, 10].map((n) => (
+              <button key={n} className="btn"
+                      onClick={() => agir(REVEIL.prolonger, () => runScript(REVEIL.prolonger, { minutes: n }))}>
+                +{n} min
+              </button>
+            ))}
+          </>
         ) : (
           // Une minute, pas vingt : la courbe entière en accéléré, musique
           // comprise, au même moment relatif que le matin.
