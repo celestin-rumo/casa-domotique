@@ -176,8 +176,9 @@ intent_script:
   # mais le micro ne connaît, pour la luminosité, que « règle » et « allume » :
   # même manque que pour la couleur, même remède.
   #
-  # La table des lampes est la jumelle de celle de CouleurLampe. Les deux
-  # doivent rester d'accord : une lampe ajoutée à l'une manque à l'autre.
+  # La table des lampes est la jumelle de celles de CouleurLampe et
+  # d'EtatLampe. Elles doivent rester d'accord : une lampe ajoutée à l'une
+  # manque aux autres.
   LuminositeLampe:
     action:
       - variables:
@@ -220,6 +221,49 @@ intent_script:
     action:
       - service: light.turn_on
         target: { entity_id: light.lampes_chambre }
+
+  # « Lumière 60 ». Les lampes allumées y vont, par lumiere_pas et sa cible
+  # absolue — le plancher de 7 % compris. Rien d'allumé, lumiere_pas ne
+  # ferait rien : dans une chambre noire, on demande de la lumière, donc les
+  # quatre lampes s'allument à ce niveau. Pas l'anneau du Voice PE, qui
+  # n'est pas une lampe de la chambre.
+  LumiereNiveau:
+    action:
+      - variables:
+          lampes: [light.chambre, light.chambre_bandeau, light.chambre_wiz_1, light.chambre_wiz_2]
+          niveau: "{{ casa_pourcent | default(100) | int(100) }}"
+      - if:
+          - condition: template
+            value_template: "{{ expand(lampes) | selectattr('state', 'eq', 'on') | list | count > 0 }}"
+        then:
+          - service: script.turn_on
+            target: { entity_id: script.lumiere_pas }
+            data:
+              variables:
+                cible: "{{ niveau }}"
+                lampe: ""
+        else:
+          - service: light.turn_on
+            target: { entity_id: "{{ lampes }}" }
+            data:
+              brightness_pct: "{{ niveau }}"
+
+  # « Bandeau éteint », « lampes allumées ». Troisième copie de la table des
+  # lampes, avec LuminositeLampe et CouleurLampe : une lampe ajoutée l'est
+  # dans les trois.
+  EtatLampe:
+    action:
+      - variables:
+          lampes:
+            bandeau: light.chambre_bandeau
+            led droite: light.chambre_wiz_1
+            led gauche: light.chambre_wiz_2
+            lampe chambre: light.chambre
+            les lampes: light.lampes_chambre
+      - condition: template
+        value_template: "{{ casa_lampe in lampes and casa_etat | default('') in ['allumé', 'éteint'] }}"
+      - service: "light.turn_{{ 'on' if casa_etat == 'allumé' else 'off' }}"
+        target: { entity_id: "{{ lampes[casa_lampe] }}" }
 
   CouleurLampe:
     action:

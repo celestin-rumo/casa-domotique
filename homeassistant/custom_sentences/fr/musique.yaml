@@ -16,9 +16,12 @@
 # Assistant n'a jamais l'occasion de comprendre. Constaté le 22 septembre
 # 2026 sur le Voice PE.
 #
-# On n'ajoute donc ici que les tournures qui MANQUENT. « arrête la musique »
-# et « pause » restent au moteur intégré : les redéclarer ferait deux intents
-# candidats pour une même phrase, et rien ne dirait lequel gagne.
+# On y ajoute d'abord les tournures qui MANQUENT au micro. « arrête la
+# musique » y est aussi depuis le 7 octobre 2026, avec « arrête musique »,
+# sans article, que le micro ne connaissait pas : deux intents sont alors
+# candidats, et c'est celui du dépôt qui gagne — constaté sur le Pi pour
+# « éteins la musique ». L'effet est le même, une pause. « pause » seul
+# reste au moteur intégré.
 language: "fr"
 
 intents:
@@ -26,9 +29,13 @@ intents:
     data:
       - sentences:
           - "(éteins|éteindre|coupe|couper) la musique"
-          - "(stop|stoppe|stopper) la musique"
+          - "(stop|stoppe|stopper) [la] musique"
+          - "(arrête|arrêter|arrete) [la] musique"
           - "(éteins|coupe) le son"
           - "plus de musique"
+          # Sans verbe.
+          - "[la] musique (stop|off|coupée)"
+          - "pas de musique"
 
   ReprendreMusique:
     data:
@@ -36,6 +43,8 @@ intents:
           - "(remets|remettre|relance|relancer|rallume) la musique"
           - "(remets|relance) le son"
           - "continue la musique"
+          - "[la] musique (on|play|encore)"
+          - "(lance|lancer|joue|play) [la] musique"
 
   MusiqueSuivante:
     data:
@@ -43,3 +52,5 @@ intents:
           - "(chanson|morceau|titre) suivant[e]"
           - "(passe|passer) (au suivant|à la suivante)"
           - "(passe|change) de (chanson|morceau|titre)"
+          - "suivant[e]"
+          - "(chanson|morceau|titre) d'après"

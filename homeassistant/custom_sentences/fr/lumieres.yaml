@@ -24,6 +24,12 @@
 # Assistant la comprenait comme un HassTurnOff, donc une extinction complète
 # au lieu d'une baisse. Ces phrases corrigent ce contresens plutôt qu'elles
 # n'ajoutent une fonction.
+#
+# SANS VERBE. Chaque ordre se dit aussi par le nom seul, suivi de ce qu'on
+# veut : « bandeau cent », « bandeau rouge », « lampes éteintes », « bandeau
+# plus ». Ce sont les mêmes intents que les phrases à verbe ; seules les
+# tournures s'ajoutent. hassil exige que la phrase entière soit couverte :
+# « bandeau » seul ne correspond donc à rien, et ne fait rien.
 language: "fr"
 
 intents:
@@ -59,6 +65,7 @@ intents:
           - "(augmente|augmenter|monte|monter) {casa_lampe} [la] (luminosité|lumière)"
           - "(augmente|augmenter|monte|monter) [la] (luminosité|lumière) (de|du|de la|des) {casa_lampe}"
           - "(augmente|augmenter|monte|monter) {casa_lampe}"
+          - "{casa_lampe} plus [fort]"
 
   LuminositeMoins:
     data:
@@ -69,6 +76,7 @@ intents:
           - "(baisse|baisser|diminue|diminuer|réduis|réduire) {casa_lampe} [la] (luminosité|lumière)"
           - "(baisse|baisser|diminue|diminuer|réduis|réduire) [la] (luminosité|lumière) (de|du|de la|des) {casa_lampe}"
           - "(baisse|baisser|diminue|diminuer|réduis|réduire) {casa_lampe}"
+          - "{casa_lampe} moins [fort]"
 
   # Tamiser a quitté LuminositeMoins pour son propre intent : c'est le grand
   # pas, deux fois celui de « baisse ». « les lampes » a quitté le suffixe
@@ -79,6 +87,7 @@ intents:
           - "(tamise|tamiser) [la lumière|la chambre]"
           - "(mets|mettre) en (veilleuse|tamisé)"
           - "(tamise|tamiser) {casa_lampe}"
+          - "{casa_lampe} (tamisé|tamisée|tamisés|tamisées)"
 
   # Le geste du soir : tout ce qui est allumé descend au plancher, d'un coup,
   # sans passer par des paliers.
@@ -88,6 +97,7 @@ intents:
           - "(tamise|tamiser) (beaucoup|à fond|au maximum)"
           - "(mets|mettre) [tout] au minimum"
           - "(tamise|tamiser) {casa_lampe} (beaucoup|à fond)"
+          - "{casa_lampe} [au] minimum"
 
   # La luminosité d'une lampe précise, avec le verbe « mets » qui manque au
   # micro. « pourcent » reste facultatif : on le dit rarement en entier.
@@ -95,6 +105,14 @@ intents:
     data:
       - sentences:
           - "(mets|mettre|passe|passer) [le|la|l'] {casa_lampe} à {casa_pourcent} [pourcent|pour cent]"
+          # « bandeau cent », « lampes à cinquante pourcent ».
+          - "[le|la|l'] {casa_lampe} [à] {casa_pourcent} [pourcent|pour cent]"
+      # « Bandeau à fond » : cent, sans le dire. La valeur est fixée ici, et
+      # arrive au script comme si elle avait été dite.
+      - sentences:
+          - "[le|la|l'] {casa_lampe} (à fond|au maximum|maximum|max)"
+        slots:
+          casa_pourcent: 100
 
   # « Les lampes de la chambre » = les deux LED, et elles seules.
   #
@@ -139,6 +157,28 @@ intents:
       - sentences:
           - "(mets|mettre|passe|passer) [le|la|l'] {casa_lampe} en {casa_couleur}"
           - "(mets|mettre|passe|passer) [le|la|l'] {casa_lampe} {casa_couleur}"
+          # « bandeau rouge », « lampes en bleu ».
+          - "[le|la|l'] {casa_lampe} [en] {casa_couleur}"
+
+  # « Lumière 60 » : toute la chambre à ce pourcentage, sans nommer de
+  # lampe. Ce qui est allumé y va ; la chambre noire, les quatre lampes
+  # s'allument à ce niveau (packages/lumieres.yaml).
+  LumiereNiveau:
+    data:
+      - sentences:
+          - "[la|les] (lumière|lumières|luminosité) [à] {casa_pourcent} [pourcent|pour cent]"
+      - sentences:
+          - "[la|les] (lumière|lumières|luminosité) (à fond|au maximum|maximum|max)"
+        slots:
+          casa_pourcent: 100
+
+  # « Bandeau allumé », « lampes éteintes » : allumer ou éteindre une lampe
+  # nommée, sans verbe. Avec un verbe, c'est l'ordre intégré qui s'en charge
+  # (« allume le bandeau ») ; seule la tournure sans verbe lui manquait.
+  EtatLampe:
+    data:
+      - sentences:
+          - "[le|la|l'] {casa_lampe} {casa_etat}"
 
 lists:
   casa_lampe:
@@ -154,6 +194,11 @@ lists:
       # Le groupe des deux LED, pour « mets les lampes en rouge ».
       - in: "(les lampes|lampes) [de la chambre]"
         out: "les lampes"
+      # « LED » sans côté : les deux, donc le même groupe. « led droite » et
+      # « led gauche » gardent chacune la sienne — hassil prend la phrase
+      # entière, et « droite » ne se rattache à rien d'autre.
+      - in: "(led|leds|les led|les leds)"
+        out: "les lampes"
   # Les pourcentages dicibles. Par pas de 5, comme la liste de Home
   # Assistant : à l'oral on ne demande pas 43 %. Elle commence à 5, donc
   # « mets bandeau à zéro » n'existe pas — on éteint, on ne met pas à zéro.
@@ -163,6 +208,15 @@ lists:
       from: 5
       to: 100
       step: 5
+
+  # out en français, comme casa_couleur : Speech-to-Phrase transcrit la
+  # valeur de sortie, et Home Assistant la relit comme une phrase.
+  casa_etat:
+    values:
+      - in: "(allumé|allumée|allumés|allumées|on)"
+        out: "allumé"
+      - in: "(éteint|éteinte|éteints|éteintes|off)"
+        out: "éteint"
 
   casa_couleur:
     values:

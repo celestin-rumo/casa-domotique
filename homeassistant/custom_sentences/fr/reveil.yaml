@@ -32,11 +32,15 @@ intents:
           - "(règle|mets|met|programme) [le] réveil [demain] (à|pour) {reveil_heure}[ ]h[ ][{reveil_minutes}]"
           - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure} [heure|heures] [{reveil_minutes}]"
           - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure}[ ]h[ ][{reveil_minutes}]"
-          - "réveil (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
+          # Sans verbe : « réveil sept heures trente », « réveil 7h30 ».
+          - "réveil [demain] [à|pour] {reveil_heure} [heure|heures] [{reveil_minutes}]"
+          - "réveil [demain] [à|pour] {reveil_heure}(heure|heures) [{reveil_minutes}]"
+          - "réveil [demain] [à|pour] {reveil_heure}[ ]h[ ][{reveil_minutes}]"
   ActiverReveil:
     data:
       - sentences:
           - "(active|allume|remets|réactive) [le] réveil [(de|pour) demain] [matin]"
+          - "réveil (on|activé|actif)"
   DesactiverReveil:
     data:
       - sentences:
@@ -46,12 +50,15 @@ intents:
           # de courses — vérifié sur le Pi le 4 octobre 2026.
           - "(désactive|enlève|coupe|annule|supprime) [le] réveil [(de|pour) demain] [matin]"
           - "pas de réveil [demain] [matin]"
+          - "réveil (off|désactivé|annulé)"
   ArreterReveil:
     data:
       - sentences:
-          - "(arrête|stop|stoppe) [le] réveil"
+          - "(arrête|arrêter|arrete|stop|stoppe) [le] réveil"
+          - "[le] réveil (stop|arrêté)"
           - "[c'est bon[,] ]je suis (debout|réveillé|réveillée|levé|levée)"
           - "[c'est bon[,] |ok[,] ]je me lève"
+          - "debout"
 
   # Encore cinq ou dix minutes : le bonjour recule d'autant
   # (script.reveil_prolonger).
@@ -61,6 +68,7 @@ intents:
           - "encore {reveil_prolonge} minutes"
           - "(prolonge|repousse) [le réveil] [de] {reveil_prolonge} minutes"
           - "(laisse-moi|laisse moi) [encore] {reveil_prolonge} minutes"
+          - "{reveil_prolonge} minutes de plus"
 
 lists:
   reveil_prolonge:
