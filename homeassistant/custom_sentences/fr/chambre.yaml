@@ -1,0 +1,33 @@
+# La chambre : sa température, et l'aération. Les intents sont traités par
+# intent_script dans packages/chambre.yaml.
+language: "fr"
+
+intents:
+  TemperatureChambre:
+    data:
+      - sentences:
+          - "(quelle température|combien) (fait-il|il fait|fait il) [dans la chambre]"
+          - "[c'est quoi |quelle est ][la] température [de|dans] [la chambre]"
+          - "il fait (chaud|froid|combien) [dans la chambre]"
+          - "température [chambre]"
+          - "[quelle est |c'est quoi ][l'] humidité [de|dans] [la chambre]"
+
+  Aerer:
+    data:
+      - sentences:
+          - "(j'aère|j'ouvre la fenêtre|aère|aération) [pendant] [{aeration_minutes} minutes]"
+          - "(rappelle-moi|rappelle moi) de fermer la fenêtre [dans {aeration_minutes} minutes]"
+
+  FenetreFermee:
+    data:
+      - sentences:
+          - "(j'ai fermé|j'ai refermé) la fenêtre"
+          - "fenêtre fermée"
+
+lists:
+  aeration_minutes:
+    range:
+      type: number
+      from: 5
+      to: 30
+      step: 5

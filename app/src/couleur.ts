@@ -66,9 +66,16 @@ export const COURBE_DEFAUT: Point[] = [
   { p: 100, b: 78, c: "k4000" },
 ];
 
+// Celle du coucher, à l'envers : de la lumière du soir à presque rien
+// (input_text.coucher_courbe, packages/reveil.yaml).
+export const COUCHER_DEFAUT: Point[] = [
+  { p: 0, b: 60, c: "k2700" },
+  { p: 100, b: 1, c: "k2000" },
+];
+
 const borne = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-export function lireCourbe(brut: string | undefined): Point[] {
+export function lireCourbe(brut: string | undefined, defaut: Point[] = COURBE_DEFAUT): Point[] {
   const points: Point[] = [];
   for (const morceau of (brut ?? "").toLowerCase().split(";")) {
     const [p, b, c] = morceau.split(",").map((s) => s.trim());
@@ -79,7 +86,7 @@ export function lireCourbe(brut: string | undefined): Point[] {
   }
   // Moins de deux points, ce n'est pas une courbe : le Pi prend alors la
   // courbe par défaut, et l'app aussi, pour montrer ce qui se passera.
-  return points.length >= 2 ? points.sort((x, y) => x.p - y.p) : COURBE_DEFAUT;
+  return points.length >= 2 ? points.sort((x, y) => x.p - y.p) : defaut;
 }
 
 export function ecrireCourbe(points: Point[]): string {

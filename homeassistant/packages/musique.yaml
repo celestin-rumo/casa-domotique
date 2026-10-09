@@ -62,3 +62,20 @@ intent_script:
         {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
           L'enceinte ne répond pas.
         {%- endif -%}
+
+  # « Qu'est-ce qui joue ? » Ce que l'enceinte dit elle-même : le titre et
+  # l'artiste du morceau, jamais la playlist.
+  QuiJoue:
+    speech:
+      text: >-
+        {%- set e = 'media_player.ma_chambre' -%}
+        {%- set titre = state_attr(e, 'media_title') -%}
+        {%- set artiste = state_attr(e, 'media_artist') -%}
+        {%- if states(e) in ['unknown', 'unavailable'] -%}
+          L'enceinte ne répond pas.
+        {%- elif not is_state(e, 'playing') or not titre -%}
+          Rien ne joue en ce moment.
+        {%- else -%}
+          C'est {{ titre }}{{ ', de ' ~ artiste if artiste else '' }}.
+        {%- endif -%}
+

@@ -206,6 +206,20 @@ déjà dit, le relance — c'est le rappel. La lumière et la musique, elles,
 restent où le lever les a mises. « Je suis debout » annule le minuteur ; dans
 l'heure qui suit, prolonger ne fait plus rien.
 
+**Le coucher de soleil** est le lever à l'envers, dans le même fichier
+(`packages/reveil.yaml`) : il reprend la courbe du lever par ancres YAML,
+avec ses propres réglages `coucher_*` — durée, lumières, courbe, musique. Le
+moment d'une lampe y est celui où elle **s'éteint** ; au bout, tout s'éteint.
+La musique descend de son volume de départ à zéro, se met en pause, et
+l'enceinte retrouve ce volume. « bonne nuit », « bonne nuit dans 20
+minutes » ou le bouton de l'app le lancent.
+
+**La chambre** (`packages/chambre.yaml`) : `script.annonce`, la seule voix
+que la maison prend d'elle-même — le bonjour, l'alerte du coucher, la fin de
+l'aération —, par le Voice PE, sinon la WiiM. `sensor.chambre_conseil` dit
+la chambre trop chaude ou trop froide selon deux seuils réglables ; « j'aère »
+lance un rappel pour refermer, plus tôt si la chambre perd deux degrés.
+
 La musique n'est **pas** dans `script.reveil`. Il la confie à
 `script.reveil_musique` par un `script.turn_on`, qui rend la main tout de suite
 et dont les erreurs ne remontent pas. C'est l'inverse des ambiances, où le son

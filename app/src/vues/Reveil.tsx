@@ -21,10 +21,16 @@ const MAX_POINTS = 12;
 // — la lampe dès le début, la WiZ à 26 %, puis les deux sur la même courbe.
 // Sans @, dès le début. Le Pi (packages/reveil.yaml) lit le texte de la
 // même façon.
-type Lampe = { id: string; p: number };
+export type Lampe = { id: string; p: number };
+
+// Le lever et le coucher partagent leurs éditeurs ; seuls les mots et le
+// sens d'un moment changent — celui où une lampe entre, ou celui où elle
+// s'éteint.
+export type Sens = "lever" | "coucher";
 
 // Sans réglage, le Pi lève light.chambre seule : l'app montre la même chose.
-function lireLampes(brut: string): Lampe[] {
+// Le coucher, lui, prend alors les lampes allumées : `defaut` vide.
+export function lireLampes(brut: string, defaut: Lampe[] = [{ id: "light.chambre", p: 0 }]): Lampe[] {
   const l: Lampe[] = [];
   for (const morceau of brut.split(",")) {
     const [id, p] = morceau.split("@").map((s) => s.trim());
@@ -32,11 +38,11 @@ function lireLampes(brut: string): Lampe[] {
     const n = Number(p ?? 0);
     l.push({ id, p: Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0 });
   }
-  return l.length ? l : [{ id: "light.chambre", p: 0 }];
+  return l.length ? l : defaut;
 }
 
 // L'ordre de Pièces, pour que le texte ne change pas selon l'ordre des clics.
-function ecrireLampes(l: Lampe[]): string {
+export function ecrireLampes(l: Lampe[]): string {
   const rang = (id: string) => (LIGHTS.includes(id) ? LIGHTS.indexOf(id) : LIGHTS.length);
   return [...l]
     .sort((a, b) => rang(a.id) - rang(b.id))
@@ -270,11 +276,11 @@ export function ReglagesReveil() {
         </Carte>
       )}
       <Depliable id="reveil-lampes" titre="Les lumières du lever" resume={lampes.map((l) => nom(l.id)).join(", ")}>
-        <Lampes lampes={lampes} points={points} onChange={changerLampes} />
+        <Lampes sens="lever" lampes={lampes} points={points} onChange={changerLampes} />
       </Depliable>
       <Depliable id="reveil-courbe" titre="La courbe"
                  resume={`${points.length} points · de ${Math.round(points[0].b)} % à ${Math.round(fin.b)} %`}>
-        <Courbe points={points} onChange={changerCourbe} />
+        <Courbe sens="lever" points={points} onChange={changerCourbe} />
       </Depliable>
       <Depliable id="reveil-musique" titre="La musique du réveil" resume={resumeMusique}>
         <Musique minutes={minutes} />
@@ -293,13 +299,25 @@ export function ReglagesReveil() {
 // Chacune entre à un moment de la courbe : le début, ou l'un de ses points.
 // Une lampe qui entre s'allume en fondu, depuis le noir, jusqu'à là où en est
 // la courbe, puis suit la même montée que les autres.
-function Lampes({ lampes, points, onChange }: { lampes: Lampe[]; points: Point[]; onChange: (l: Lampe[]) => void }) {
+//
+// Au coucher, le moment est celui où la lampe s'éteint, 0 voulant dire
+// « jusqu'à la fin » ; et aucune lampe cochée est permis : le Pi prend alors
+// celles qui sont allumées.
+export function Lampes({ sens, lampes, points, onChange }: {
+  sens: Sens;
+  lampes: Lampe[];
+  points: Point[];
+  onChange: (l: Lampe[]) => void;
+}) {
   const { entities } = useMaison();
   const nom = (id: string) => entities[id]?.attributes.friendly_name ?? id;
-  // Pas la fin : une lampe qui n'entrerait qu'à la fin ne se lèverait pas.
+  const lever = sens === "lever";
+  // Pas la fin : une lampe qui n'entrerait qu'à la fin ne se lèverait pas,
+  // et une qui s'éteindrait à la fin, c'est « jusqu'à la fin ».
   const moments = points.slice(0, -1).map((pt, j) => ({
     p: j === 0 ? 0 : Math.round(pt.p),
-    label: j === 0 ? "dès le début" : `au point ${j} · ${Math.round(pt.p)} %`,
+    label: j === 0 ? (lever ? "dès le début" : "jusqu'à la fin")
+      : `${lever ? "au" : "s'éteint au"} point ${j} · ${Math.round(pt.p)} %`,
   }));
   const echelonne = lampes.length > 1 || lampes.some((l) => l.p > 0);
   return (
@@ -307,7 +325,7 @@ function Lampes({ lampes, points, onChange }: { lampes: Lampe[]; points: Point[]
       <div className="chips">
         {LIGHTS.map((id) => {
           const dedans = lampes.some((l) => l.id === id);
-          const seule = dedans && lampes.length === 1;
+          const seule = lever && dedans && lampes.length === 1;
           return (
             <button
               key={id}
@@ -322,9 +340,15 @@ function Lampes({ lampes, points, onChange }: { lampes: Lampe[]; points: Point[]
           );
         })}
       </div>
+      {!lever && lampes.length === 0 && (
+        <p className="row-meta">Aucune choisie : celles qui sont allumées au moment du coucher, jusqu'à la fin.</p>
+      )}
       {echelonne && (
         <>
-          <p className="row-meta">Chacune entre à son moment, puis toutes suivent la même courbe.</p>
+          <p className="row-meta">
+            {lever ? "Chacune entre à son moment, puis toutes suivent la même courbe."
+              : "Toutes suivent la même courbe ; chacune s'éteint à son moment."}
+          </p>
           {lampes.map((l) => (
             <label className="entree" key={l.id}>
               <span>{nom(l.id)}</span>
@@ -355,7 +379,7 @@ function Lampes({ lampes, points, onChange }: { lampes: Lampe[]; points: Point[]
 // défilait en déplaçait un au passage. Replié, chaque point tient sur une
 // ligne qui dit où il est, à quelle intensité, de quelle couleur ; la barre
 // du haut ouvre le point dont on touche le rond.
-function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) => void }) {
+export function Courbe({ sens, points, onChange }: { sens: Sens; points: Point[]; onChange: (p: Point[]) => void }) {
   const [ouvert, setOuvert] = useState<number | null>(null);
   let i = 0, ecart = -1;
   for (let j = 0; j < points.length - 1; j++) {
@@ -379,7 +403,7 @@ function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) 
             className="courbe-pt"
             style={{ left: `${pt.p}%` }}
             aria-pressed={ouvert === j}
-            aria-label={`Régler ${titre(j)}, à ${Math.round(pt.p)} % du lever`}
+            aria-label={`Régler ${titre(j)}, à ${Math.round(pt.p)} % du ${sens}`}
             onClick={() => basculer(j)}
           />
         ))}
@@ -389,7 +413,8 @@ function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) 
         return (
           <PointCourbe
             key={j}
-            id={`reveil-pt-${j}`}
+            id={`${sens}-pt-${j}`}
+            sens={sens}
             pt={pt}
             titre={titre(j)}
             ouvert={ouvert === j}
@@ -411,8 +436,9 @@ function Courbe({ points, onChange }: { points: Point[]; onChange: (p: Point[]) 
   );
 }
 
-function PointCourbe({ id, pt, titre, ouvert, surBasculer, min, max, onChange, onRetirer }: {
+function PointCourbe({ id, sens, pt, titre, ouvert, surBasculer, min, max, onChange, onRetirer }: {
   id: string;
+  sens: Sens;
   pt: Point;
   titre: string;
   ouvert: boolean;
@@ -443,7 +469,7 @@ function PointCourbe({ id, pt, titre, ouvert, surBasculer, min, max, onChange, o
       {ouvert && (
       <div className="point-corps" id={`${id}-corps`}>
       {min !== undefined && max !== undefined && max > min && (
-        <Curseur id={`${id}-p`} label="Moment du lever" min={min} max={max} valeur={pt.p}
+        <Curseur id={`${id}-p`} label={`Moment du ${sens}`} min={min} max={max} valeur={pt.p}
                  onCommit={(v) => onChange({ ...pt, p: Math.round(v) })} />
       )}
       <Curseur id={`${id}-b`} label="Intensité" min={0} max={100} valeur={pt.b} style={pouce}

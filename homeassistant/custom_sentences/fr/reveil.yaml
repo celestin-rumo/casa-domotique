@@ -14,6 +14,9 @@
 # Ce fichier doit être dans /config/custom_sentences/fr/ — pas ailleurs.
 # Sur le poste de dev, le compose l'y monte ; sur le Pi, c'est le dossier
 # homeassistant/ entier qui devient /config.
+#
+# « réveil » s'écrit aussi sans accent dans chaque phrase : au clavier, ou
+# transcrit par whisper, « arrete le reveil » ne correspondait à rien.
 language: "fr"
 
 intents:
@@ -27,20 +30,20 @@ intents:
           # « met » sans s et « 7heures » collé : c'est ce que whisper écrit
           # parfois, et sans eux la phrase partait en commande de lumière
           # (HassLightSet), vérifié sur le Pi le 4 octobre 2026.
-          - "(règle|mets|met|programme) [le] réveil [demain] (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
-          - "(règle|mets|met|programme) [le] réveil [demain] (à|pour) {reveil_heure}(heure|heures) [{reveil_minutes}]"
-          - "(règle|mets|met|programme) [le] réveil [demain] (à|pour) {reveil_heure}[ ]h[ ][{reveil_minutes}]"
+          - "(règle|mets|met|programme) [le] (réveil|reveil) [demain] (à|pour) {reveil_heure} [heure|heures] [{reveil_minutes}]"
+          - "(règle|mets|met|programme) [le] (réveil|reveil) [demain] (à|pour) {reveil_heure}(heure|heures) [{reveil_minutes}]"
+          - "(règle|mets|met|programme) [le] (réveil|reveil) [demain] (à|pour) {reveil_heure}[ ]h[ ][{reveil_minutes}]"
           - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure} [heure|heures] [{reveil_minutes}]"
           - "(réveille-moi|réveille moi|réveil-moi) [(à|pour)] {reveil_heure}[ ]h[ ][{reveil_minutes}]"
           # Sans verbe : « réveil sept heures trente », « réveil 7h30 ».
-          - "réveil [demain] [à|pour] {reveil_heure} [heure|heures] [{reveil_minutes}]"
-          - "réveil [demain] [à|pour] {reveil_heure}(heure|heures) [{reveil_minutes}]"
-          - "réveil [demain] [à|pour] {reveil_heure}[ ]h[ ][{reveil_minutes}]"
+          - "(réveil|reveil) [demain] [à|pour] {reveil_heure} [heure|heures] [{reveil_minutes}]"
+          - "(réveil|reveil) [demain] [à|pour] {reveil_heure}(heure|heures) [{reveil_minutes}]"
+          - "(réveil|reveil) [demain] [à|pour] {reveil_heure}[ ]h[ ][{reveil_minutes}]"
   ActiverReveil:
     data:
       - sentences:
-          - "(active|allume|remets|réactive) [le] réveil [(de|pour) demain] [matin]"
-          - "réveil (on|activé|actif)"
+          - "(active|allume|remets|réactive) [le] (réveil|reveil) [(de|pour) demain] [matin]"
+          - "(réveil|reveil) (on|activé|actif)"
   DesactiverReveil:
     data:
       - sentences:
@@ -48,14 +51,14 @@ intents:
           # ailleurs : « désactive le réveil pour demain » en aspirateur
           # (HassVacuumReturnToBase), « annule le réveil de demain » en liste
           # de courses — vérifié sur le Pi le 4 octobre 2026.
-          - "(désactive|enlève|coupe|annule|supprime) [le] réveil [(de|pour) demain] [matin]"
-          - "pas de réveil [demain] [matin]"
-          - "réveil (off|désactivé|annulé)"
+          - "(désactive|enlève|coupe|annule|supprime) [le] (réveil|reveil) [(de|pour) demain] [matin]"
+          - "pas de (réveil|reveil) [demain] [matin]"
+          - "(réveil|reveil) (off|désactivé|annulé)"
   ArreterReveil:
     data:
       - sentences:
-          - "(arrête|arrêter|arrete|stop|stoppe) [le] réveil"
-          - "[le] réveil (stop|arrêté)"
+          - "(arrête|arrêter|arrete|stop|stoppe) [le] (réveil|reveil)"
+          - "[le] (réveil|reveil) (stop|arrêté)"
           - "[c'est bon[,] ]je suis (debout|réveillé|réveillée|levé|levée)"
           - "[c'est bon[,] |ok[,] ]je me lève"
           - "debout"
@@ -66,11 +69,32 @@ intents:
     data:
       - sentences:
           - "encore {reveil_prolonge} minutes"
-          - "(prolonge|repousse) [le réveil] [de] {reveil_prolonge} minutes"
+          - "(prolonge|repousse) [le (réveil|reveil)] [de] {reveil_prolonge} minutes"
           - "(laisse-moi|laisse moi) [encore] {reveil_prolonge} minutes"
           - "{reveil_prolonge} minutes de plus"
 
+  # Le coucher de soleil (script.coucher) : la lumière et la musique
+  # descendent ensemble, sur la durée réglée ou celle qu'on dit.
+  CoucherSoleil:
+    data:
+      - sentences:
+          - "bonne nuit [dans {coucher_minutes} minutes]"
+          - "[le] coucher [de soleil] [(en|sur|dans) {coucher_minutes} minutes]"
+          - "(lance|démarre|mets) [le] coucher [de soleil] [(en|sur) {coucher_minutes} minutes]"
+          - "(je vais|on va) (dormir|me coucher|se coucher)"
+
+  ArreterCoucher:
+    data:
+      - sentences:
+          - "(arrête|arrêter|arrete|stop|stoppe|annule) [le] coucher [de soleil]"
+
 lists:
+  coucher_minutes:
+    range:
+      type: number
+      from: 5
+      to: 90
+      step: 5
   reveil_prolonge:
     range:
       type: number

@@ -3,6 +3,11 @@
 # à l'heure dite, ce que fait « Je suis debout », et les phrases qu'Assist
 # comprend.
 #
+# LE COUCHER DE SOLEIL VIT ICI AUSSI, en fin de chaque section : c'est le
+# lever à l'envers, et il reprend sa courbe par ancres YAML — qui ne
+# traversent pas les fichiers. Ses réglages sont les mêmes, préfixés
+# coucher_ : durée, lumières, courbe, musique.
+#
 # C'est un « package » Home Assistant : chaque clé (input_datetime, script,
 # automation…) est fusionnée avec celles de configuration.yaml. Tout ce qui
 # concerne le réveil vit donc ici, et nulle part ailleurs.
@@ -66,6 +71,24 @@ input_number:
     step: 1
     unit_of_measurement: "%"
     mode: slider
+  coucher_duree:
+    name: Coucher · durée
+    icon: mdi:weather-sunset-down
+    min: 1
+    max: 90
+    step: 1
+    unit_of_measurement: min
+    mode: slider
+  # Le volume d'où la musique descend. 0 : celui de l'enceinte au moment du
+  # coucher — on part de ce qu'on entend.
+  coucher_volume_debut:
+    name: Coucher · volume de départ
+    icon: mdi:volume-medium
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: slider
 
 input_text:
   # Les lumières qui se lèvent, séparées par des virgules, chacune avec le
@@ -97,6 +120,26 @@ input_text:
     name: Réveil · playlist
     icon: mdi:playlist-music
     max: 255
+  # Le coucher, au même format que le lever. Ses lumières : le moment après
+  # @ est celui où la lampe S'ÉTEINT — « light.chambre_wiz_1@40 » s'éteint à
+  # 40 % du coucher ; sans @, elle va jusqu'au bout. Vide : les lampes
+  # allumées au moment du coucher.
+  coucher_lumieres:
+    name: Coucher · lumières
+    icon: mdi:lightbulb-group-outline
+    max: 255
+  # Moins de deux points : 60 % à 2700 K, jusqu'à 1 % à 2000 K.
+  coucher_courbe:
+    name: Coucher · courbe
+    icon: mdi:chart-bell-curve-cumulative
+    max: 255
+  # Vide : la musique qui joue déjà descend avec la lumière. Un nom ou une
+  # adresse : cette playlist part au début du coucher. « aucune » : le
+  # coucher ne touche pas à la musique.
+  coucher_playlist:
+    name: Coucher · playlist
+    icon: mdi:playlist-music
+    max: 255
 
 # Le moment du bonjour : lancé avec le lever, pour sa durée, il sonne à la
 # fin — script.reveil_bonjour donne alors l'heure, la météo, et dit de se
@@ -108,6 +151,12 @@ timer:
   reveil_bonjour:
     name: Réveil · bonjour
     icon: mdi:account-voice
+    restore: true
+  # La fin du coucher, pour que l'app la montre : lancé avec lui, annulé
+  # par « arrête le coucher ».
+  coucher:
+    name: Coucher · fin
+    icon: mdi:weather-sunset-down
     restore: true
 
 input_select:
@@ -195,23 +244,32 @@ script:
         description: Minutes du lever. Par défaut, input_number.reveil_duree.
         example: 20
     variables:
+      # LA COURBE EST PARTAGÉE AVEC LE COUCHER (script.coucher, plus bas) :
+      # mêmes gabarits, repris par ancre YAML, qui ne lisent que ces quatre
+      # variables. `sens` change une seule chose, le moment d'une lampe :
+      # celui où elle ENTRE au lever, celui où elle S'ÉTEINT au coucher.
+      sens: lever
+      source_lumieres: input_text.reveil_lumieres
+      source_courbe: input_text.reveil_courbe
+      lampes_defaut: [{ id: light.chambre, p: 0 }]
+      courbe_defaut: ["0,1,k2000", "100,78,k4000"]
       minutes: "{{ [duree | default(states('input_number.reveil_duree')) | int(20), 1] | max }}"
       # [{'id': 'light.chambre', 'p': 0}, {'id': 'light.chambre_wiz_1', 'p': 26}]
-      lampes: >-
+      lampes: &courbe_lampes >-
         {%- set ns = namespace(l=[]) -%}
-        {%- for m in states('input_text.reveil_lumieres').split(',') -%}
+        {%- for m in states(source_lumieres).split(',') -%}
           {%- set x = m.split('@') | map('trim') | list -%}
           {%- if x[0] is match('light[.]') -%}
             {%- set p = x[1] | float(0) if x | count > 1 else 0 -%}
             {%- set ns.l = ns.l + [{'id': x[0], 'p': [[p, 0] | max, 100] | min}] -%}
           {%- endif -%}
         {%- endfor -%}
-        {{- ns.l if ns.l else [{'id': 'light.chambre', 'p': 0}] -}}
-      points: >-
-        {%- set brut = states('input_text.reveil_courbe') | lower -%}
+        {{- ns.l if ns.l else lampes_defaut -}}
+      points: &courbe_points >-
+        {%- set brut = states(source_courbe) | lower -%}
         {%- set motif = '^[ ]*[0-9.]+[ ]*,[ ]*[0-9.]+[ ]*,[ ]*(k[0-9]{4,5}|[0-9a-f]{6})[ ]*$' -%}
         {%- set valides = brut.split(';') | select('match', motif) | list -%}
-        {%- set morceaux = valides if valides | count >= 2 else ['0,1,k2000', '100,78,k4000'] -%}
+        {%- set morceaux = valides if valides | count >= 2 else courbe_defaut -%}
         {%- set ns = namespace(l=[]) -%}
         {%- for m in morceaux -%}
           {%- set x = m.split(',') | map('trim') | list -%}
@@ -240,7 +298,7 @@ script:
       pas_s: 30
       # Au moins deux marches, même pour une minute : une seule serait un
       # allumage sec, pas un lever.
-      marches: "{{ [(minutes * 60 / pas_s) | round(0, 'ceil') | int, 2] | max }}"
+      marches: &courbe_marches "{{ [(minutes * 60 / pas_s) | round(0, 'ceil') | int, 2] | max }}"
       # La musique entre au même moment RELATIF du lever, vrai réveil ou
       # essai d'une minute : l'essai reste une miniature fidèle du matin.
       duree_reglee: "{{ [states('input_number.reveil_duree') | float(20), 1] | max }}"
@@ -262,14 +320,25 @@ script:
             montee_s: "{{ montee_s }}"
       # marches + 1 ordres : le premier pose le point de départ, le dernier
       # atteint la fin de la courbe.
-      - repeat:
+      - &courbe_deroulee
+        repeat:
           count: "{{ marches + 1 }}"
           sequence:
             - variables:
-                # Où en est le lever, en pourcentage, et les lampes dont le
-                # moment est venu.
+                # Où en est la courbe, en pourcentage. Au lever, les lampes
+                # actives sont celles dont le moment est venu ; au coucher,
+                # celles dont le moment n'est pas encore passé — 0 voulant
+                # dire « jusqu'à la fin ».
                 pr: "{{ (repeat.index - 1) / marches * 100 }}"
-                actives: "{{ lampes | selectattr('p', '<=', pr | float) | map(attribute='id') | list }}"
+                parties: >-
+                  {{ [] if sens == 'lever' else lampes | selectattr('p', 'gt', 0)
+                     | selectattr('p', 'le', pr | float) | map(attribute='id') | list }}
+                actives: >-
+                  {%- if sens == 'lever' -%}
+                    {{ lampes | selectattr('p', 'le', pr | float) | map(attribute='id') | list }}
+                  {%- else -%}
+                    {{ lampes | map(attribute='id') | reject('in', parties) | list }}
+                  {%- endif -%}
                 etape: >-
                   {%- set ns = namespace(a=points[0], b=points[-1]) -%}
                   {%- for pt in points -%}
@@ -288,6 +357,16 @@ script:
                           (ns.a.rgb[1] + (ns.b.rgb[1] - ns.a.rgb[1]) * t) | round(0) | int,
                           (ns.a.rgb[2] + (ns.b.rgb[2] - ns.a.rgb[2]) * t) | round(0) | int]} -}}
                   {%- endif -%}
+            # Au coucher, une lampe dont le moment est passé s'éteint en
+            # fondu. Redemandé à chaque marche : une lampe déjà éteinte ne
+            # bouge pas.
+            - if:
+                - condition: template
+                  value_template: "{{ parties | count > 0 }}"
+              then:
+                - service: light.turn_off
+                  target: { entity_id: "{{ parties }}" }
+                  data: { transition: "{{ pas_s }}" }
             # Aucune lampe encore entrée : la marche passe sans rien allumer.
             - if:
                 - condition: template
@@ -439,16 +518,13 @@ script:
   # (sensor.meteo_bulletin, packages/meteo.yaml) ; absent, le bonjour s'en
   # passe plutôt que de dire qu'il ne l'a pas.
   #
-  # Dit par le satellite Voice PE, la voix qui répond d'habitude — piper,
-  # en français, sur l'assistant local. S'il ne répond pas, par la WiiM, en
-  # annonce : Music Assistant baisse la musique le temps de la phrase.
+  # Dit par script.annonce (packages/chambre.yaml) : le Voice PE, sinon la
+  # WiiM.
   reveil_bonjour:
     alias: Réveil · bonjour
     icon: mdi:account-voice
     mode: restart
     variables:
-      satellite: assist_satellite.home_assistant_voice_0ac124_satellite_assist
-      enceinte: media_player.ma_chambre
       heure: >-
         {%- set h = now().hour -%}{%- set m = now().minute -%}
         {{ 'minuit' if h == 0 else 'midi' if h == 12 else h ~ (' heure' if h == 1 else ' heures') }}{{ ' ' ~ m if m else '' }}
@@ -457,19 +533,8 @@ script:
         Bonjour ! Il est {{ heure }}, c'est l'heure de te lever.
         {{ meteo }} Bonne journée !
     sequence:
-      - if:
-          - condition: template
-            value_template: "{{ states(satellite) not in ['unknown', 'unavailable'] }}"
-        then:
-          - service: assist_satellite.announce
-            target: { entity_id: "{{ satellite }}" }
-            data: { message: "{{ message }}" }
-        else:
-          - service: tts.speak
-            target: { entity_id: tts.piper }
-            data:
-              media_player_entity_id: "{{ enceinte }}"
-              message: "{{ message }}"
+      - service: script.annonce
+        data: { message: "{{ message }}" }
 
   # Encore quelques minutes : le bonjour recule d'autant. Pendant le lever,
   # la fin du lever reste où elle est — seule la phrase attend. Le bonjour
@@ -510,6 +575,144 @@ script:
         target: { entity_id: timer.reveil_bonjour }
         data:
           duration: "{{ '%02d:%02d:%02d' | format(total // 3600, (total % 3600) // 60, total % 60) }}"
+
+  # LE COUCHER DE SOLEIL : la courbe de input_text.coucher_courbe sur
+  # input_number.coucher_duree minutes, par les mêmes marches que le lever.
+  # Chaque lampe de input_text.coucher_lumieres suit la courbe jusqu'à son
+  # moment, puis s'éteint en fondu ; au bout, tout ce qui reste s'éteint.
+  # La musique descend en même temps (script.coucher_musique), confiée comme
+  # au lever par un script.turn_on qui n'attend pas.
+  #
+  # Avant tout, si la chambre est trop chaude ou trop froide, il le dit
+  # (sensor.chambre_conseil, packages/chambre.yaml) — sauf appelé par la
+  # voix, qui le dit déjà dans sa réponse.
+  coucher:
+    alias: Coucher de soleil
+    icon: mdi:weather-sunset-down
+    mode: restart
+    fields:
+      duree:
+        description: Minutes du coucher. Par défaut, input_number.coucher_duree.
+        example: 20
+      alerte:
+        description: Annoncer une chambre trop chaude ou trop froide
+        example: true
+    variables:
+      sens: coucher
+      source_lumieres: input_text.coucher_lumieres
+      source_courbe: input_text.coucher_courbe
+      # Rien de choisi : les lampes allumées maintenant, jusqu'au bout.
+      lampes_defaut: >-
+        {%- set ns = namespace(l=[]) -%}
+        {%- for e in expand('light.chambre', 'light.chambre_bandeau', 'light.chambre_wiz_1', 'light.chambre_wiz_2')
+              if e.state == 'on' -%}
+          {%- set ns.l = ns.l + [{'id': e.entity_id, 'p': 0}] -%}
+        {%- endfor -%}
+        {{ ns.l }}
+      courbe_defaut: ["0,60,k2700", "100,1,k2000"]
+      minutes: "{{ [duree | default(states('input_number.coucher_duree')) | int(20), 1] | max }}"
+      lampes: *courbe_lampes
+      points: *courbe_points
+      pas_s: 30
+      marches: *courbe_marches
+    sequence:
+      - service: timer.start
+        target: { entity_id: timer.coucher }
+        data:
+          duration: "{{ '%02d:%02d:00' | format(minutes // 60, minutes % 60) }}"
+      - variables:
+          conseil: "{{ state_attr('sensor.chambre_conseil', 'texte') | default('', true) | trim }}"
+      - if:
+          - condition: template
+            value_template: "{{ alerte | default(true) | bool(true) and conseil != '' }}"
+        then:
+          - service: script.turn_on
+            target: { entity_id: script.annonce }
+            data:
+              variables: { message: "{{ conseil }}" }
+      - service: script.turn_on
+        target: { entity_id: script.coucher_musique }
+        data:
+          variables: { descente_s: "{{ minutes * 60 }}" }
+      - *courbe_deroulee
+      # La dernière marche a posé la fin de la courbe ; on la laisse se
+      # faire, puis la chambre s'éteint.
+      - delay:
+          seconds: "{{ pas_s }}"
+      - if:
+          - condition: template
+            value_template: "{{ lampes | count > 0 }}"
+        then:
+          - service: light.turn_off
+            target: { entity_id: "{{ lampes | map(attribute='id') | list }}" }
+            data: { transition: 5 }
+
+  # La musique du soir : elle part de son volume de départ et descend à zéro
+  # sur toute la durée du coucher, puis se met en PAUSE — « lance musique »
+  # la reprend — et l'enceinte retrouve ce volume de départ, sans quoi la
+  # musique suivante partirait muette.
+  coucher_musique:
+    alias: Coucher · musique
+    icon: mdi:music-note-off
+    mode: restart
+    fields:
+      player: { example: media_player.ma_chambre }
+      descente_s: { description: Secondes pour descendre à zéro, example: 1200 }
+    variables:
+      enceinte: "{{ player | default('media_player.ma_chambre') }}"
+      choix: >-
+        {%- set p = states('input_text.coucher_playlist') | trim -%}
+        {{- '' if p in ['unknown', 'unavailable'] else p -}}
+      descente: "{{ descente_s | default(1200) | int(1200) }}"
+      pas_s: 30
+      marches: "{{ [(descente / pas_s) | round(0, 'ceil') | int, 1] | max }}"
+      plafond: >-
+        {%- set m = states('input_number.volume_max') | float(0) -%}
+        {{ m / 100 if m > 0 else 1 }}
+      v0: "{{ states('input_number.coucher_volume_debut') | float(0) }}"
+      depart: >-
+        {%- set actuel = state_attr(enceinte, 'volume_level') | float(0.1) -%}
+        {{ ([v0 / 100 if v0 > 0 else actuel, plafond] | min) | round(2) }}
+    sequence:
+      - condition: template
+        value_template: "{{ choix | lower != 'aucune' and states(enceinte) not in ['unknown', 'unavailable'] }}"
+      - service: media_player.volume_set
+        target: { entity_id: "{{ enceinte }}" }
+        data: { volume_level: "{{ depart }}" }
+      - if:
+          - condition: template
+            value_template: "{{ choix != '' }}"
+        then:
+          - service: script.play_playlist
+            data: { name: "{{ choix }}", player: "{{ enceinte }}", aleatoire: true }
+      # Rien ne joue, rien à faire descendre.
+      - condition: template
+        value_template: "{{ is_state(enceinte, 'playing') }}"
+      - repeat:
+          count: "{{ marches }}"
+          sequence:
+            - delay:
+                seconds: "{{ pas_s }}"
+            - service: media_player.volume_set
+              target: { entity_id: "{{ enceinte }}" }
+              data:
+                volume_level: "{{ (depart * (1 - repeat.index / marches)) | round(2) }}"
+      - service: media_player.media_pause
+        target: { entity_id: "{{ enceinte }}" }
+        continue_on_error: true
+      - service: media_player.volume_set
+        target: { entity_id: "{{ enceinte }}" }
+        data: { volume_level: "{{ depart }}" }
+
+  # Arrêter le coucher : la lumière et la musique restent où elles en sont.
+  coucher_stop:
+    alias: Coucher · arrêter
+    icon: mdi:stop-circle-outline
+    sequence:
+      - service: script.turn_off
+        target: { entity_id: [script.coucher, script.coucher_musique] }
+      - service: timer.cancel
+        target: { entity_id: timer.coucher }
 
 # Ce que la voix peut faire au réveil. Les phrases sont dans
 # custom_sentences/fr/reveil.yaml ; ici, ce que chacune déclenche et ce
@@ -567,3 +770,25 @@ intent_script:
         {%- else -%}
           Pas de réveil en cours.
         {%- endif -%}
+
+  # « Bonne nuit », « bonne nuit dans 20 minutes ». L'effet est lent, il ne
+  # se voit pas tout de suite : la phrase le confirme, avec la durée, et
+  # dit la chambre trop chaude ou trop froide — le script ne le répète pas.
+  CoucherSoleil:
+    action:
+      - service: script.turn_on
+        target: { entity_id: script.coucher }
+        data:
+          variables:
+            duree: "{{ coucher_minutes | default(states('input_number.coucher_duree')) | int(20) }}"
+            alerte: false
+    speech:
+      text: >-
+        {%- set m = coucher_minutes | default(states('input_number.coucher_duree')) | int(20) -%}
+        {%- set conseil = state_attr('sensor.chambre_conseil', 'texte') | default('', true) | trim -%}
+        Bonne nuit. La lumière baisse sur {{ m }} minute{{ 's' if m > 1 else '' }}.{{ ' ' ~ conseil if conseil else '' }}
+  ArreterCoucher:
+    action:
+      - service: script.coucher_stop
+    speech:
+      text: "D'accord, j'arrête le coucher."

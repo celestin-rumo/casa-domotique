@@ -1,0 +1,210 @@
+# La chambre elle-même : ce que dit son capteur (sensor.temperature_interieure,
+# le Sonoff SNZB-02P), ce qu'il faut en faire, et la voix qui le dit.
+#
+# - script.annonce : la seule façon dont la maison prend la parole d'elle-même
+#   — le bonjour du réveil, l'alerte du coucher, la fin de l'aération ;
+# - « quelle température dans la chambre » ;
+# - les seuils d'une chambre trop chaude ou trop froide, et le conseil qui
+#   en découle ;
+# - « j'aère » : un rappel pour refermer la fenêtre.
+#
+# Pas de capteur de fenêtre : l'aération ne sait pas si la fenêtre est
+# ouverte. Elle se fie à la parole, à l'heure, et à la température.
+
+input_number:
+  # Au-delà, le conseil dit d'ouvrir ; en deçà, de fermer. 0 : jamais réglé,
+  # d'où 25 °C et 17 °C. Pas d'`initial:`, comme ailleurs : il effacerait le
+  # réglage à chaque redémarrage.
+  chambre_temp_max:
+    name: Chambre · trop chaud au-delà de
+    icon: mdi:thermometer-chevron-up
+    min: 0
+    max: 35
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: slider
+  chambre_temp_min:
+    name: Chambre · trop froid en deçà de
+    icon: mdi:thermometer-chevron-down
+    min: 0
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: slider
+  # La température au début de l'aération, pour dire de combien elle a
+  # baissé. Écrite par script.aeration, jamais par l'app.
+  aeration_temperature:
+    name: Aération · température au début
+    icon: mdi:thermometer
+    min: -20
+    max: 50
+    step: 0.1
+    unit_of_measurement: "°C"
+    mode: box
+
+timer:
+  aeration:
+    name: Aération
+    icon: mdi:window-open-variant
+    restore: true
+
+template:
+  - sensor:
+      # Le conseil, en une phrase, ou vide quand la chambre va bien. Dans un
+      # attribut, comme le bulletin météo : le coucher et la réponse vocale
+      # le lisent tels quels. L'état dit seulement « chaud », « froid » ou
+      # « bien ».
+      - name: Chambre · conseil
+        unique_id: casa_chambre_conseil
+        icon: mdi:thermometer-alert
+        state: >-
+          {%- set t = states('sensor.temperature_interieure') | float(none) -%}
+          {%- set hi = states('input_number.chambre_temp_max') | float(0) -%}
+          {%- set lo = states('input_number.chambre_temp_min') | float(0) -%}
+          {%- set hi = hi if hi > 0 else 25 -%}{%- set lo = lo if lo > 0 else 17 -%}
+          {{ 'inconnu' if t is none else 'chaud' if t > hi else 'froid' if t < lo else 'bien' }}
+        attributes:
+          texte: >-
+            {%- set t = states('sensor.temperature_interieure') | float(none) -%}
+            {%- set hi = states('input_number.chambre_temp_max') | float(0) -%}
+            {%- set lo = states('input_number.chambre_temp_min') | float(0) -%}
+            {%- set hi = hi if hi > 0 else 25 -%}{%- set lo = lo if lo > 0 else 17 -%}
+            {%- if t is not none and t > hi -%}
+              Il fait {{ t | round(0) | int }} degrés dans la chambre : ouvre un peu la fenêtre.
+            {%- elif t is not none and t < lo -%}
+              Il fait {{ t | round(0) | int }} degrés dans la chambre : ferme la fenêtre.
+            {%- endif -%}
+
+script:
+  # La maison qui prend la parole d'elle-même. Par le Voice PE, la voix qui
+  # répond d'habitude — piper, en français, sur l'assistant local. S'il ne
+  # répond pas, par la WiiM, en annonce : Music Assistant baisse la musique le
+  # temps de la phrase.
+  annonce:
+    alias: Annonce
+    icon: mdi:account-voice
+    mode: queued
+    fields:
+      message: { description: Ce qu'il faut dire, example: Bonjour }
+    variables:
+      satellite: assist_satellite.home_assistant_voice_0ac124_satellite_assist
+      enceinte: media_player.ma_chambre
+      texte: "{{ message | default('') | trim }}"
+    sequence:
+      - condition: template
+        value_template: "{{ texte != '' }}"
+      - if:
+          - condition: template
+            value_template: "{{ states(satellite) not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: assist_satellite.announce
+            target: { entity_id: "{{ satellite }}" }
+            data: { message: "{{ texte }}" }
+        else:
+          - service: tts.speak
+            target: { entity_id: tts.piper }
+            data:
+              media_player_entity_id: "{{ enceinte }}"
+              message: "{{ texte }}"
+
+  # « J'aère » : on note la température, et dans `minutes` minutes on dit de
+  # refermer. Si la chambre perd deux degrés avant, ou passe sous le seuil
+  # du froid, on le dit plus tôt (automation aeration_assez).
+  aeration:
+    alias: Aération
+    icon: mdi:window-open-variant
+    fields:
+      minutes: { description: Minutes avant le rappel, example: 10 }
+    variables:
+      duree: "{{ [minutes | default(10) | int(10), 1] | max }}"
+    sequence:
+      - service: input_number.set_value
+        target: { entity_id: input_number.aeration_temperature }
+        data:
+          value: "{{ states('sensor.temperature_interieure') | float(0) }}"
+        continue_on_error: true
+      - service: timer.start
+        target: { entity_id: timer.aeration }
+        data:
+          duration: "{{ '%02d:%02d:00' | format(duree // 60, duree % 60) }}"
+
+automation:
+  - id: aeration_fin
+    alias: Aération → refermer
+    trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data: { entity_id: timer.aeration }
+    action:
+      - service: script.annonce
+        data:
+          message: >-
+            {%- set t = states('sensor.temperature_interieure') | float(none) -%}
+            {%- set d = states('input_number.aeration_temperature') | float(none) -%}
+            Tu peux refermer la fenêtre.
+            {%- if t is not none %} Il fait {{ t | round(0) | int }} degrés
+              {%- if d is not none and d - t >= 0.5 %}, {{ (d - t) | round(0) | int }} de moins qu'au début{% endif %}.
+            {%- endif -%}
+
+  # Assez frais avant l'heure : deux degrés de moins qu'au début, ou sous le
+  # seuil du froid. Le rappel part tout de suite, et le minuteur s'arrête.
+  - id: aeration_assez
+    alias: Aération → assez frais
+    trigger:
+      - platform: state
+        entity_id: sensor.temperature_interieure
+    condition:
+      - condition: state
+        entity_id: timer.aeration
+        state: active
+      - condition: template
+        value_template: >-
+          {%- set t = states('sensor.temperature_interieure') | float(none) -%}
+          {%- set d = states('input_number.aeration_temperature') | float(0) -%}
+          {%- set lo = states('input_number.chambre_temp_min') | float(0) -%}
+          {%- set lo = lo if lo > 0 else 17 -%}
+          {{ t is not none and (t <= d - 2 or t < lo) }}
+    action:
+      - service: timer.cancel
+        target: { entity_id: timer.aeration }
+      - service: script.annonce
+        data:
+          message: >-
+            La chambre est à {{ states('sensor.temperature_interieure') | float(0) | round(0) | int }} degrés : tu peux refermer la fenêtre.
+
+intent_script:
+  # « Quelle température fait-il dans la chambre ? » La pièce, l'humidité,
+  # dehors s'il est connu, et le conseil s'il y en a un.
+  TemperatureChambre:
+    speech:
+      text: >-
+        {%- set t = states('sensor.temperature_interieure') | float(none) -%}
+        {%- set h = states('sensor.humidite_interieure') | float(none) -%}
+        {%- set x = states('sensor.meteosuisse') | float(none) -%}
+        {%- set conseil = state_attr('sensor.chambre_conseil', 'texte') | default('', true) | trim -%}
+        {%- if t is none -%}
+          Le capteur de la chambre ne répond pas.
+        {%- else -%}
+          Il fait {{ t | round(1) | string | replace('.', ',') }} degrés dans la chambre
+          {%- if h is not none %}, {{ h | round(0) | int }} % d'humidité{% endif -%}
+          {%- if x is not none %}, et {{ x | round(0) | int }} dehors{% endif %}.
+          {%- if conseil %} {{ conseil.split(' : ')[-1] | capitalize }}{% endif -%}
+        {%- endif -%}
+
+  # « J'aère », « j'aère dix minutes ». Rien ne se voit : la phrase confirme.
+  Aerer:
+    action:
+      - service: script.aeration
+        data:
+          minutes: "{{ aeration_minutes | default(10) | int(10) }}"
+    speech:
+      text: >-
+        D'accord, je te dis de refermer dans {{ aeration_minutes | default(10) | int(10) }} minutes.
+
+  # « J'ai fermé la fenêtre » : plus de rappel.
+  FenetreFermee:
+    action:
+      - service: timer.cancel
+        target: { entity_id: timer.aeration }
+    speech:
+      text: "D'accord."

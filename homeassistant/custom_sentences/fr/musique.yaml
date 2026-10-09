@@ -54,3 +54,14 @@ intents:
           - "(passe|change) de (chanson|morceau|titre)"
           - "suivant[e]"
           - "(chanson|morceau|titre) d'après"
+
+  # « Qu'est-ce qui joue ? » : le titre et l'artiste, packages/musique.yaml.
+  QuiJoue:
+    data:
+      - sentences:
+          - "(qu'est-ce qui|qu'est ce qui|c'est quoi qui) (joue|passe)"
+          - "c'est quoi (cette|la) (chanson|musique)"
+          - "(quelle est cette|c'est quelle) (chanson|musique)"
+          - "(quel|c'est quel) (morceau|titre)"
+          - "c'est qui (qui chante|l'artiste)"
+

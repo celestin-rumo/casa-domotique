@@ -5,6 +5,7 @@ import { MOOD_SELECT } from "../config";
 import { placeLibre, placesPresentes, useAmbiances, type Ambiance } from "../ambiances";
 import { LigneEtat, NoteFaute, Question, Etiquette, useAppuiLong } from "../ui";
 import { Reveil } from "./Reveil";
+import { Coucher } from "./Coucher";
 
 const reduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -125,6 +126,9 @@ export function Ambiances() {
 
       <Etiquette>Le matin</Etiquette>
       <Reveil />
+
+      <Etiquette>Le soir</Etiquette>
+      <Coucher />
     </>
   );
 }

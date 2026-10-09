@@ -445,6 +445,11 @@ fichier, fusionné avec le reste par la clé `packages:` des deux
 | `timer.reveil_bonjour` | le moment du bonjour : la fin du lever, prolongations comprises |
 | `script.reveil_bonjour` | le bonjour : l'heure, se lever, la météo, bonne journée |
 | `script.reveil_prolonger` | encore 5 ou 10 minutes avant le bonjour, ou de nouveau après |
+| `script.coucher`, `script.coucher_musique`, `script.coucher_stop` | le coucher de soleil, sa musique qui descend, l'arrêt |
+| `input_number.coucher_duree`, `coucher_volume_debut` · `input_text.coucher_lumieres`, `coucher_courbe`, `coucher_playlist` · `timer.coucher` | ses réglages, au format du lever ; le minuteur donne l'heure de la nuit |
+| `script.annonce` | la maison qui parle d'elle-même : Voice PE, sinon WiiM |
+| `input_number.chambre_temp_max`, `chambre_temp_min` · `sensor.chambre_conseil` | les seuils de la chambre, et le conseil qui en découle |
+| `script.aeration`, `timer.aeration` | « j'aère » : le rappel pour refermer |
 | `automation.reveil_lever_de_soleil` | à l'heure dite, si actif, lance `script.reveil` |
 
 **Aucun de ces helpers n'a d'`initial:`, et il ne faut pas en remettre.** Un

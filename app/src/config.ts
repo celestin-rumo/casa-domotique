@@ -103,6 +103,26 @@ export const REVEIL = {
   prolonger: "script.reveil_prolonger",
 };
 
+// Le coucher de soleil : le lever à l'envers, mêmes formats de réglage
+// (homeassistant/packages/reveil.yaml).
+export const COUCHER = {
+  duree: "input_number.coucher_duree",
+  lumieres: "input_text.coucher_lumieres",
+  courbe: "input_text.coucher_courbe",
+  playlist: "input_text.coucher_playlist",
+  volumeDebut: "input_number.coucher_volume_debut",
+  fin: "timer.coucher",
+  script: "script.coucher",
+  stop: "script.coucher_stop",
+};
+
+// Les seuils d'une chambre trop chaude ou trop froide
+// (homeassistant/packages/chambre.yaml). 0 : jamais réglé, 25 et 17 °C.
+export const SEUILS = {
+  max: "input_number.chambre_temp_max",
+  min: "input_number.chambre_temp_min",
+};
+
 // L'éclairage « Réveillé », que « Je suis debout » peut allumer. `id` est
 // son option dans input_select.reveil_debout : la scène nommée par son
 // IDENTIFIANT de configuration, `scene`. Son entity_id, lui, vient du nom —

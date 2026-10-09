@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useMaison } from "../maison";
 import { HOTE, enregistrerScene, latence, scenePourLumieres, setNumber } from "../ha";
 import {
-  LIGHTS, MOODS, PLAYER, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, REVEIL, REVEILLE, CLIMAT, VOLUME_MAX,
+  LIGHTS, MOODS, PLAYER, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, REVEIL, REVEILLE, CLIMAT, VOLUME_MAX, COUCHER,
 } from "../config";
 import { PLACES, listeAmbiances, plafond } from "../ambiances";
 import { Curseur, Depliable, Etiquette, LigneEtat, NoteFaute, Pastille } from "../ui";
 import { ReglagesReveil } from "./Reveil";
+import { ReglagesCoucher } from "./Coucher";
 
 const TEXTE = {
   connexion: "Connexion",
@@ -34,6 +35,8 @@ const ATTENDUES: { id: string; role: string }[] = [
   { id: REVEIL.duree, role: "Réveil · durée du lever" },
   { id: REVEIL.script, role: "Réveil · le lever de soleil" },
   { id: REVEIL.stop, role: "Réveil · je suis debout" },
+  { id: COUCHER.script, role: "Coucher · le coucher de soleil" },
+  { id: COUCHER.duree, role: "Coucher · durée" },
   { id: CLIMAT.temperature, role: "Climat · température de la pièce" },
   { id: CLIMAT.humidite, role: "Climat · humidité de la pièce" },
   { id: CLIMAT.exterieur, role: "Climat · MétéoSuisse" },
@@ -74,6 +77,12 @@ export function Reglages() {
       <section className="groupe" id="reglages-reveil" aria-label="Réglages du réveil">
         <Etiquette>Réveil</Etiquette>
         <ReglagesReveil />
+      </section>
+
+      {/* L'ancre de la carte du coucher, sur Ambiances. */}
+      <section className="groupe" id="reglages-coucher" aria-label="Réglages du coucher">
+        <Etiquette>Coucher de soleil</Etiquette>
+        <ReglagesCoucher />
       </section>
 
       <Etiquette>Son</Etiquette>
