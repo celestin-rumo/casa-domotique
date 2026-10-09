@@ -222,6 +222,13 @@ intent_script:
       - service: light.turn_on
         target: { entity_id: light.lampes_chambre }
 
+  # Chaque lampe reprend sa dernière luminosité et sa dernière couleur.
+  AllumerTout:
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: [light.chambre, light.chambre_bandeau, light.chambre_wiz_1, light.chambre_wiz_2]
+
   # « Lumière 60 ». Les lampes allumées y vont, par lumiere_pas et sa cible
   # absolue — le plancher de 7 % compris. Rien d'allumé, lumiere_pas ne
   # ferait rien : dans une chambre noire, on demande de la lumière, donc les

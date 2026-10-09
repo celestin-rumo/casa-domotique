@@ -126,15 +126,33 @@ intents:
   # « allume les lampes en rouge » ne correspond à aucune d'elles, puisque
   # hassil exige que la phrase entière soit couverte, et part donc vers
   # CouleurLampe.
+  #
+  # « LED » seul veut dire les deux, comme dans casa_lampe. Sans ces
+  # tournures, « allume led » n'était ni appris par le micro
+  # (stt-no-text-recognized, constaté le 9 octobre 2026) ni compris au
+  # clavier : l'ordre intégré cherchait une lampe nommée « led ».
   LampesChambreOff:
     data:
       - sentences:
           - "(éteins|éteindre|coupe|couper) les lampes [de la chambre]"
+          - "(éteins|éteindre|coupe|couper) [les] (led|leds)"
 
   LampesChambreOn:
     data:
       - sentences:
           - "(allume|allumer) les lampes [de la chambre]"
+          - "(allume|allumer) [les] (led|leds)"
+
+  # « Allume tout » : les quatre lampes de la chambre. Le pendant de « tout
+  # éteindre », moins la musique : allumer ne relance rien. Pas l'anneau du
+  # Voice PE, qui n'est pas une lampe. Même constat que pour « allume led » :
+  # le micro ne l'avait pas appris, et l'ordre intégré n'y voyait aucune cible.
+  AllumerTout:
+    data:
+      - sentences:
+          - "(allume|allumer) tout"
+          - "(allume|allumer) toutes les lampes"
+          - "tout (allumé|on)"
 
   # La couleur avec le verbe « mets », qui manque au micro.
   #
