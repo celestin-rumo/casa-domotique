@@ -109,11 +109,15 @@ export function piecesDe(reg: Registre | null, entities: HassEntities): Piece[] 
   const noms = new Map(reg.zones.map((z) => [z.area_id, z.name]));
   for (const id of Object.keys(entities).sort()) {
     const e = entities[id];
-    // Une entité que plus rien ne fournit — le groupe des WiZ, retiré du
-    // dépôt — reste dans le registre, restaurée et injoignable.
-    if (e.attributes.restored) continue;
     if (!(id in reg.zoneDe)) continue; // désactivée, cachée, ou hors registre
     const zone = reg.zoneDe[id];
+    // Une entité que plus rien ne fournit — le groupe des WiZ, retiré du
+    // dépôt — reste dans le registre, restaurée, sans zone. Mais une lampe
+    // RANGÉE dans une pièce et restaurée est une vraie lampe momentanément
+    // injoignable — tout le Zigbee, quand ZHA ne démarre pas — : elle reste
+    // à l'écran, marquée injoignable. La cacher faisait dire « aucune lampe »
+    // à toutes les pièces, constaté le 17 novembre 2026.
+    if (e.attributes.restored && !zone) continue;
     if (estLampe(id)) {
       // Sans pièce ET injoignable : un reste — l'ancien groupe des WiZ tant
       // que le Pi n'a pas tiré le dépôt —, pas une lampe à montrer.

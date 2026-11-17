@@ -147,10 +147,13 @@ function CartePiece({ piece, ouverte, surOuvrir, children }: {
   const { entities, fautes, agir } = useMaison();
   const nb = piece.lumieres.filter((id) => allumee(entities, id)).length;
   const on = nb > 0;
+  const joignables = piece.lumieres.filter((id) => entities[id] && entities[id].state !== "unavailable").length;
   const cle = `piece.${piece.id}`;
   const temperature = piece.temperature ? mesure(entities[piece.temperature]?.state, 1) : null;
   const meta = [
-    piece.lumieres.length === 0 ? "aucune lampe" : nb === 0 ? `${piece.lumieres.length} éteinte${piece.lumieres.length > 1 ? "s" : ""}` : `${nb} allumée${nb > 1 ? "s" : ""} sur ${piece.lumieres.length}`,
+    piece.lumieres.length === 0 ? "aucune lampe"
+      : joignables === 0 ? `${piece.lumieres.length} lampe${piece.lumieres.length > 1 ? "s" : ""} injoignable${piece.lumieres.length > 1 ? "s" : ""}`
+      : nb === 0 ? `${piece.lumieres.length} éteinte${piece.lumieres.length > 1 ? "s" : ""}` : `${nb} allumée${nb > 1 ? "s" : ""} sur ${piece.lumieres.length}`,
     temperature && temperature !== "—" ? `${temperature} °C` : null,
   ].filter(Boolean).join(" · ");
   // Une teinte au liseré : celle de la première lampe allumée qui en a une.
