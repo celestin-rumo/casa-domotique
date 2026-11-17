@@ -360,7 +360,7 @@ intent_script:
   PieceEteindre:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
+          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
           cible: >-
             {{ area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list if zone else [] }}
@@ -370,7 +370,7 @@ intent_script:
         target: { entity_id: "{{ cible }}" }
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
+        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
         {%- if not zone or area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
           Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
         {%- endif -%}
@@ -380,7 +380,7 @@ intent_script:
   PieceAllumer:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
+          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
           cible: >-
             {{ area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list if zone else [] }}
@@ -400,7 +400,7 @@ intent_script:
             target: { entity_id: "{{ cible }}" }
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
+        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
         {%- if not zone or area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
           Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
         {%- endif -%}
@@ -408,7 +408,7 @@ intent_script:
   PieceCouleur:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
+          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
           cible: >-
             {{ area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list if zone else [] }}
@@ -429,7 +429,7 @@ intent_script:
           color_name: "{{ teintes[casa_couleur] }}"
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
+        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
         {%- if not zone or area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
           Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
         {%- endif -%}

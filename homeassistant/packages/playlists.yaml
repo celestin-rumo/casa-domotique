@@ -52,3 +52,25 @@ input_text:
     name: Playlists · adresses
     icon: mdi:swap-horizontal
     max: 255
+
+  # Les playlists Spotify ajoutées par leur LIEN (Écoute → Ajouter une
+  # playlist → coller un lien), pour qu'un invité ajoute la sienne sans
+  # qu'elle soit dans la bibliothèque de Music Assistant. Elle doit être
+  # publique : Music Assistant la joue par son adresse, avec le compte relié.
+  #
+  # Le format : les identifiants Spotify (les 22 caractères après
+  # /playlist/), séparés par des virgules. Une dizaine par réglage ; trois
+  # réglages, une trentaine de playlists. Le nom et la pochette ne sont pas
+  # gardés ici : l'app les demande à Spotify (son service oEmbed).
+  playlists_spotify_1:
+    name: Playlists Spotify · 1
+    icon: mdi:spotify
+    max: 255
+  playlists_spotify_2:
+    name: Playlists Spotify · 2
+    icon: mdi:spotify
+    max: 255
+  playlists_spotify_3:
+    name: Playlists Spotify · 3
+    icon: mdi:spotify
+    max: 255

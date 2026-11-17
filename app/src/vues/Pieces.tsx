@@ -1,10 +1,13 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { HassEntity } from "home-assistant-js-websocket";
 import { useMaison } from "../maison";
 import { DEVICES, CLIMAT } from "../config";
-import { toggleLight, setLight, setLights, activateScene } from "../ha";
+import {
+  toggleLight, setLight, setLights, activateScene, enregistrerScene, supprimerScene, scenePourLumieres, zonerEntite,
+} from "../ha";
 import { usePieces, type Piece } from "../pieces";
-import { Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, Pastille } from "../ui";
+import { Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, Pastille, Question, useAppuiLong } from "../ui";
+import { Brosse } from "./Brossage";
 import { css, hsRgb, kelvinRgb } from "../couleur";
 
 const MODES_COULEUR = ["hs", "rgb", "xy", "rgbw", "rgbww"];
@@ -64,6 +67,8 @@ export function Pieces() {
         <span>· {toutes.length} lumières</span>
       </LigneEtat>
 
+      <Temperatures pieces={pieces} />
+
       <Carte lit={maisonAllumee} faute={!!fautes[MAISON]}>
         <div className="row">
           <div>
@@ -103,8 +108,9 @@ export function Pieces() {
           ))}
         </CartePiece>
       ))}
-
-      <Climat />
+      {pieces.length > 0 && (
+        <p className="astuce">« + Ambiance » garde l'éclairage d'une pièce sous un nom. Maintiens une ambiance pour la remplacer ou la supprimer.</p>
+      )}
 
       {DEVICES.length > 0 && (
         <>
@@ -174,15 +180,7 @@ function CartePiece({ piece, ouverte, surOuvrir, children }: {
             onClick={() => agir(cle, () => setLights(piece.lumieres, !on))}
           />
         </div>
-        {piece.scenes.length > 0 && (
-          <div className="chips">
-            {piece.scenes.map((s) => (
-              <button key={s} className="chip" onClick={() => agir(cle, () => activateScene(s))}>
-                {entities[s]?.attributes.friendly_name ?? s}
-              </button>
-            ))}
-          </div>
-        )}
+        <Ambiances piece={piece} cle={cle} />
         <NoteFaute entite={piece.nom} message={fautes[cle]} />
       </Carte>
       {ouverte && piece.lumieres.length > 0 && (
@@ -190,7 +188,158 @@ function CartePiece({ piece, ouverte, surOuvrir, children }: {
           {children}
         </div>
       )}
+      {piece.brosses.map((b) => <Brosse key={b} id={b} />)}
     </div>
+  );
+}
+
+// LES AMBIANCES D'UNE PIÈCE : les scènes que Home Assistant range dans sa
+// zone. Un toucher en lance une ; « + Ambiance » fige l'éclairage du moment
+// sous un nom, comme nouvelle scène de la pièce ; un appui long sur une
+// scène propose de la remplacer par l'éclairage du moment, ou de la
+// supprimer.
+//
+// La scène est écrite comme le fait l'éditeur de Home Assistant (ha.ts), puis
+// rangée dans la zone de la pièce : sans zone, elle existerait, mais n'aurait
+// pas de pièce où apparaître.
+function Ambiances({ piece, cle }: { piece: Piece; cle: string }) {
+  const { entities, agir } = useMaison();
+  const [creer, setCreer] = useState(false);
+  const [nom, setNom] = useState("");
+  const [choisie, setChoisie] = useState<string | null>(null);
+  const [aSupprimer, setASupprimer] = useState<string | null>(null);
+  const [dit, setDit] = useState<string | null>(null);
+  // La scène créée attend d'exister pour être rangée : Home Assistant la
+  // recharge, puis elle arrive dans les états avec son identifiant.
+  const [aRanger, setARanger] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!aRanger) return;
+    const e = Object.values(entities).find((x) => x.entity_id.startsWith("scene.") && x.attributes.id === aRanger);
+    if (!e) return;
+    setARanger(null);
+    agir(cle, () => zonerEntite(e.entity_id, piece.id));
+  }, [aRanger, entities, agir, cle, piece.id]);
+
+  const lumieres = () => scenePourLumieres(piece.lumieres, entities);
+  const idDe = (scene: string) => entities[scene]?.attributes.id as string | undefined;
+  const nomDe = (scene: string) => (entities[scene]?.attributes.friendly_name as string | undefined) ?? scene;
+
+  const enregistrer = async () => {
+    const n = nom.trim();
+    if (!n) return;
+    const slug = n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    const id = `${piece.id}_${slug || "ambiance"}_${Date.now().toString(36)}`;
+    const ok = await agir(cle, () => enregistrerScene(id, n, lumieres(), true));
+    if (!ok) return;
+    setARanger(id);
+    setCreer(false);
+    setNom("");
+    setDit(`${n} : enregistrée`);
+  };
+
+  const remplacer = async (scene: string) => {
+    const id = idDe(scene);
+    if (!id) return;
+    setChoisie(null);
+    if (await agir(cle, () => enregistrerScene(id, nomDe(scene), lumieres()))) setDit(`${nomDe(scene)} : éclairage enregistré`);
+  };
+
+  const supprimer = async (scene: string) => {
+    const id = idDe(scene);
+    setASupprimer(null);
+    setChoisie(null);
+    if (!id) return;
+    if (await agir(cle, () => supprimerScene(id))) setDit(`${nomDe(scene)} : supprimée`);
+  };
+
+  if (piece.scenes.length === 0 && piece.lumieres.length === 0) return null;
+
+  return (
+    <>
+      <div className="chips">
+        {piece.scenes.map((s) => (
+          <PuceScene
+            key={s}
+            nom={nomDe(s)}
+            choisie={choisie === s}
+            surClic={() => {
+              setDit(null);
+              agir(cle, () => activateScene(s));
+            }}
+            surLong={() => setChoisie(choisie === s ? null : s)}
+          />
+        ))}
+        {piece.lumieres.length > 0 && (
+          <button className="chip ajout" aria-expanded={creer} onClick={() => setCreer(!creer)}>
+            + Ambiance
+          </button>
+        )}
+      </div>
+
+      {creer && (
+        <div className="scene-edit">
+          <span className="row-meta">L'éclairage de la pièce tel qu'il est maintenant, sous un nom :</span>
+          <input
+            className="recherche"
+            value={nom}
+            maxLength={30}
+            autoFocus
+            placeholder="Lecture, Film, Soirée…"
+            aria-label={`Nom de la nouvelle ambiance · ${piece.nom}`}
+            onChange={(e) => setNom(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && enregistrer()}
+          />
+          <div className="btn-row">
+            <button className="btn" onClick={() => setCreer(false)}>Annuler</button>
+            <button className="btn primary" disabled={!nom.trim()} onClick={enregistrer}>Enregistrer</button>
+          </div>
+        </div>
+      )}
+
+      {choisie && (
+        <div className="scene-edit">
+          <span className="row-name">{nomDe(choisie)}</span>
+          {idDe(choisie) ? (
+            <div className="btn-row">
+              <button className="btn" onClick={() => remplacer(choisie)}>Remplacer par l'éclairage actuel</button>
+              <button className="btn danger" onClick={() => setASupprimer(choisie)}>Supprimer</button>
+            </div>
+          ) : (
+            <span className="row-meta">Cette scène n'a pas d'identifiant : elle se modifie dans Home Assistant.</span>
+          )}
+          <div className="btn-row">
+            <button className="btn" onClick={() => setChoisie(null)}>Fermer</button>
+          </div>
+        </div>
+      )}
+
+      {dit && <p className="row-meta" role="status">{dit}</p>}
+
+      {aSupprimer && (
+        <Question
+          titre={`Supprimer ${nomDe(aSupprimer)} ?`}
+          texte="La scène disparaît de Home Assistant. Rien ne permet de la retrouver ensuite."
+          oui="Supprimer"
+          surOui={() => supprimer(aSupprimer)}
+          surNon={() => setASupprimer(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function PuceScene({ nom, choisie, surClic, surLong }: {
+  nom: string;
+  choisie: boolean;
+  surClic: () => void;
+  surLong: () => void;
+}) {
+  const appui = useAppuiLong(surLong, surClic);
+  return (
+    <button className="chip" aria-pressed={choisie} {...appui}>
+      {nom}
+    </button>
   );
 }
 
@@ -202,42 +351,31 @@ function mesure(etat: string | undefined, decimales: number): string {
   return n.toLocaleString("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: decimales });
 }
 
-// Trois chiffres, sans bouton : la pièce, son humidité, et dehors.
-function Climat() {
+// Les températures des pièces côte à côte, puis dehors : une tuile par
+// thermomètre rangé dans une zone (pieces.ts), son humidité dessous. Plus de
+// tuiles que d'écran : la rangée défile de côté.
+function Temperatures({ pieces }: { pieces: Piece[] }) {
   const { entities } = useMaison();
-  const t = entities[CLIMAT.temperature];
-  const h = entities[CLIMAT.humidite];
-  const d = entities[CLIMAT.exterieur];
-  const absents = [t, h].filter((e) => !e).length;
+  const avec = pieces.filter((p) => p.temperature);
+  const dehors = entities[CLIMAT.exterieur];
+  if (avec.length === 0 && !dehors) return null;
   return (
-    <>
-      <Etiquette>Climat · chambre</Etiquette>
-      <Carte>
-        <div className="climat">
-          <div className="climat-val">
-            <b className="tnum">{mesure(t?.state, 1)}</b>
-            <small>°C</small>
-            <span>chambre</span>
-          </div>
-          <div className="climat-val">
-            <b className="tnum">{mesure(h?.state, 0)}</b>
-            <small>%</small>
-            <span>humidité</span>
-          </div>
-          <div className="climat-val">
-            <b className="tnum">{mesure(d?.state, 0)}</b>
-            <small>°C</small>
-            <span>dehors</span>
-          </div>
+    <div className="temperatures" role="list" aria-label="Températures">
+      {avec.map((p) => (
+        <div className="temp" role="listitem" key={p.id}>
+          <b className="tnum">{mesure(entities[p.temperature!]?.state, 1)}<small>°C</small></b>
+          <span>{p.nom}</span>
+          {p.humidite && <em>{mesure(entities[p.humidite]?.state, 0)} % hum.</em>}
         </div>
-        {absents > 0 && (
-          <p className="fault-note" role="status">
-            <span>{absents === 2 ? "capteur absent" : "une mesure manque"}</span>
-            <code>{!t ? CLIMAT.temperature : CLIMAT.humidite}</code>
-          </p>
-        )}
-      </Carte>
-    </>
+      ))}
+      {dehors && (
+        <div className="temp dehors" role="listitem">
+          <b className="tnum">{mesure(dehors.state, 0)}<small>°C</small></b>
+          <span>Dehors</span>
+          <em>MétéoSuisse</em>
+        </div>
+      )}
+    </div>
   );
 }
 

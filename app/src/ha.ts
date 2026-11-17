@@ -354,6 +354,14 @@ export async function supprimerScene(sceneId: string) {
   if (!r.ok && r.status !== 404) throw new Error(`Home Assistant refuse de retirer la scène (${r.status})`);
 }
 
+// Ranger une entité dans une zone — une scène créée depuis une pièce, pour
+// qu'elle y apparaisse. L'écriture du registre, comme l'éditeur de Home
+// Assistant.
+export async function zonerEntite(entityId: string, areaId: string) {
+  const conn = await connect();
+  await conn.sendMessagePromise({ type: "config/entity_registry/update", entity_id: entityId, area_id: areaId });
+}
+
 // L'aller-retour WebSocket, en millisecondes — ce que l'écran Réglages affiche.
 export async function latence(): Promise<number> {
   const conn = await connect();

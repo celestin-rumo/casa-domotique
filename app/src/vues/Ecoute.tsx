@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMaison } from "../maison";
 import {
   PLAYER, PLAYERS, PLAYLIST_COURANTE, PLAYLIST_SELECT, PLAYLISTS_ADRESSES, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS,
+  PLAYLISTS_SPOTIFY,
 } from "../config";
 import {
-  mediaPlayPause, mediaNext, mediaPrevious, joinPlayers, unjoinPlayer, setShuffle, setVolume, playPlaylist,
+  mediaPlayPause, mediaNext, mediaPrevious, joinPlayers, unjoinPlayer, setShuffle, setVolume, playPlaylist, setText,
 } from "../ha";
 import {
-  ecrireAdresses, ecrireNoms, lireAdresses, lireEpingles, lireNoms, nettoyerNom, numeroDe, usePlaylists, type Playlist,
+  ecrireAdresses, ecrireNoms, idSpotify, infoConnue, infoSpotify, lireAdresses, lireEpingles, lireNoms, lireSpotify, nettoyerNom,
+  numeroDe, repartirSpotify, usePlaylists, type Playlist,
 } from "../bibliotheque";
 import { useTexte } from "../useTexte";
 import { plafond } from "../ambiances";
@@ -102,6 +104,26 @@ export function Ecoute() {
     ecrireAdressesBrut(texte);
   };
 
+  // Retirer une playlist ajoutée : son lien Spotify, ou son épingle. Le nom
+  // donné, s'il y en a un, part avec.
+  const retirer = (p: Playlist) => {
+    setARenommer(null);
+    if (p.spotify) {
+      const textes = repartirSpotify(lireSpotify(entities).filter((id) => id !== p.cle));
+      if (!textes) return;
+      agir(PLAYLISTS_SPOTIFY[0], async () => {
+        for (const [i, e] of PLAYLISTS_SPOTIFY.entries()) {
+          if ((entities[e]?.state ?? "") !== textes[i]) await setText(e, textes[i]);
+        }
+      });
+    } else {
+      const numeros = lireEpingles(entities[PLAYLISTS_EPINGLEES]?.state).filter((n) => n !== p.cle);
+      agir(PLAYLISTS_EPINGLEES, () => setText(PLAYLISTS_EPINGLEES, numeros.join(",")));
+    }
+    const noms = lireNoms(nomsBrut);
+    if (noms.delete(p.cle)) ecrireNomsBrut(ecrireNoms(noms));
+  };
+
   return (
     <>
       <LigneEtat
@@ -181,6 +203,7 @@ export function Ecoute() {
                   reassignable={reassignable && !p.epinglee}
                   surRenommer={(nom) => renommer(p, nom)}
                   surReassigner={(numero) => reassigner(p, numero)}
+                  surRetirer={p.epinglee ? () => retirer(p) : undefined}
                   surAnnuler={() => {
                     setARenommer(null);
                     setTrop(false);
@@ -328,7 +351,8 @@ function LignePlaylist({ p, active, joue, disabled, surJouer, surRenommer }: {
   surRenommer?: () => void;
 }) {
   const appui = useAppuiLong(surRenommer, surJouer);
-  const quoi = active && joue ? "en lecture" : active ? "dernière lancée" : p.epinglee ? "épinglée" : "des ambiances";
+  const quoi = active && joue ? "en lecture" : active ? "dernière lancée"
+    : p.spotify ? "spotify · ajoutée par lien" : p.epinglee ? "épinglée" : "des ambiances";
   return (
     <button className="prow" aria-pressed={active} disabled={disabled} {...appui}>
       <span className="prow-text">
@@ -345,11 +369,12 @@ function LignePlaylist({ p, active, joue, disabled, surJouer, surRenommer }: {
 // L'appui long sur une playlist : la renommer, et, pour un nom de la table,
 // changer ce qu'il joue. Le nom d'origine reste affiché, pour savoir de quoi
 // on parle.
-function Modifier({ p, reassignable, surRenommer, surReassigner, surAnnuler }: {
+function Modifier({ p, reassignable, surRenommer, surReassigner, surRetirer, surAnnuler }: {
   p: Playlist;
   reassignable: boolean;
   surRenommer: (nom: string) => void;
   surReassigner: (numero: string | null) => void;
+  surRetirer?: () => void;
   surAnnuler: () => void;
 }) {
   const [texte, setTexte] = useState(p.nom);
@@ -374,6 +399,11 @@ function Modifier({ p, reassignable, surRenommer, surReassigner, surAnnuler }: {
         {p.nom !== p.origine && <button className="btn" onClick={() => surRenommer("")}>Nom d'origine</button>}
         <button className="btn primary" onClick={() => surRenommer(texte)}>Renommer</button>
       </div>
+      {surRetirer && (
+        <div className="btn-row">
+          <button className="btn danger" onClick={surRetirer}>Retirer de la liste</button>
+        </div>
+      )}
 
       {reassignable && (
         <>
@@ -432,7 +462,9 @@ function Chercher() {
       </button>
       {ouvert && (
         <Carte faute={!!fautes[PLAYLISTS_EPINGLEES]}>
+          <LienSpotify />
           <div id="chercher-playlist" className="sous">
+            <p className="sous-titre">Dans la bibliothèque</p>
             {!present && <p className="row-meta">packages/playlists.yaml n'est pas chargé sur le Pi : rien ne peut être épinglé.</p>}
             <NoteFaute entite={PLAYLISTS_EPINGLEES} message={fautes[PLAYLISTS_EPINGLEES] ?? (trop ? "plus de place : retire une épingle d'abord" : undefined)} />
             <RecherchePlaylist
@@ -448,5 +480,89 @@ function Chercher() {
         </Carte>
       )}
     </>
+  );
+}
+
+// Coller le lien d'une playlist Spotify — la sienne ou celle d'un invité —
+// pour l'ajouter à la liste, sans passer par la bibliothèque de Music
+// Assistant. Le nom vient de Spotify avant l'ajout : on voit ce qu'on ajoute.
+function LienSpotify() {
+  const { entities, fautes, agir } = useMaison();
+  const [lien, setLien] = useState("");
+  const [apercu, setApercu] = useState<{ id: string; titre: string; image: string | null } | null>(null);
+  const [dit, setDit] = useState<string | null>(null);
+  const present = PLAYLISTS_SPOTIFY.every((e) => entities[e]);
+  const deja = lireSpotify(entities);
+  const id = idSpotify(lien);
+
+  // Le nom, demandé à Spotify dès qu'un lien valable est collé.
+  useEffect(() => {
+    setApercu(null);
+    if (!id) return;
+    let vivant = true;
+    infoSpotify(id)
+      .then(() => {
+        if (!vivant) return;
+        const o = infoConnue(id);
+        setApercu({ id, titre: o?.titre ?? "Playlist Spotify", image: o?.image ?? null });
+      })
+      .catch(() => vivant && setApercu({ id, titre: "introuvable chez Spotify — privée ?", image: null }));
+    return () => {
+      vivant = false;
+    };
+  }, [id]);
+
+  const ajouter = () => {
+    if (!id) return;
+    if (deja.includes(id)) return setDit("déjà dans la liste");
+    const textes = repartirSpotify([...deja, id]);
+    if (!textes) return setDit("plus de place : retire une playlist ajoutée d'abord");
+    agir(PLAYLISTS_SPOTIFY[0], async () => {
+      for (const [i, e] of PLAYLISTS_SPOTIFY.entries()) {
+        if ((entities[e]?.state ?? "") !== textes[i]) await setText(e, textes[i]);
+      }
+    }).then((ok) => {
+      if (!ok) return;
+      setLien("");
+      setDit(`${apercu?.titre ?? "playlist"} : ajoutée`);
+    });
+  };
+
+  return (
+    <div className="sous">
+      <p className="sous-titre">Depuis un lien Spotify</p>
+      <input
+        className="recherche"
+        value={lien}
+        placeholder="https://open.spotify.com/playlist/…"
+        inputMode="url"
+        aria-label="Lien d'une playlist Spotify"
+        disabled={!present}
+        onChange={(e) => {
+          setLien(e.target.value);
+          setDit(null);
+        }}
+        onKeyDown={(e) => e.key === "Enter" && ajouter()}
+      />
+      {lien.trim() && !id && <p className="row-meta">ce n'est pas un lien de playlist Spotify</p>}
+      {apercu && (
+        <div className="mix">
+          {apercu.image
+            ? <img className="mix-chip" src={apercu.image} alt="" />
+            : <span className="mix-chip" aria-hidden="true" />}
+          <span className="mix-val">
+            <span>{apercu.titre}</span>
+            <small>{deja.includes(apercu.id) ? "déjà dans la liste" : "sera ajoutée à la liste"}</small>
+          </span>
+        </div>
+      )}
+      <div className="btn-row">
+        <button className="btn primary" disabled={!id || !present} onClick={ajouter}>Ajouter</button>
+      </div>
+      {dit && <p className="row-meta" role="status">{dit}</p>}
+      {!present && <p className="row-meta">Le Pi n'a pas encore ces réglages : packages/playlists.yaml, puis redémarrer.</p>}
+      <p className="row-meta">La playlist doit être publique. Elle rejoint la liste, les ambiances et le réveil.</p>
+      <NoteFaute entite={PLAYLISTS_SPOTIFY[0]} message={fautes[PLAYLISTS_SPOTIFY[0]]} />
+    </div>
   );
 }

@@ -143,9 +143,23 @@ export function Curseur({
   const [locale, setLocale] = useState<number | null>(null);
   useEffect(() => setLocale(null), [valeur]);
   const v = locale ?? valeur;
-  const commit = () => {
-    if (locale !== null) onCommit(locale);
-  };
+  // L'envoi part sur l'événement `change` NATIF, que le navigateur émet au
+  // lâcher d'un curseur — au doigt, à la souris comme au clavier. React n'y
+  // donne pas accès : son onChange est l'événement `input`, émis à chaque
+  // pixel. L'ancien envoi sur pointerup ne partait pas toujours au doigt :
+  // le navigateur d'un natel annule souvent le pointeur pendant le
+  // glissement (pointercancel), et le volume des WiiM ne bougeait jamais —
+  // constaté le 17 novembre 2026, alors que Home Assistant l'acceptait.
+  const champ = useRef<HTMLInputElement>(null);
+  const envoyer = useRef(onCommit);
+  envoyer.current = onCommit;
+  useEffect(() => {
+    const el = champ.current;
+    if (!el) return;
+    const surChange = () => envoyer.current(Number(el.value));
+    el.addEventListener("change", surChange);
+    return () => el.removeEventListener("change", surChange);
+  }, []);
   return (
     <div className="slider">
       <div className="slider-head">
@@ -153,6 +167,7 @@ export function Curseur({
         <output htmlFor={id}>{format(v)}</output>
       </div>
       <input
+        ref={champ}
         id={id}
         type="range"
         className={className}
@@ -167,9 +182,6 @@ export function Curseur({
           setLocale(n);
           onApercu?.(n);
         }}
-        onPointerUp={commit}
-        onKeyUp={commit}
-        onBlur={commit}
       />
     </div>
   );

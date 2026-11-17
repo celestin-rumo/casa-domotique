@@ -1,0 +1,16 @@
+# Les brosses à dents Oral-B de la salle de bain, vues par l'app (écran
+# Pièces, sous la salle de bain) : chaque séance, sa durée et un score.
+#
+# L'intégration oralb ne donne pas de score, ni de liste des séances : elle
+# publie, en direct pendant le brossage, l'état de la brosse (`running`,
+# puis `post_brushing_statistics`), la durée seconde par seconde, le secteur
+# en cours et la pression. L'app reconstruit les séances depuis l'HISTORIQUE
+# de Home Assistant (app/src/brossage.ts) et calcule le score elle-même.
+#
+# D'où le seul réglage de ce fichier : garder cet historique plus longtemps.
+# Home Assistant le purge par défaut après 10 jours — constaté le 17
+# novembre 2026, rien avant le 7. À 90 jours, l'historique des séances couvre
+# trois mois. Le prix est une base plus grosse sur le Pi : tout l'historique
+# est gardé plus longtemps, pas seulement celui des brosses.
+recorder:
+  purge_keep_days: 90

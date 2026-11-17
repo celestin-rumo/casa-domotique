@@ -136,6 +136,14 @@ export const REVEILLE = { id: "scene.reveil_debout", label: "Réveillé", scene:
 // Les playlists épinglées depuis Écoute (homeassistant/packages/playlists.yaml).
 export const PLAYLISTS_EPINGLEES = "input_text.playlists_epinglees";
 
+// Les playlists Spotify ajoutées par leur lien (même fichier) : trois
+// réglages de 255 caractères, une dizaine d'identifiants chacun.
+export const PLAYLISTS_SPOTIFY = [
+  "input_text.playlists_spotify_1",
+  "input_text.playlists_spotify_2",
+  "input_text.playlists_spotify_3",
+];
+
 // Ce que l'enceinte joue, tel que script.play_playlist l'a lancé : un nom de
 // la table ou une adresse. L'enceinte ne dit que le morceau, jamais la
 // playlist — c'est cet écho qui dit à Écoute quelle ligne allumer.

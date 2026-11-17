@@ -7,7 +7,8 @@
 import { useEffect, useState } from "react";
 import { bibliotheque, messageDe, type PlaylistBib } from "./ha";
 import { useMaison } from "./maison";
-import { PLAYLIST_SELECT, PLAYLISTS_ADRESSES, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS } from "./config";
+import { PLAYLIST_SELECT, PLAYLISTS_ADRESSES, PLAYLISTS_EPINGLEES, PLAYLISTS_NOMS, PLAYLISTS_SPOTIFY } from "./config";
+import type { HassEntities } from "home-assistant-js-websocket";
 
 let toute: Promise<PlaylistBib[]> | null = null;
 
@@ -94,6 +95,9 @@ export type Playlist = {
   origine: string; // le nom d'origine
   nom: string; // le nom affiché : celui donné dans l'app, sinon l'origine
   epinglee: boolean;
+  // Ajoutée par son lien Spotify : `cle` est alors son identifiant.
+  spotify?: boolean;
+  image?: string | null;
   // Un nom de la table réassigné depuis Écoute : ce qu'il joue désormais, par
   // son nom dans la bibliothèque, et la valeur écrite (un numéro, d'ordinaire).
   // Absents, il joue l'adresse de scripts.yaml.
@@ -133,6 +137,8 @@ export function usePlaylists() {
   // elle qui dit ce que « 83 » joue.
   const { items } = useBibliotheque(adresses.size > 0);
   const table: string[] = entities[PLAYLIST_SELECT]?.attributes.options ?? [];
+  const spotify = lireSpotify(entities);
+  const infos = useInfosSpotify(spotify);
   const playlists: Playlist[] = [
     ...table.map((n) => {
       const a = adresses.get(n);
@@ -144,6 +150,97 @@ export function usePlaylists() {
     ...epingles.map((p) => ({
       cle: p.numero, valeur: p.uri, origine: p.name, nom: noms.get(p.numero) ?? p.name, epinglee: true,
     })),
+    ...spotify.map((id) => {
+      const o = infos[id];
+      const origine = o?.titre ?? "Playlist Spotify";
+      return {
+        cle: id, valeur: uriSpotify(id), origine, nom: noms.get(id) ?? origine, epinglee: true,
+        spotify: true, image: o?.image ?? null,
+      };
+    }),
   ];
   return { playlists, erreur };
+}
+
+// --- Les playlists Spotify ajoutées par leur lien ---
+//
+// Leurs identifiants vivent sur le Pi, répartis sur trois input_text
+// (packages/playlists.yaml) ; leur nom et leur pochette, chez Spotify, qui
+// les donne à n'importe quelle page par son service oEmbed (CORS ouvert,
+// vérifié le 17 novembre 2026). Gardés en mémoire et dans le stockage du
+// natel : la liste ne clignote pas à chaque ouverture.
+
+// Un lien de partage, une adresse « spotify:playlist:… », ou l'identifiant
+// seul. Le ?si= d'un lien copié est ignoré : c'est un jeton lié au compte.
+export function idSpotify(texte: string): string | null {
+  const t = texte.trim();
+  const m = /(?:open\.spotify\.com\/(?:intl-[a-z-]+\/)?playlist\/|spotify:playlist:)([A-Za-z0-9]{22})/.exec(t);
+  if (m) return m[1];
+  return /^[A-Za-z0-9]{22}$/.test(t) ? t : null;
+}
+
+export const uriSpotify = (id: string) => `spotify:playlist:${id}`;
+
+export function lireSpotify(entities: HassEntities): string[] {
+  const ids = PLAYLISTS_SPOTIFY.flatMap((e) => (entities[e]?.state ?? "").split(","))
+    .map((s) => s.trim())
+    .filter((s) => /^[A-Za-z0-9]{22}$/.test(s));
+  return [...new Set(ids)];
+}
+
+// La liste répartie sur les réglages, chacun sous 255 caractères. null : elle
+// ne tient plus.
+export function repartirSpotify(ids: string[]): string[] | null {
+  const textes = PLAYLISTS_SPOTIFY.map(() => "");
+  let i = 0;
+  for (const id of ids) {
+    while (i < textes.length && (textes[i] ? textes[i].length + 1 : 0) + id.length > 255) i++;
+    if (i >= textes.length) return null;
+    textes[i] = textes[i] ? `${textes[i]},${id}` : id;
+  }
+  return textes;
+}
+
+type InfoSpotify = { titre: string; image: string | null };
+const CLE_SPOTIFY = "casa.spotify.noms";
+const memoire: Record<string, InfoSpotify> = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(CLE_SPOTIFY) ?? "{}") as Record<string, InfoSpotify>;
+  } catch {
+    return {};
+  }
+})();
+const enVol = new Map<string, Promise<void>>();
+
+// Ce qu'on sait déjà d'une playlist Spotify, sans rien demander.
+export const infoConnue = (id: string): InfoSpotify | undefined => memoire[id];
+
+export function infoSpotify(id: string): Promise<void> {
+  if (memoire[id] || enVol.has(id)) return enVol.get(id) ?? Promise.resolve();
+  const p = fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(`https://open.spotify.com/playlist/${id}`)}`)
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Spotify répond ${r.status}`))))
+    .then((o: { title?: string; thumbnail_url?: string }) => {
+      memoire[id] = { titre: o.title?.trim() || "Playlist Spotify", image: o.thumbnail_url ?? null };
+      try {
+        localStorage.setItem(CLE_SPOTIFY, JSON.stringify(memoire));
+      } catch { /* tant pis */ }
+    })
+    .finally(() => enVol.delete(id));
+  enVol.set(id, p);
+  return p;
+}
+
+function useInfosSpotify(ids: string[]): Record<string, InfoSpotify> {
+  const [, rafraichir] = useState(0);
+  const cle = ids.join(",");
+  useEffect(() => {
+    let vivant = true;
+    for (const id of cle ? cle.split(",") : []) {
+      if (!memoire[id]) infoSpotify(id).then(() => vivant && rafraichir((n) => n + 1), () => {});
+    }
+    return () => {
+      vivant = false;
+    };
+  }, [cle]);
+  return memoire;
 }

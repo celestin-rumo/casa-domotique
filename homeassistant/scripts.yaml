@@ -91,6 +91,11 @@ play_playlist:
       data:
         media_id: "{{ media_id }}"
         media_type: playlist
+        # REMPLACER la file, pas s'y glisser. Sans ce réglage, Music
+        # Assistant joue la nouvelle playlist en tête de la file existante,
+        # et l'ancienne reprend derrière : changer de playlist depuis Écoute
+        # « marchait mal », constaté le 17 novembre 2026.
+        enqueue: replace
         radio_mode: "{{ radio_mode | default(false) }}"
     # Ce qui joue, nom ou adresse, pour l'écran Écoute : l'enceinte ne dit que
     # le morceau, jamais la playlist (packages/playlists.yaml). Un Pi qui n'a

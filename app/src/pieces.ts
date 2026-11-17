@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import type { HassEntities } from "home-assistant-js-websocket";
 import { connect } from "./ha";
+import { estBrosse } from "./brossage";
 
 type Zone = { area_id: string; name: string };
 type Registre = { zones: Zone[]; zoneDe: Record<string, string | null> };
@@ -20,6 +21,7 @@ export type Piece = {
   nom: string;
   lumieres: string[];
   scenes: string[];
+  brosses: string[];
   temperature?: string;
   humidite?: string;
 };
@@ -92,15 +94,16 @@ export function useRegistre(): Registre | null {
   return r;
 }
 
-// Les pièces qui ont au moins une lampe ou une scène, avec leur climat
-// quand un capteur y est rangé. Une lampe sans zone tombe dans « Sans pièce »,
+// Les pièces qui ont au moins une lampe, une scène ou un thermomètre — le
+// bureau, sans lampe, a sa température —, avec leur climat quand un
+// capteur y est rangé. Une lampe sans zone tombe dans « Sans pièce »,
 // pour ne jamais disparaître de l'écran.
 export function piecesDe(reg: Registre | null, entities: HassEntities): Piece[] {
   if (!reg) return [];
   const parZone = new Map<string, Piece>();
   const piece = (id: string, nom: string) => {
     let p = parZone.get(id);
-    if (!p) parZone.set(id, (p = { id, nom, lumieres: [], scenes: [] }));
+    if (!p) parZone.set(id, (p = { id, nom, lumieres: [], scenes: [], brosses: [] }));
     return p;
   };
   const noms = new Map(reg.zones.map((z) => [z.area_id, z.name]));
@@ -118,6 +121,8 @@ export function piecesDe(reg: Registre | null, entities: HassEntities): Piece[] 
       piece(zone ?? "sans", zone ? noms.get(zone) ?? zone : "Sans pièce").lumieres.push(id);
     } else if (zone && id.startsWith("scene.")) {
       piece(zone, noms.get(zone) ?? zone).scenes.push(id);
+    } else if (zone && estBrosse(entities, id)) {
+      piece(zone, noms.get(zone) ?? zone).brosses.push(id);
     } else if (zone && id.startsWith("sensor.")) {
       const classe = e.attributes.device_class;
       const p = parZone.get(zone);
@@ -127,7 +132,7 @@ export function piecesDe(reg: Registre | null, entities: HassEntities): Piece[] 
   }
   const rang = (p: Piece) => (EN_TETE.includes(p.id) ? EN_TETE.indexOf(p.id) : p.id === "sans" ? 99 : 10);
   return [...parZone.values()]
-    .filter((p) => p.lumieres.length > 0 || p.scenes.length > 0)
+    .filter((p) => p.lumieres.length > 0 || p.scenes.length > 0 || !!p.temperature || p.brosses.length > 0)
     .sort((a, b) => rang(a) - rang(b) || a.nom.localeCompare(b.nom, "fr"));
 }
 

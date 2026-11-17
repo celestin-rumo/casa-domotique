@@ -229,8 +229,8 @@ intents:
 
 lists:
   # out en français, relu par Home Assistant après le micro ; la traduction
-  # en zone vit dans packages/lumieres.yaml. « douche » et « bain » : il n'y a
-  # qu'une salle de bain.
+  # en zone vit dans packages/lumieres.yaml. La douche est sa propre zone
+  # depuis le 17 novembre 2026 ; « bain » reste la salle de bain.
   casa_piece:
     values:
       - in: "cuisine"
@@ -239,8 +239,10 @@ lists:
         out: "salon"
       - in: "chambre"
         out: "chambre"
-      - in: "(salle de bain|salle de bains|douche|bain)"
+      - in: "(salle de bain|salle de bains|bain)"
         out: "salle de bain"
+      - in: "douche"
+        out: "douche"
       - in: "bureau"
         out: "bureau"
       - in: "couloir"
