@@ -24,28 +24,37 @@ input_number:
     mode: slider
 
 automation:
+  # Les deux WiiM depuis le déménagement de novembre 2026, chambre et salon :
+  # un seul plafond pour les deux, puisque c'est la même enceinte.
   - id: volume_plafond
-    alias: Son → plafond de la WiiM
-    description: Ramène media_player.ma_chambre au plafond de input_number.volume_max dès qu'il le dépasse.
-    mode: single
+    alias: Son → plafond des WiiM
+    description: Ramène media_player.ma_chambre et media_player.ma_salon au plafond de input_number.volume_max dès qu'elles le dépassent.
+    mode: queued
+    variables:
+      enceintes: [media_player.ma_chambre, media_player.ma_salon]
     trigger:
       # Le volume qui bouge, d'où qu'il vienne, et le plafond qu'on abaisse
       # sous le volume en cours.
       - platform: state
-        entity_id: media_player.ma_chambre
+        entity_id: [media_player.ma_chambre, media_player.ma_salon]
         attribute: volume_level
       - platform: state
         entity_id: input_number.volume_max
-    condition:
-      # Un demi-point de marge : l'enceinte arrondit, et 12 % peut revenir
-      # en 0,1201.
-      - condition: template
-        value_template: >-
-          {%- set m = states('input_number.volume_max') | float(0) -%}
-          {%- set v = state_attr('media_player.ma_chambre', 'volume_level') | float(0) -%}
-          {{ m > 0 and v * 100 > m + 0.5 }}
     action:
-      - service: media_player.volume_set
-        target: { entity_id: media_player.ma_chambre }
-        data:
-          volume_level: "{{ (states('input_number.volume_max') | float(100) / 100) | round(2) }}"
+      # Chaque enceinte au-dessus, et elle seule. Un demi-point de marge :
+      # l'enceinte arrondit, et 12 % peut revenir en 0,1201.
+      - variables:
+          m: "{{ states('input_number.volume_max') | float(0) }}"
+      - repeat:
+          for_each: "{{ enceintes }}"
+          sequence:
+            - if:
+                - condition: template
+                  value_template: >-
+                    {{ m | float(0) > 0 and has_value(repeat.item)
+                       and (state_attr(repeat.item, 'volume_level') | float(0)) * 100 > m | float(0) + 0.5 }}
+              then:
+                - service: media_player.volume_set
+                  target: { entity_id: "{{ repeat.item }}" }
+                  data:
+                    volume_level: "{{ (m | float(100) / 100) | round(2) }}"

@@ -14,18 +14,46 @@ import { plafond } from "../ambiances";
 import { Barres, Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, useAppuiLong } from "../ui";
 import { RecherchePlaylist } from "./Recherche";
 
+// La pièce où partent les playlists, d'une visite à l'autre. Le stockage
+// peut manquer : on retombe alors sur la chambre.
+const CLE_ENCEINTE = "casa.ecoute.enceinte";
+function lireEnceinte(): string {
+  try {
+    const v = localStorage.getItem(CLE_ENCEINTE);
+    if (v && PLAYERS.some((p) => p.id === v)) return v;
+  } catch { /* rien à retenir */ }
+  return PLAYER;
+}
+
+// Deux WiiM depuis le déménagement de novembre 2026, une par pièce, et une
+// carte par pièce : ce qu'elle joue, de quoi la piloter, son volume. Deux
+// façons de les écouter : dissociées, chacune sa musique ; ou synchronisées,
+// en groupe Music Assistant — une seule carte, la même playlist partout, un
+// volume par pièce.
+//
+// group_members liste le groupe, chef en tête. Seule, la WiiM le donne VIDE,
+// et non absent — constaté sur le Pi le 11 septembre 2026. Un groupe, c'est
+// donc une enceinte dont la liste a plus d'un membre ; son premier membre
+// est le chef, celui à qui l'on parle.
 export function Ecoute() {
   const { entities, fautes, agir } = useMaison();
-  const chef = entities[PLAYER];
+  const [choisie, setChoisie] = useState(lireEnceinte);
+  const choisir = (id: string) => {
+    setChoisie(id);
+    try {
+      localStorage.setItem(CLE_ENCEINTE, id);
+    } catch { /* tant pis */ }
+  };
+  const groupeDe = (id: string): string[] => entities[id]?.attributes.group_members ?? [];
+  const meneur = PLAYERS.map((p) => groupeDe(p.id)).find((m) => m.length > 1)?.[0] ?? null;
+  const ensemble = !!meneur && PLAYERS.some((p) => p.id === meneur);
+  const membres = ensemble ? groupeDe(meneur!) : [];
+  // Où partent les playlists : le chef du groupe, sinon la pièce choisie.
+  const pilote = ensemble ? meneur! : choisie;
+  const chef = entities[pilote];
   const joue = chef?.state === "playing";
-  const aleatoire = chef?.attributes.shuffle === true;
-  // group_members liste le groupe, chef compris. Seule, la WiiM le donne
-  // VIDE, et non absent — constaté sur le Pi le 11 septembre 2026 —, et le
-  // curseur de volume, qui ne montre que les enceintes du groupe,
-  // disparaissait avec lui : le chef compte toujours.
-  const membres: string[] = chef?.attributes.group_members ?? [];
-  const groupe: string[] = chef ? (membres.length ? membres : [PLAYER]) : [];
-  const ecoutent = PLAYERS.filter((p) => groupe.includes(p.id));
+  const presentes = PLAYERS.filter((p) => entities[p.id]);
+  const nomDe = (id: string) => PLAYERS.find((p) => p.id === id)?.label ?? id;
   const { playlists, erreur } = usePlaylists();
   const cap = plafond(entities);
 
@@ -77,116 +105,71 @@ export function Ecoute() {
   return (
     <>
       <LigneEtat
-        fort={!chef ? "Aucune enceinte" : ecoutent.length <= 1 ? "1 enceinte" : `${ecoutent.length} enceintes groupées`}
+        fort={presentes.length === 0 ? "Aucune enceinte" : ensemble ? membres.map(nomDe).join(" + ") : `${presentes.length} pièces`}
       >
-        <span>· Music Assistant</span>
+        <span>· {ensemble ? "synchronisées" : "chacune sa musique"}</span>
       </LigneEtat>
 
-      <Carte faute={!!fautes[PLAYER]}>
-        <div className={`np${joue ? " playing" : ""}`}>
-          <div className="art">
-            <Barres />
-          </div>
-          <div className="np-text">
-            <div className="np-title">{chef?.attributes.media_title ?? (chef ? "Rien en lecture" : "Enceinte absente")}</div>
-            <div className="np-sub">
-              {chef?.attributes.media_artist ?? chef?.attributes.friendly_name ?? PLAYER}
-            </div>
-          </div>
-        </div>
-        <NoteFaute entite={PLAYER} message={fautes[PLAYER] ?? (chef ? undefined : "l'entité n'existe pas sur le Pi")} />
-        <div className="transport">
-          <button className="tbtn" aria-label="Piste précédente" disabled={!chef}
-                  onClick={() => agir(PLAYER, () => mediaPrevious(PLAYER))}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <rect x="5" y="5" width="3" height="14" rx="1.2" /><path d="M19 5.5v13L9 12l10-6.5Z" />
-            </svg>
-          </button>
-          <button className="tbtn primary" aria-label={joue ? "Pause" : "Lecture"} disabled={!chef}
-                  onClick={() => agir(PLAYER, () => mediaPlayPause(PLAYER))}>
-            {joue ? (
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <rect x="6" y="5" width="4" height="14" rx="1.2" /><rect x="14" y="5" width="4" height="14" rx="1.2" />
-              </svg>
-            ) : (
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M7 5.2v13.6L19 12 7 5.2Z" />
-              </svg>
-            )}
-          </button>
-          <button className="tbtn" aria-label="Piste suivante" disabled={!chef}
-                  onClick={() => agir(PLAYER, () => mediaNext(PLAYER))}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M5 5.5v13l10-6.5L5 5.5Z" /><rect x="16" y="5" width="3" height="14" rx="1.2" />
-            </svg>
-          </button>
-        </div>
-        {/* L'état vient de l'enceinte (attribut shuffle), pas du geste. */}
+      <Carte faute={!!fautes.groupe}>
         <div className="row">
           <div>
-            <div className="row-name">Aléatoire</div>
+            <div className="row-name">Synchroniser les pièces</div>
             <div className="row-meta">
-              {aleatoire ? "playlists mélangées" : "dans l'ordre de la playlist"} · réveil aussi · une ambiance mélange toujours
+              {ensemble
+                ? `même playlist partout · ${nomDe(meneur!)} mène`
+                : "chaque pièce joue sa musique"}
             </div>
           </div>
           <Interrupteur
-            on={aleatoire}
-            label="Lecture aléatoire"
-            disabled={!chef}
-            onClick={() => agir(PLAYER, () => setShuffle(PLAYER, !aleatoire))}
+            on={ensemble}
+            label="Synchroniser la musique des pièces"
+            disabled={presentes.length < 2}
+            onClick={() =>
+              agir("groupe", async () => {
+                if (ensemble) {
+                  for (const m of membres) if (m !== meneur) await unjoinPlayer(m);
+                } else {
+                  // Celle qui joue entraîne les autres : on synchronise sur
+                  // ce qu'on entend déjà, pas sur le silence de l'autre pièce.
+                  const chefGroupe = presentes.find((p) => entities[p.id]?.state === "playing")?.id ?? choisie;
+                  await joinPlayers(chefGroupe, presentes.map((p) => p.id).filter((id) => id !== chefGroupe));
+                }
+              })
+            }
           />
         </div>
+        <NoteFaute entite="media_player.join" message={fautes.groupe} />
       </Carte>
 
-      <Etiquette>Pièces qui écoutent</Etiquette>
-      <div className="chips">
-        {PLAYERS.map((p) => {
-          const present = !!entities[p.id];
-          const dedans = groupe.includes(p.id);
-          // Le chef reste : c'est lui qu'on entend, on retire les autres.
-          const fige = p.id === PLAYER;
-          return (
-            <button
-              key={p.id}
-              className="chip"
-              aria-pressed={dedans}
-              disabled={!present || !chef || fige}
-              title={!present ? `${p.id} absente` : fige ? "l'enceinte de référence" : undefined}
-              onClick={() => agir(p.id, () => (dedans ? unjoinPlayer(p.id) : joinPlayers(PLAYER, [p.id])))}
-            >
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {ecoutent.length > 0 && (
-        <Carte>
-          <div className="vol-rows">
-            {ecoutent.map((p) => (
-              <div className="vol-row expand" key={p.id}>
-                {/* Le curseur s'arrête au plafond de la WiiM (Réglages → Son) :
-                    toute sa course sert, au lieu des trois premiers pour cent
-                    d'une barre de cent. */}
-                <Curseur
-                  id={`vol-${p.id.replace(".", "-")}`}
-                  label={p.label}
-                  min={0}
-                  max={cap}
-                  valeur={Math.min(cap, Math.round((entities[p.id]?.attributes.volume_level ?? 0) * 100))}
-                  format={(v) => `${Math.round(v)} %${cap < 100 ? ` / ${cap}` : ""}`}
-                  onCommit={(pct) => agir(p.id, () => setVolume(p.id, pct / 100))}
-                />
-                <NoteFaute entite={p.id} message={p.id === PLAYER ? undefined : fautes[p.id]} />
-              </div>
-            ))}
-          </div>
-        </Carte>
+      {ensemble ? (
+        <CarteLecture ids={membres.filter((id) => PLAYERS.some((p) => p.id === id))} cap={cap} />
+      ) : (
+        PLAYERS.map((p) => <CarteLecture key={p.id} ids={[p.id]} cap={cap} />)
       )}
 
       {playlists.length > 0 && (
         <>
           <Etiquette>Playlists</Etiquette>
+          {/* Où elles partent. Synchronisées, partout : il n'y a rien à
+              choisir. */}
+          {ensemble ? (
+            <p className="astuce">Elles jouent dans {membres.map(nomDe).join(" et ")}.</p>
+          ) : (
+            <div className="seg" role="tablist" aria-label="Jouer les playlists sur">
+              {PLAYERS.map((p) => (
+                <button
+                  key={p.id}
+                  className="seg-b"
+                  role="tab"
+                  aria-selected={choisie === p.id}
+                  disabled={!entities[p.id]}
+                  onClick={() => choisir(p.id)}
+                >
+                  Jouer sur {p.label}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Toutes passent par script.play_playlist, épinglées comprises :
               c'est lui qui laisse l'écho de ce qui joue. */}
           <Carte faute={!!fautes[PLAYLIST_SELECT] || !!fautes[PLAYLISTS_NOMS] || !!fautes[PLAYLISTS_ADRESSES]}>
@@ -211,7 +194,7 @@ export function Ecoute() {
                   active={courante === p.valeur}
                   joue={joue}
                   disabled={!chef}
-                  surJouer={() => agir(PLAYLIST_SELECT, () => playPlaylist(p.valeur, PLAYER))}
+                  surJouer={() => agir(PLAYLIST_SELECT, () => playPlaylist(p.valeur, pilote))}
                   surRenommer={renommable ? () => setARenommer(p.cle) : undefined}
                 />
               ),
@@ -239,6 +222,98 @@ export function Ecoute() {
 
       <Chercher />
     </>
+  );
+}
+
+// Une pièce — ou toutes, synchronisées — : ce qui joue, de quoi le piloter,
+// l'aléatoire, et un volume par enceinte. Les commandes vont au premier id,
+// le chef du groupe : c'est à lui que Music Assistant obéit.
+function CarteLecture({ ids, cap }: { ids: string[]; cap: number }) {
+  const { entities, fautes, agir } = useMaison();
+  const chef = ids[0];
+  const e = entities[chef];
+  const joue = e?.state === "playing";
+  const aleatoire = e?.attributes.shuffle === true;
+  const nomDe = (id: string) => PLAYERS.find((p) => p.id === id)?.label ?? id;
+  const titre = ids.map(nomDe).join(" + ");
+  // Le titre d'un morceau en pause reste utile ; celui d'une enceinte à
+  // l'arrêt depuis des heures ne l'est plus.
+  const actif = joue || e?.state === "paused";
+  const morceau = actif ? e?.attributes.media_title : null;
+  const artiste = actif ? e?.attributes.media_artist : null;
+  const etat = !e ? "absente" : joue ? "en lecture" : e.state === "paused" ? "en pause" : "à l'arrêt";
+
+  return (
+    <Carte lit={joue} faute={ids.some((id) => !!fautes[id])}>
+      <div className="enceinte-tete">
+        <div className="row-name">{titre}</div>
+        <span className="row-meta">{etat}</span>
+      </div>
+      <div className={`np${joue ? " playing" : ""}`}>
+        <div className="art">
+          <Barres />
+        </div>
+        <div className="np-text">
+          <div className="np-title">{morceau ?? (e ? "Rien en lecture" : "Enceinte absente")}</div>
+          <div className="np-sub">{artiste ?? (e ? "choisis une playlist plus bas" : chef)}</div>
+        </div>
+      </div>
+      <div className="transport">
+        <button className="tbtn" aria-label={`Piste précédente · ${titre}`} disabled={!e}
+                onClick={() => agir(chef, () => mediaPrevious(chef))}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="5" y="5" width="3" height="14" rx="1.2" /><path d="M19 5.5v13L9 12l10-6.5Z" />
+          </svg>
+        </button>
+        <button className="tbtn primary" aria-label={`${joue ? "Pause" : "Lecture"} · ${titre}`} disabled={!e}
+                onClick={() => agir(chef, () => mediaPlayPause(chef))}>
+          {joue ? (
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6" y="5" width="4" height="14" rx="1.2" /><rect x="14" y="5" width="4" height="14" rx="1.2" />
+            </svg>
+          ) : (
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M7 5.2v13.6L19 12 7 5.2Z" />
+            </svg>
+          )}
+        </button>
+        <button className="tbtn" aria-label={`Piste suivante · ${titre}`} disabled={!e}
+                onClick={() => agir(chef, () => mediaNext(chef))}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M5 5.5v13l10-6.5L5 5.5Z" /><rect x="16" y="5" width="3" height="14" rx="1.2" />
+          </svg>
+        </button>
+        {/* L'état vient de l'enceinte (attribut shuffle), pas du geste. */}
+        <span className="transport-fin">
+          <span className="row-meta">aléatoire</span>
+          <Interrupteur
+            on={aleatoire}
+            label={`Lecture aléatoire · ${titre}`}
+            disabled={!e}
+            onClick={() => agir(chef, () => setShuffle(chef, !aleatoire))}
+          />
+        </span>
+      </div>
+      {/* Un volume par enceinte, même synchronisées : la même musique ne se
+          veut pas aussi fort partout. Le curseur s'arrête au plafond
+          (Réglages → Son). */}
+      {ids.map((id) => (
+        <Curseur
+          key={id}
+          id={`vol-${id.replace(".", "-")}`}
+          label={ids.length > 1 ? `Volume · ${nomDe(id)}` : "Volume"}
+          min={0}
+          max={cap}
+          disabled={!entities[id]}
+          valeur={Math.min(cap, Math.round((entities[id]?.attributes.volume_level ?? 0) * 100))}
+          format={(v) => `${Math.round(v)} %${cap < 100 ? ` / ${cap}` : ""}`}
+          onCommit={(pct) => agir(id, () => setVolume(id, pct / 100))}
+        />
+      ))}
+      {ids.map((id) => (
+        <NoteFaute key={id} entite={id} message={fautes[id] ?? (entities[id] ? undefined : "l'entité n'existe pas sur le Pi")} />
+      ))}
+    </Carte>
   );
 }
 

@@ -738,3 +738,42 @@ input.recherche:disabled { color: var(--muted); }
     transition-duration: 1ms !important;
   }
 }
+
+/* ---------- Pièces : une carte par zone de Home Assistant ---------- */
+.piece { display: grid; gap: 10px; }
+.piece-tete {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.piece-tete:disabled { opacity: 1; cursor: default; }
+.piece-tete .chev { flex: none; color: var(--muted); transition: transform var(--t-swap) var(--e-out); }
+.piece-tete[aria-expanded="true"] .chev { transform: rotate(180deg); color: var(--accent); }
+/* Les lampes d'une pièce, en retrait sous sa carte : on voit d'un coup d'œil
+   à quelle pièce elles appartiennent. */
+.piece-corps {
+  display: grid;
+  gap: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line-2);
+  margin-left: 8px;
+  animation: advLong var(--t-swap) var(--e-out) both;
+}
+.piece .chips .chip { padding: 7px 13px; font-size: 12.5px; }
+
+/* ---------- Écoute : une enceinte par pièce ---------- */
+.enceinte-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+/* L'aléatoire au bout de la rangée des boutons : à portée, sans une ligne de plus. */
+.transport-fin { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ---------- Édition : les pièces d'une ambiance ---------- */
+.ambiance-piece { margin: 4px 0 -6px; font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }

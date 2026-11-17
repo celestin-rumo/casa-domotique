@@ -97,6 +97,15 @@ export async function toggleLight(entityId: string) {
   await callService(conn, "light", "toggle", { entity_id: entityId });
 }
 
+// Une pièce entière, ou toute la maison : un seul appel pour toutes ses
+// lampes, qui s'allument ensemble au lieu de l'une après l'autre. Allumées,
+// chacune reprend sa dernière luminosité et sa dernière couleur.
+export async function setLights(entityIds: string[], on: boolean) {
+  if (entityIds.length === 0) return;
+  const conn = await connect();
+  await callService(conn, "light", on ? "turn_on" : "turn_off", { entity_id: entityIds });
+}
+
 export type ReglageLumiere = {
   brightness?: number; // 1–255
   color_temp_kelvin?: number;
@@ -311,11 +320,15 @@ async function requete(chemin: string, init: RequestInit = {}): Promise<Response
 // `renommer` : le nom de la scène suit celui qu'on vient de donner — pour une
 // ambiance ajoutée depuis l'app, dont le nom se change dans l'app. Les
 // autres gardent le nom que Home Assistant leur connaît.
+//
+// `retirer` : les lampes d'une pièce qu'on vient d'enlever de l'ambiance.
+// Elles seules sortent de la scène ; la fusion garde tout le reste.
 export async function enregistrerScene(
   sceneId: string,
   nom: string,
   lumieres: Record<string, Record<string, unknown>>,
   renommer = false,
+  retirer: string[] = [],
 ) {
   const chemin = `/api/config/scene/config/${encodeURIComponent(sceneId)}`;
   const lue = await requete(chemin);
@@ -325,6 +338,7 @@ export async function enregistrerScene(
   const existante: ConfigScene | null = lue.ok ? await lue.json() : null;
   const scene: ConfigScene = existante ?? { id: sceneId, name: nom, entities: {} };
   scene.entities = { ...scene.entities, ...lumieres };
+  for (const id of retirer) delete scene.entities[id];
   if (renommer) scene.name = nom;
 
   const r = await requete(chemin, { method: "POST", body: JSON.stringify(scene) });

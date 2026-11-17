@@ -1,8 +1,9 @@
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { HassEntity } from "home-assistant-js-websocket";
 import { useMaison } from "../maison";
-import { LIGHTS, DEVICES, CLIMAT } from "../config";
-import { toggleLight, setLight } from "../ha";
+import { DEVICES, CLIMAT } from "../config";
+import { toggleLight, setLight, setLights, activateScene } from "../ha";
+import { usePieces, type Piece } from "../pieces";
 import { Carte, Curseur, Etiquette, Interrupteur, LigneEtat, NoteFaute, Pastille } from "../ui";
 import { css, hsRgb, kelvinRgb } from "../couleur";
 
@@ -13,48 +14,183 @@ const MODES_COULEUR = ["hs", "rgb", "xy", "rgbw", "rgbww"];
 // La puce montre la couleur qui partirait, calculée pendant le geste, puis
 // remplacée par ce que l'ampoule rapporte vraiment.
 
+// Les pièces ouvertes, d'une visite à l'autre. Le stockage peut manquer —
+// navigation privée, aperçu — : l'écran marche alors sans s'en souvenir, la
+// chambre ouverte.
+const CLE_OUVERTES = "casa.pieces.ouvertes";
+function lireOuvertes(): string[] {
+  try {
+    const brut = localStorage.getItem(CLE_OUVERTES);
+    if (brut) return JSON.parse(brut) as string[];
+  } catch { /* rien à retenir */ }
+  return ["bedroom"];
+}
+function ecrireOuvertes(ids: string[]) {
+  try {
+    localStorage.setItem(CLE_OUVERTES, JSON.stringify(ids));
+  } catch { /* tant pis */ }
+}
+
+const allumee = (entities: Record<string, HassEntity | undefined>, id: string) => entities[id]?.state === "on";
+
+// L'écran de toute la maison, pièce par pièce, telles que Home Assistant les
+// range (pieces.ts). En tête, l'interrupteur de toute la maison ; puis, pour
+// chaque pièce, son interrupteur, ses scènes en un toucher, et ses lampes,
+// dépliées à la demande — dix-sept lampes ouvertes d'un coup ne seraient plus
+// qu'une piste de curseurs.
 export function Pieces() {
   const { entities, fautes, agir } = useMaison();
-  const allumees = LIGHTS.filter((id) => entities[id]?.state === "on").length;
+  const pieces = usePieces(entities);
+  const [ouvertes, setOuvertes] = useState<string[]>(lireOuvertes);
+  const basculer = (id: string) => {
+    const suivantes = ouvertes.includes(id) ? ouvertes.filter((x) => x !== id) : [...ouvertes, id];
+    setOuvertes(suivantes);
+    ecrireOuvertes(suivantes);
+  };
+
+  const toutes = pieces.flatMap((p) => p.lumieres);
+  const nbAllumees = toutes.filter((id) => allumee(entities, id)).length;
+  const piecesAllumees = pieces.filter((p) => p.lumieres.some((id) => allumee(entities, id))).length;
+  // Un geste, un sens : quelque chose d'allumé, on éteint tout ; tout noir,
+  // on allume tout.
+  const maisonAllumee = nbAllumees > 0;
+  const MAISON = "maison";
 
   return (
     <>
       <LigneEtat
-        fort={allumees === 0 ? "Tout est éteint" : allumees === 1 ? "1 pièce allumée" : `${allumees} pièces allumées`}
+        fort={piecesAllumees === 0 ? "Tout est éteint" : piecesAllumees === 1 ? "1 pièce allumée" : `${piecesAllumees} pièces allumées`}
       >
-        <span>· {LIGHTS.length} lumières</span>
+        <span>· {toutes.length} lumières</span>
       </LigneEtat>
+
+      <Carte lit={maisonAllumee} faute={!!fautes[MAISON]}>
+        <div className="row">
+          <div>
+            <div className="row-name">Toute la maison</div>
+            <div className="row-meta">
+              {toutes.length === 0 ? "aucune lampe trouvée" : `${nbAllumees} allumée${nbAllumees > 1 ? "s" : ""} sur ${toutes.length}`}
+            </div>
+          </div>
+          <Interrupteur
+            on={maisonAllumee}
+            label="Toutes les lumières de la maison"
+            disabled={toutes.length === 0}
+            onClick={() => agir(MAISON, () => setLights(toutes, !maisonAllumee))}
+          />
+        </div>
+        <NoteFaute entite="toutes les lumières" message={fautes[MAISON]} />
+      </Carte>
+
+      {pieces.length === 0 && <p className="astuce">Lecture des pièces de Home Assistant…</p>}
+
+      {pieces.map((p) => (
+        <CartePiece
+          key={p.id}
+          piece={p}
+          ouverte={ouvertes.includes(p.id)}
+          surOuvrir={() => basculer(p.id)}
+        >
+          {p.lumieres.map((id) => (
+            <Lumiere
+              key={id}
+              id={id}
+              entite={entities[id]}
+              faute={fautes[id]}
+              onToggle={() => agir(id, () => toggleLight(id))}
+              onRegler={(r) => agir(id, () => setLight(id, r))}
+            />
+          ))}
+        </CartePiece>
+      ))}
 
       <Climat />
 
-      {LIGHTS.map((id) => (
-        <Lumiere
-          key={id}
-          id={id}
-          entite={entities[id]}
-          faute={fautes[id]}
-          onToggle={() => agir(id, () => toggleLight(id))}
-          onRegler={(r) => agir(id, () => setLight(id, r))}
-        />
-      ))}
-
-      <Etiquette>Appareils</Etiquette>
-      <Carte>
-        {DEVICES.map((d) => {
-          const e = entities[d.id];
-          return (
-            <div className="ent" key={d.id}>
-              <div>
-                <code>{d.id}</code>
-                <small>{d.label}</small>
-              </div>
-              {e ? <Pastille etat={e.state === "off" ? "todo" : "ok"}>{etatLisible(e.state)}</Pastille>
-                 : <Pastille etat="miss">absente</Pastille>}
-            </div>
-          );
-        })}
-      </Carte>
+      {DEVICES.length > 0 && (
+        <>
+          <Etiquette>Appareils</Etiquette>
+          <Carte>
+            {DEVICES.map((d) => {
+              const e = entities[d.id];
+              return (
+                <div className="ent" key={d.id}>
+                  <div>
+                    <code>{d.id}</code>
+                    <small>{d.label}</small>
+                  </div>
+                  {e ? <Pastille etat={e.state === "off" ? "todo" : "ok"}>{etatLisible(e.state)}</Pastille>
+                     : <Pastille etat="miss">absente</Pastille>}
+                </div>
+              );
+            })}
+          </Carte>
+        </>
+      )}
     </>
+  );
+}
+
+// Une pièce : son nom et ce qui y est allumé, son interrupteur toujours à
+// portée de pouce, ses scènes en puces, et ses lampes une fois dépliée.
+function CartePiece({ piece, ouverte, surOuvrir, children }: {
+  piece: Piece;
+  ouverte: boolean;
+  surOuvrir: () => void;
+  children: ReactNode;
+}) {
+  const { entities, fautes, agir } = useMaison();
+  const nb = piece.lumieres.filter((id) => allumee(entities, id)).length;
+  const on = nb > 0;
+  const cle = `piece.${piece.id}`;
+  const temperature = piece.temperature ? mesure(entities[piece.temperature]?.state, 1) : null;
+  const meta = [
+    piece.lumieres.length === 0 ? "aucune lampe" : nb === 0 ? `${piece.lumieres.length} éteinte${piece.lumieres.length > 1 ? "s" : ""}` : `${nb} allumée${nb > 1 ? "s" : ""} sur ${piece.lumieres.length}`,
+    temperature && temperature !== "—" ? `${temperature} °C` : null,
+  ].filter(Boolean).join(" · ");
+  // Une teinte au liseré : celle de la première lampe allumée qui en a une.
+  const teinte = piece.lumieres.map((id) => entities[id]).find((e) => e?.state === "on" && e.attributes.rgb_color);
+  const style = teinte ? ({ "--room-hue": css(teinte.attributes.rgb_color) } as CSSProperties) : undefined;
+  const corps = `piece-${piece.id}`;
+
+  return (
+    <div className="piece">
+      <Carte lit={on} faute={!!fautes[cle]} style={style}>
+        <div className="row">
+          <button className="piece-tete" aria-expanded={ouverte} aria-controls={corps} onClick={surOuvrir}
+                  disabled={piece.lumieres.length === 0}>
+            <span className="depli-texte">
+              <span className="row-name">{piece.nom}</span>
+              <span className="row-meta">{meta}</span>
+            </span>
+            {piece.lumieres.length > 0 && (
+              <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            )}
+          </button>
+          <Interrupteur
+            on={on}
+            label={`Lumières · ${piece.nom}`}
+            disabled={piece.lumieres.length === 0}
+            onClick={() => agir(cle, () => setLights(piece.lumieres, !on))}
+          />
+        </div>
+        {piece.scenes.length > 0 && (
+          <div className="chips">
+            {piece.scenes.map((s) => (
+              <button key={s} className="chip" onClick={() => agir(cle, () => activateScene(s))}>
+                {entities[s]?.attributes.friendly_name ?? s}
+              </button>
+            ))}
+          </div>
+        )}
+        <NoteFaute entite={piece.nom} message={fautes[cle]} />
+      </Carte>
+      {ouverte && piece.lumieres.length > 0 && (
+        <div className="piece-corps" id={corps}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -75,13 +211,13 @@ function Climat() {
   const absents = [t, h].filter((e) => !e).length;
   return (
     <>
-      <Etiquette>Climat</Etiquette>
+      <Etiquette>Climat · chambre</Etiquette>
       <Carte>
         <div className="climat">
           <div className="climat-val">
             <b className="tnum">{mesure(t?.state, 1)}</b>
             <small>°C</small>
-            <span>intérieur</span>
+            <span>chambre</span>
           </div>
           <div className="climat-val">
             <b className="tnum">{mesure(h?.state, 0)}</b>

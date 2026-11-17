@@ -12,6 +12,7 @@ import {
 } from "../ambiances";
 import { Carte, Curseur, Etiquette, LigneEtat, NoteFaute, OptionsPlaylists, Question } from "../ui";
 import { Lumiere } from "./Pieces";
+import { estLampe, usePieces } from "../pieces";
 import { RecherchePlaylist } from "./Recherche";
 
 const lisible = (s: string | undefined) => (s === undefined || s === "unknown" || s === "unavailable" ? "" : s);
@@ -90,6 +91,22 @@ export function Edition({ id, nouvelle = false }: { id: string; nouvelle?: boole
   const [dit, setDit] = useState<{ ok: boolean; texte: string } | null>(null);
   const [aSupprimer, setASupprimer] = useState(false);
 
+  // LES PIÈCES DE L'AMBIANCE. Depuis le déménagement de novembre 2026, une
+  // ambiance peut éclairer plus que la chambre. Elle part des pièces que sa
+  // scène connaît déjà — l'attribut entity_id de la scène —, la chambre pour
+  // une neuve ; les puces en ajoutent ou en retirent.
+  const pieces = usePieces(entities);
+  const dansScene: string[] = (scene && entities[scene]?.attributes.entity_id) || [];
+  const [choisies, setChoisies] = useState<string[] | null>(null);
+  const deLaScene = pieces.filter((p) => p.lumieres.some((l) => dansScene.includes(l))).map((p) => p.id);
+  const actives = choisies ?? (creation || deLaScene.length === 0 ? ["bedroom"] : deLaScene);
+  const basculerPiece = (id: string) =>
+    setChoisies(actives.includes(id) ? actives.filter((x) => x !== id) : [...actives, id]);
+  // Tant que les zones ne sont pas lues, la chambre telle que config.ts la
+  // connaît : l'écran n'est jamais vide.
+  const lues = pieces.length > 0;
+  const lampes = lues ? pieces.filter((p) => actives.includes(p.id)).flatMap((p) => p.lumieres) : LIGHTS;
+
   if (!creation && !a) return <p className="row-meta">Cette ambiance n'existe plus.</p>;
   if (!creation && !a?.scene) return <p className="row-meta">Cette ambiance ne se modifie pas.</p>;
 
@@ -109,7 +126,10 @@ export function Edition({ id, nouvelle = false }: { id: string; nouvelle?: boole
     setEnvoi(true);
     setDit(null);
     try {
-      const lumieres = scenePourLumieres(LIGHTS, entities);
+      if (lampes.length === 0) throw new Error("choisis au moins une pièce avec des lampes");
+      const lumieres = scenePourLumieres(lampes, entities);
+      // Une pièce retirée sort de la scène : ses lampes seules, rien d'autre.
+      const retirer = lues ? dansScene.filter((l) => estLampe(l) && !lampes.includes(l)) : [];
       if (place) {
         const n = nom.trim();
         if (!n) throw new Error("donne-lui un nom d'abord");
@@ -126,7 +146,7 @@ export function Edition({ id, nouvelle = false }: { id: string; nouvelle?: boole
         if (texte.length > 255) throw new Error("trop long pour Home Assistant : raccourcis le nom");
         // La scène d'abord : une place remplie sans scène serait une tuile
         // qui ne change pas la lumière.
-        await enregistrerScene(place.scene, n, lumieres, true);
+        await enregistrerScene(place.scene, n, lumieres, true, retirer);
         await setText(place.texte, texte);
         if (creation) {
           fermer();
@@ -134,7 +154,7 @@ export function Edition({ id, nouvelle = false }: { id: string; nouvelle?: boole
         }
         setDit({ ok: true, texte: `${n} : enregistrée` });
       } else if (a?.scene) {
-        await enregistrerScene(a.scene, a.label, lumieres);
+        await enregistrerScene(a.scene, a.label, lumieres, false, retirer);
         if (musiqueChangee && a.musique && choix !== null) await setText(a.musique, choix);
         if (volumeChange && a.volume && volume !== null) await setNumber(a.volume, volume);
         const quoi = ["lumières", musiqueChangee && "musique", volumeChange && "volume"].filter(Boolean).join(", ");
@@ -213,18 +233,34 @@ export function Edition({ id, nouvelle = false }: { id: string; nouvelle?: boole
         </>
       )}
 
-      <Etiquette>Lumières</Etiquette>
-      {creation && <p className="astuce">Elles partent de la pièce telle qu'elle est : règle-les à l'œil.</p>}
-      {LIGHTS.map((l) => (
-        <Lumiere
-          key={l}
-          id={l}
-          entite={entities[l]}
-          faute={fautes[l]}
-          onToggle={() => agir(l, () => toggleLight(l))}
-          onRegler={(r) => agir(l, () => setLight(l, r))}
-        />
-      ))}
+      <Etiquette>Pièces de l'ambiance</Etiquette>
+      {lues && (
+        <div className="chips" role="group" aria-label="Pièces de l'ambiance">
+          {pieces.filter((p) => p.lumieres.length > 0).map((p) => (
+            <button key={p.id} className="chip" aria-pressed={actives.includes(p.id)} onClick={() => basculerPiece(p.id)}>
+              {p.nom}
+            </button>
+          ))}
+        </div>
+      )}
+      {creation && <p className="astuce">Elles partent des pièces telles qu'elles sont : règle-les à l'œil.</p>}
+      {lues && lampes.length === 0 && <p className="astuce">Choisis au moins une pièce.</p>}
+      {(lues ? pieces.filter((p) => actives.includes(p.id) && p.lumieres.length > 0) : [{ id: "bedroom", nom: "Chambre", lumieres: LIGHTS }])
+        .map((p) => (
+          <div className="piece" key={p.id}>
+            <p className="ambiance-piece">{p.nom}</p>
+            {p.lumieres.map((l) => (
+              <Lumiere
+                key={l}
+                id={l}
+                entite={entities[l]}
+                faute={fautes[l]}
+                onToggle={() => agir(l, () => toggleLight(l))}
+                onRegler={(r) => agir(l, () => setLight(l, r))}
+              />
+            ))}
+          </div>
+        ))}
 
       <Etiquette>Musique et volume</Etiquette>
       <Carte faute={!!fautes[PLAYER]}>
