@@ -50,8 +50,16 @@ script: !include casa/scripts.yaml
 # recopier en sens inverse et la committer.
 scene: !include scenes.yaml
 
-# Pas d'`automation:` ici, et pas d'automations.yaml dans le dépôt : il n'y
-# aura pas de bouton mural. Les seules automatisations sont celles des
-# packages — le réveil et la météo — que `packages:` charge déjà ci-dessus.
-# Celles créées à la souris vivent dans le .storage/ de Home Assistant et ne
-# demandent aucun include.
+# --- les automatisations créées à la souris ---
+# L'éditeur de Home Assistant les écrit dans /config/automations.yaml, et
+# Home Assistant ne les CHARGE que par cet include. Ce fichier-ci disait
+# autrefois qu'elles vivaient dans .storage/ et n'en demandaient aucun :
+# c'était faux. Recopié sur le Pi le 17 novembre 2026, il a fait disparaître
+# en silence les automatisations du salon et du variateur Hue, restées
+# « injoignables » — le fichier intact, simplement plus lu.
+#
+# Même partage que les scènes : `automations.yaml` sans préfixe est le
+# fichier de Home Assistant, pas du dépôt. Celles du dépôt (réveil, météo,
+# aération, plafond du son) arrivent par `packages:`, et les deux listes
+# se fusionnent.
+automation: !include automations.yaml
