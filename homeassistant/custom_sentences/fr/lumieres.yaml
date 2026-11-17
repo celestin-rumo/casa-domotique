@@ -5,7 +5,7 @@
 #
 #   allumer, éteindre          « éteins les lumières », « allume la chambre »
 #   une luminosité ABSOLUE     « règle la luminosité à 50 pourcent »
-#   une COULEUR                « allume Led droite en rouge »
+#   une COULEUR                « allume le bandeau en rouge »
 #                              « règle les lumières en bleu »
 #
 # Les redéclarer créerait deux intents candidats pour une même phrase, et
@@ -84,7 +84,7 @@ intents:
   Tamise:
     data:
       - sentences:
-          - "(tamise|tamiser) [la lumière|la chambre]"
+          - "(tamise|tamiser) [la lumière|la pièce]"
           - "(mets|mettre) en (veilleuse|tamisé)"
           - "(tamise|tamiser) {casa_lampe}"
           - "{casa_lampe} (tamisé|tamisée|tamisés|tamisées)"
@@ -114,39 +114,33 @@ intents:
         slots:
           casa_pourcent: 100
 
-  # « Les lampes de la chambre » = les deux LED, et elles seules.
+  # « Les lampes » = les lampes de la pièce du satellite qui a entendu
+  # (packages/lumieres.yaml), sans l'anneau lumineux du Voice PE que l'ordre
+  # intégré emporterait avec la zone.
   #
-  # Home Assistant lit déjà cette phrase, mais comme un ordre sur toute la
-  # ZONE : « éteins les lampes de la chambre » emporte aujourd'hui le bandeau,
-  # la lampe de chevet et jusqu'à l'anneau lumineux du Voice PE. Ces deux
-  # intents détournent la phrase vers le groupe `light.lampes_chambre`.
+  # Pas de « de la chambre » : dit au salon, « éteins les lampes » vise le
+  # salon. Pour une AUTRE pièce, l'ordre intégré s'en charge déjà :
+  # « éteins la cuisine », « allume les lumières du couloir ». Et ces phrases
+  # ne mangent pas la couleur : « allume les lampes en rouge » ne correspond à
+  # aucune d'elles, puisque hassil exige que la phrase entière soit couverte,
+  # et part donc vers CouleurLampe.
   #
-  # Le suffixe est facultatif : il n'y a qu'une pièce, « éteins les lampes »
-  # veut dire la même chose. Et ces phrases ne mangent pas la couleur :
-  # « allume les lampes en rouge » ne correspond à aucune d'elles, puisque
-  # hassil exige que la phrase entière soit couverte, et part donc vers
-  # CouleurLampe.
-  #
-  # « LED » seul veut dire les deux, comme dans casa_lampe. Sans ces
-  # tournures, « allume led » n'était ni appris par le micro
-  # (stt-no-text-recognized, constaté le 9 octobre 2026) ni compris au
-  # clavier : l'ordre intégré cherchait une lampe nommée « led ».
-  LampesChambreOff:
+  # Les deux LED WiZ, et les tournures « allume led », sont parties avec le
+  # déménagement de novembre 2026.
+  LampesOff:
     data:
       - sentences:
-          - "(éteins|éteindre|coupe|couper) les lampes [de la chambre]"
-          - "(éteins|éteindre|coupe|couper) [les] (led|leds)"
+          - "(éteins|éteindre|coupe|couper) les lampes"
 
-  LampesChambreOn:
+  LampesOn:
     data:
       - sentences:
-          - "(allume|allumer) les lampes [de la chambre]"
-          - "(allume|allumer) [les] (led|leds)"
+          - "(allume|allumer) les lampes"
 
-  # « Allume tout » : les quatre lampes de la chambre. Le pendant de « tout
+  # « Allume tout » : les lampes de la pièce. Le pendant de « tout
   # éteindre », moins la musique : allumer ne relance rien. Pas l'anneau du
-  # Voice PE, qui n'est pas une lampe. Même constat que pour « allume led » :
-  # le micro ne l'avait pas appris, et l'ordre intégré n'y voyait aucune cible.
+  # Voice PE, qui n'est pas une lampe. Le micro ne l'avait pas appris, et
+  # l'ordre intégré n'y voyait aucune cible (constaté le 9 octobre 2026).
   AllumerTout:
     data:
       - sentences:
@@ -178,8 +172,8 @@ intents:
           # « bandeau rouge », « lampes en bleu ».
           - "[le|la|l'] {casa_lampe} [en] {casa_couleur}"
 
-  # « Lumière 60 » : toute la chambre à ce pourcentage, sans nommer de
-  # lampe. Ce qui est allumé y va ; la chambre noire, les quatre lampes
+  # « Lumière 60 » : toute la pièce à ce pourcentage, sans nommer de
+  # lampe. Ce qui est allumé y va ; la pièce noire, toutes ses lampes
   # s'allument à ce niveau (packages/lumieres.yaml).
   LumiereNiveau:
     data:
@@ -198,24 +192,74 @@ intents:
       - sentences:
           - "[le|la|l'] {casa_lampe} {casa_etat}"
 
+  # UNE PIÈCE NOMMÉE : « éteins lampes cuisine », « allume les lumières du
+  # salon », « lampe rose chambre ». La pièce dite l'emporte sur celle du
+  # satellite, et ces ordres marchent donc depuis n'importe quel Voice PE.
+  #
+  # Pourquoi pas l'ordre intégré, qui connaît les zones : parce que le micro
+  # n'apprend que leur nom ENTIER — « Salle de bain principale » — et ni
+  # « douche » ni « lampes cuisine » sans article. casa_piece porte les mots
+  # qu'on dit vraiment ; packages/lumieres.yaml les traduit en zones.
+  #
+  # « lampe » au singulier n'entre que dans la tournure couleur-puis-pièce
+  # (« lampe rose chambre ») : partout ailleurs, « lampe chambre » est la
+  # lampe de chevet seule (casa_lampe), et les deux lectures se battraient.
+  PieceEteindre:
+    data:
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
+          - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} {casa_etat_off}"
+
+  PieceAllumer:
+    data:
+      - sentences:
+          - "(allume|allumer) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
+          - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} (allumées|allumé|on)"
+      # « Lampes salon 50 », « mets les lumières de la cuisine à 30 pourcent ».
+      - sentences:
+          - "[(mets|mettre|passe|passer|allume|règle)] [les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} [à] {casa_pourcent} [pourcent|pour cent]"
+
+  PieceCouleur:
+    data:
+      - sentences:
+          - "(mets|mettre|passe|passer|allume|allumer) [les|la] (lampes|lumières|lumière) [de|du|de la|dans|dans la|dans le] {casa_piece} [en] {casa_couleur}"
+          - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} [en] {casa_couleur}"
+          # La couleur avant la pièce : « lampe rose chambre ».
+          - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampe|lampes|lumière|lumières) [en] {casa_couleur} [(dans|à|de|du|de la|dans la|dans le)] [la|le] {casa_piece}"
+
 lists:
+  # out en français, relu par Home Assistant après le micro ; la traduction
+  # en zone vit dans packages/lumieres.yaml. « douche » et « bain » : il n'y a
+  # qu'une salle de bain.
+  casa_piece:
+    values:
+      - in: "cuisine"
+        out: "cuisine"
+      - in: "salon"
+        out: "salon"
+      - in: "chambre"
+        out: "chambre"
+      - in: "(salle de bain|salle de bains|douche|bain)"
+        out: "salle de bain"
+      - in: "bureau"
+        out: "bureau"
+      - in: "couloir"
+        out: "couloir"
+
+  casa_etat_off:
+    values:
+      - in: "(éteintes|éteint|éteints|off)"
+        out: "éteint"
+
   casa_lampe:
     values:
       - in: "(bandeau|flux gradient|gradient)"
         out: "bandeau"
-      - in: "led droite"
-        out: "led droite"
-      - in: "led gauche"
-        out: "led gauche"
       - in: "(lampe chambre|lampe de la chambre)"
         out: "lampe chambre"
-      # Le groupe des deux LED, pour « mets les lampes en rouge ».
-      - in: "(les lampes|lampes) [de la chambre]"
-        out: "les lampes"
-      # « LED » sans côté : les deux, donc le même groupe. « led droite » et
-      # « led gauche » gardent chacune la sienne — hassil prend la phrase
-      # entière, et « droite » ne se rattache à rien d'autre.
-      - in: "(led|leds|les led|les leds)"
+      # Les lampes de la pièce du satellite, pour « mets les lampes en
+      # rouge ».
+      - in: "(les lampes|lampes)"
         out: "les lampes"
   # Les pourcentages dicibles. Par pas de 5, comme la liste de Home
   # Assistant : à l'oral on ne demande pas 43 %. Elle commence à 5, donc

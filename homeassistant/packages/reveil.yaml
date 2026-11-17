@@ -601,10 +601,13 @@ script:
       sens: coucher
       source_lumieres: input_text.coucher_lumieres
       source_courbe: input_text.coucher_courbe
-      # Rien de choisi : les lampes allumées maintenant, jusqu'au bout.
+      # Rien de choisi : les lampes de la chambre allumées maintenant, jusqu'au
+      # bout. Celles de la zone, pas une liste : l'anneau du Voice PE, rangé
+      # dans la même zone, n'est pas une lampe et reste hors de la courbe.
       lampes_defaut: >-
         {%- set ns = namespace(l=[]) -%}
-        {%- for e in expand('light.chambre', 'light.chambre_bandeau', 'light.chambre_wiz_1', 'light.chambre_wiz_2')
+        {%- for e in expand(area_entities('bedroom') | select('match', 'light[.]')
+                              | reject('search', '_led_ring$') | list)
               if e.state == 'on' -%}
           {%- set ns.l = ns.l + [{'id': e.entity_id, 'p': 0}] -%}
         {%- endfor -%}

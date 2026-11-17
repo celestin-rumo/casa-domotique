@@ -3,10 +3,12 @@
 // `what` est la ligne sous le nom de la tuile : ce que fait l'ambiance, en
 // quelques mots. Elle décrit scenes.yaml et scripts.yaml sans les lire ;
 // si une scène change, c'est ici qu'on met la phrase à jour.
-// UNE SEULE PIÈCE : LA CHAMBRE. C'est le seul endroit équipé, et l'app est
-// écrite comme s'il n'y en avait pas d'autre. Les pièces supplémentaires et
-// l'ambiance Cinéma reviendront avec les ampoules et la TV — la version qui
-// les porte est dans l'historique git, commit ccb9f08 et avant.
+// LES AMBIANCES SONT CELLES DE LA CHAMBRE. Depuis le déménagement de novembre
+// 2026, la maison a d'autres pièces (salon, cuisine, couloir, salle de bain),
+// chacune avec ses scènes, réglées dans Home Assistant ; elles se commandent
+// à la voix depuis le Voice PE de leur pièce, pas depuis cette app. L'ancienne
+// version multi-pièces et l'ambiance Cinéma sont dans l'historique git,
+// commit ccb9f08 et avant.
 //
 // `scene` est l'identifiant de la scène que l'ambiance allume — le champ
 // `id:` de scenes.yaml, pas l'entity_id. Il sert à l'enregistrement depuis
@@ -45,22 +47,23 @@ export const PERSO_PLACES = 6;
 // Le plafond de la WiiM (packages/son.yaml) : rien ne le dépasse.
 export const VOLUME_MAX = "input_number.volume_max";
 
-// L'enceinte de référence : celle dont l'app affiche la lecture. Elle était
-// aussi le chef du groupe quand d'autres pièces écoutaient ; avec une seule
-// enceinte, il n'y a plus de groupe, et Écoute n'affiche qu'une puce figée.
+// L'enceinte de référence : celle dont l'app affiche la lecture, et le chef
+// du groupe quand le salon écoute aussi. La WiiM de la chambre : sur le Pi,
+// les entity_id des deux WiiM ont été échangés le 17 novembre 2026, et
+// `ma_chambre` désigne de nouveau la chambre.
 export const PLAYER = "media_player.ma_chambre";
 
 // Les enceintes Music Assistant, une par pièce. Le libellé sert aux puces
 // d'Écoute ; l'entité, elle, dit si la pièce existe vraiment.
 export const PLAYERS = [
   { id: "media_player.ma_chambre", label: "Chambre" },
+  { id: "media_player.ma_salon", label: "Salon" },
 ];
 
-// L'ordre de l'écran Pièces : la lampe, le bandeau, puis les deux WiZ.
-// Les WiZ ne savent pas les transitions — leur supported_features n'a pas
-// le bit 32, là où les Hue l'ont — : elles sautent d'un réglage à l'autre
-// quand les Hue fondent.
-export const LIGHTS = ["light.chambre", "light.chambre_bandeau", "light.chambre_wiz_1", "light.chambre_wiz_2"];
+// Les lumières de la chambre, dans l'ordre de l'écran Pièces : la lampe,
+// puis le bandeau. Ce sont elles que les ambiances enregistrent. Les deux
+// ampoules WiZ sont parties avec le déménagement.
+export const LIGHTS = ["light.chambre", "light.chambre_bandeau"];
 
 // Le climat, en tête de l'écran Pièces : le capteur de la pièce, renommé
 // ainsi sur le Pi, et la température dehors telle que MétéoSuisse la donne

@@ -17,8 +17,8 @@ import {
 const MAX_POINTS = 12;
 
 // Une lumière du lever, et le moment où elle entre, en pourcentage du lever.
-// Le texte de input_text.reveil_lumieres : « light.chambre,light.chambre_wiz_1@26 »
-// — la lampe dès le début, la WiZ à 26 %, puis les deux sur la même courbe.
+// Le texte de input_text.reveil_lumieres : « light.chambre,light.chambre_bandeau@26 »
+// — la lampe dès le début, le bandeau à 26 %, puis les deux sur la même courbe.
 // Sans @, dès le début. Le Pi (packages/reveil.yaml) lit le texte de la
 // même façon.
 export type Lampe = { id: string; p: number };

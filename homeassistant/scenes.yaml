@@ -66,5 +66,3 @@
   entities:
     light.chambre: { state: "on", brightness: 230, color_temp_kelvin: 4000 }
     light.chambre_bandeau: { state: "on", brightness: 180, color_temp_kelvin: 4000 }
-    light.chambre_wiz_1: { state: "on", brightness: 200, color_temp_kelvin: 4000 }
-    light.chambre_wiz_2: { state: "on", brightness: 200, color_temp_kelvin: 4000 }

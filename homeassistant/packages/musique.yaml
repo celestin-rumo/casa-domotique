@@ -3,11 +3,26 @@
 # Speech-to-Phrase ne sait pas transcrire « éteins la musique », alors que
 # Home Assistant saurait la comprendre.
 #
-# Ces intents visent `media_player.ma_chambre` en toutes lettres, comme tous
-# les scripts du dépôt. Ce n'est pas un oubli de la pièce courante : il n'y a
-# qu'une enceinte qui joue de la musique dans cette maison, et viser la zone
-# du satellite ferait dépendre l'ordre de l'endroit où l'on parle, alors que
-# la musique, elle, ne bouge pas.
+# CHAQUE PIÈCE A SON ENCEINTE. Depuis le déménagement de novembre 2026, il y a
+# une WiiM et un Voice PE dans la chambre, une WiiM et un Voice PE dans le
+# salon. « Arrête la musique » vise l'enceinte de la pièce du satellite qui a
+# entendu : Home Assistant passe sa zone dans le slot `preferred_area_id`
+# (voir packages/lumieres.yaml). Sans satellite — l'app, le clavier —, c'est
+# la chambre.
+#
+# La table est répétée dans chaque intent, à l'identique :
+#
+#     {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
+#                                                  'media_player.ma_chambre')
+#
+# Une pièce absente de la table retombe sur la chambre. Une enceinte ajoutée
+# ailleurs s'y ajoute, dans les quatre intents.
+#
+# Les entity_id viennent de Music Assistant, renommés sur le Pi le 17
+# novembre 2026 : `media_player.ma_chambre` est la WiiM de la chambre (avant
+# le déménagement, ce nom désignait celle qui est aujourd'hui au salon) et
+# `media_player.ma_salon` celle du salon. Le renommage vit dans le registre de
+# Home Assistant, pas dans le dépôt : une installation neuve doit le refaire.
 #
 # « Éteindre » fait une PAUSE, pas un arrêt. Le résultat est le même pour
 # l'oreille, mais la file de lecture survit, et « remets la musique » reprend
@@ -20,46 +35,58 @@
 intent_script:
   ArreterMusique:
     action:
+      - variables:
+          e: >-
+            {{ {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
+                                                           'media_player.ma_chambre') }}
       - if:
           - condition: template
-            value_template: >-
-              {{ states('media_player.ma_chambre') not in ['unknown', 'unavailable'] }}
+            value_template: "{{ states(e) not in ['unknown', 'unavailable'] }}"
         then:
           - service: media_player.media_pause
-            target: { entity_id: media_player.ma_chambre }
+            target: { entity_id: "{{ e }}" }
     speech:
       text: >-
-        {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
+        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
+        {%- if states(e) in ['unknown', 'unavailable'] -%}
           L'enceinte ne répond pas.
         {%- endif -%}
 
   ReprendreMusique:
     action:
+      - variables:
+          e: >-
+            {{ {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
+                                                           'media_player.ma_chambre') }}
       - if:
           - condition: template
-            value_template: >-
-              {{ states('media_player.ma_chambre') not in ['unknown', 'unavailable'] }}
+            value_template: "{{ states(e) not in ['unknown', 'unavailable'] }}"
         then:
           - service: media_player.media_play
-            target: { entity_id: media_player.ma_chambre }
+            target: { entity_id: "{{ e }}" }
     speech:
       text: >-
-        {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
+        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
+        {%- if states(e) in ['unknown', 'unavailable'] -%}
           L'enceinte ne répond pas.
         {%- endif -%}
 
   MusiqueSuivante:
     action:
+      - variables:
+          e: >-
+            {{ {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
+                                                           'media_player.ma_chambre') }}
       - if:
           - condition: template
-            value_template: >-
-              {{ states('media_player.ma_chambre') not in ['unknown', 'unavailable'] }}
+            value_template: "{{ states(e) not in ['unknown', 'unavailable'] }}"
         then:
           - service: media_player.media_next_track
-            target: { entity_id: media_player.ma_chambre }
+            target: { entity_id: "{{ e }}" }
     speech:
       text: >-
-        {%- if states('media_player.ma_chambre') in ['unknown', 'unavailable'] -%}
+        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
+        {%- if states(e) in ['unknown', 'unavailable'] -%}
           L'enceinte ne répond pas.
         {%- endif -%}
 
@@ -68,7 +95,7 @@ intent_script:
   QuiJoue:
     speech:
       text: >-
-        {%- set e = 'media_player.ma_chambre' -%}
+        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
         {%- set titre = state_attr(e, 'media_title') -%}
         {%- set artiste = state_attr(e, 'media_artist') -%}
         {%- if states(e) in ['unknown', 'unavailable'] -%}
@@ -78,4 +105,3 @@ intent_script:
         {%- else -%}
           C'est {{ titre }}{{ ', de ' ~ artiste if artiste else '' }}.
         {%- endif -%}
-

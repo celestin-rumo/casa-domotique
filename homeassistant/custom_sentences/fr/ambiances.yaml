@@ -13,12 +13,15 @@ intents:
   LancerAmbiance:
     data:
       - sentences:
-          - "(mets|lance|passe|passe en|active) [le mode|l'ambiance|mode|ambiance] {casa_ambiance}"
-          - "[le ]mode {casa_ambiance}"
-          - "ambiance {casa_ambiance}"
+          # « dans la chambre » est accepté et ne change rien : les ambiances
+          # sont celles de la chambre, d'où qu'on les lance (novembre 2026).
+          - "(mets|lance|passe|passe en|active) [le mode|l'ambiance|mode|ambiance] {casa_ambiance} [(dans|à|de) [la] chambre]"
+          - "[le ]mode {casa_ambiance} [(dans|à|de) [la] chambre]"
+          - "ambiance {casa_ambiance} [(dans|à|de) [la] chambre]"
       # Les tournures qui sont une ambiance à elles seules.
       - sentences:
           - "{casa_ambiance}"
+          - "{casa_ambiance} (dans|à) [la] chambre"
 
 lists:
   casa_ambiance:
