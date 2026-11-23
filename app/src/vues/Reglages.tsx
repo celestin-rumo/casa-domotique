@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMaison } from "../maison";
-import { HOTE, enregistrerScene, latence, scenePourLumieres, setNumber } from "../ha";
+import { AVEC_SESSION, HOTE, deconnecter, enregistrerScene, latence, scenePourLumieres, setNumber } from "../ha";
 import {
   LIGHTS, MOODS, PLAYER, PLAYERS, DEVICES, PLAYLIST_SELECT, MOOD_SELECT, REVEIL, REVEILLE, CLIMAT, VOLUME_MAX, COUCHER,
 } from "../config";
@@ -106,13 +106,23 @@ export function Reglages() {
             {liaison === "ok" ? "en ligne" : liaison === "perdu" ? "reconnexion" : liaison === "erreur" ? "hors ligne" : "…"}
           </Pastille>
         </div>
-        <div className="row">
-          <div>
-            <div className="row-name">Jeton</div>
-            <div className="row-meta">longue durée · dans le build</div>
+        {AVEC_SESSION ? (
+          <div className="row">
+            <div>
+              <div className="row-name">Session</div>
+              <div className="row-meta">connecté par Home Assistant · gardée sur cet appareil</div>
+            </div>
+            <button className="btn" onClick={() => deconnecter()}>Se déconnecter</button>
           </div>
-          <Pastille etat="todo">privé</Pastille>
-        </div>
+        ) : (
+          <div className="row">
+            <div>
+              <div className="row-name">Jeton</div>
+              <div className="row-meta">longue durée · dans le build de développement</div>
+            </div>
+            <Pastille etat="todo">privé</Pastille>
+          </div>
+        )}
       </Depliable>
       <Depliable
         id="entites"

@@ -36,8 +36,19 @@ pi=${pi:-$hote}
 moi=$(ip -4 route get "$pi" | grep -oP 'src \K[0-9.]+') || { echo "Pas de route vers le Pi ($pi)."; exit 1; }
 
 # 2. Construire, et marquer la version.
-echo "== construction de l'app, pour $url"
-npm run build --silent
+# SANS jeton ni URL : l'app du Pi se connecte par la page de Home Assistant
+# et vise l'adresse par laquelle on l'ouvre (src/ha.ts). Un jeton gravé dans
+# le bundle se lirait dans /local/, que Home Assistant sert sans mot de passe
+# — inacceptable dès que le Pi est joignable depuis Internet. Les variables
+# déjà présentes dans l'environnement l'emportent sur .env : vides, elles
+# l'effacent.
+echo "== construction de l'app, sans jeton, pour $url et toute autre adresse du Pi"
+VITE_HA_TOKEN= VITE_HA_URL= npm run build --silent
+jeton=$(grep -E '^VITE_HA_TOKEN=' .env | cut -d= -f2-)
+if [ -n "$jeton" ] && grep -rqF "${jeton:0:20}" dist; then
+  echo "Le jeton se trouve encore dans dist/ : rien n'est déployé."
+  exit 1
+fi
 version=$(git -C "$RACINE" rev-parse --short HEAD)
 git -C "$RACINE" diff --quiet HEAD -- app || version="$version+modifs"
 echo "$version" > dist/version.txt

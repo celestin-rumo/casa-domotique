@@ -1,15 +1,90 @@
 import {
   createConnection,
   createLongLivedTokenAuth,
+  getAuth,
   subscribeEntities,
   callService,
   ERR_CONNECTION_LOST,
+  ERR_INVALID_AUTH,
+  type Auth,
+  type AuthData,
   type Connection,
   type HassEntities,
 } from "home-assistant-js-websocket";
 
-export const HA_URL = import.meta.env.VITE_HA_URL as string;
-const TOKEN = import.meta.env.VITE_HA_TOKEN as string;
+// DEUX FAÇONS DE S'AUTHENTIFIER.
+//
+// - Avec un jeton (VITE_HA_TOKEN) : le développement sur le portable, où
+//   l'app vit sur localhost:5173 et parle au Pi de loin.
+// - Sans jeton : l'app servie par le Pi lui-même (dev/deployer-app.sh la
+//   construit SANS jeton). Elle passe par la page de connexion de Home
+//   Assistant, comme son app officielle, et garde la session sur l'appareil.
+//
+// Pourquoi : un jeton gravé dans le bundle se lit dans les fichiers servis,
+// et Home Assistant sert /local/ SANS demander de mot de passe. Tant que le
+// Pi n'était joignable que de la maison, c'était un risque contenu ; dès
+// qu'il l'est depuis Internet (maison.celestinrumo.ch, novembre 2026),
+// n'importe qui aurait lu un jeton qui commande toute la maison.
+const TOKEN = (import.meta.env.VITE_HA_TOKEN as string | undefined)?.trim() || "";
+
+// Sans URL donnée, la maison est l'adresse par laquelle on a ouvert l'app :
+// 192.168.1.142 à la maison, maison.celestinrumo.ch dehors — la même app.
+export const HA_URL = ((import.meta.env.VITE_HA_URL as string | undefined)?.trim() || window.location.origin)
+  .replace(/\/$/, "");
+
+// La session de connexion, gardée sur l'appareil. Le stockage peut manquer
+// (navigation privée) : il faudra alors se reconnecter à chaque ouverture.
+const CLE_SESSION = "casa.ha.session";
+function garderSession(data: AuthData | null) {
+  try {
+    if (data) localStorage.setItem(CLE_SESSION, JSON.stringify(data));
+    else localStorage.removeItem(CLE_SESSION);
+  } catch { /* rien à garder */ }
+}
+async function lireSession(): Promise<AuthData | null> {
+  try {
+    const brut = localStorage.getItem(CLE_SESSION);
+    return brut ? (JSON.parse(brut) as AuthData) : null;
+  } catch {
+    return null;
+  }
+}
+
+let authEnCours: Promise<Auth> | null = null;
+function authentifier(): Promise<Auth> {
+  if (!authEnCours) {
+    authEnCours = TOKEN
+      ? Promise.resolve(createLongLivedTokenAuth(HA_URL, TOKEN))
+      : getAuth({ hassUrl: HA_URL, saveTokens: garderSession, loadTokens: lireSession }).then((auth) => {
+          // Au retour de la page de connexion, l'adresse porte le code reçu :
+          // on l'efface, pour qu'un rechargement ne le rejoue pas.
+          if (location.search.includes("auth_callback")) {
+            history.replaceState(null, "", location.pathname);
+          }
+          return auth;
+        });
+    authEnCours.catch(() => (authEnCours = null));
+  }
+  return authEnCours;
+}
+
+// Le jeton d'accès du moment, pour les rares appels REST. Une session expire
+// toutes les trente minutes : elle se renouvelle d'elle-même ici.
+async function jetonCourant(): Promise<string> {
+  const auth = await authentifier();
+  if (auth.expired) await auth.refreshAccessToken();
+  return auth.accessToken;
+}
+
+// Se déconnecter de cet appareil (Réglages).
+export async function deconnecter() {
+  const auth = await authentifier();
+  garderSession(null);
+  if (!TOKEN) await auth.revoke().catch(() => {});
+  location.reload();
+}
+
+export const AVEC_SESSION = !TOKEN;
 
 // Ce qu'on nomme quand ça ne répond pas : l'hôte, jamais « le serveur ».
 export const HOTE = (() => {
@@ -24,8 +99,19 @@ let connection: Connection | null = null;
 
 export async function connect(): Promise<Connection> {
   if (connection) return connection;
-  const auth = createLongLivedTokenAuth(HA_URL, TOKEN);
-  connection = await createConnection({ auth });
+  const auth = await authentifier();
+  try {
+    connection = await createConnection({ auth });
+  } catch (e) {
+    // Une session révoquée — déconnectée depuis le profil de Home Assistant,
+    // ou trop ancienne — : on l'oublie et on recharge, ce qui ramène à la
+    // page de connexion au lieu d'un « injoignable » sans issue.
+    if (e === ERR_INVALID_AUTH && AVEC_SESSION) {
+      garderSession(null);
+      location.reload();
+    }
+    throw e;
+  }
   return connection;
 }
 
@@ -301,10 +387,11 @@ type ConfigScene = { id: string; name: string; entities: Record<string, unknown>
 // sur une TypeError. C'est donc là, et pas sur un code HTTP, qu'on le
 // reconnaît — avec son jumeau indiscernable, le Pi injoignable.
 async function requete(chemin: string, init: RequestInit = {}): Promise<Response> {
+  const jeton = await jetonCourant();
   try {
     return await fetch(`${HA_URL}${chemin}`, {
       ...init,
-      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json", ...init.headers },
+      headers: { Authorization: `Bearer ${jeton}`, "Content-Type": "application/json", ...init.headers },
     });
   } catch {
     throw new Error("requête bloquée — origine à déclarer dans Paramètres → Système → Réseau, ou Pi injoignable");
