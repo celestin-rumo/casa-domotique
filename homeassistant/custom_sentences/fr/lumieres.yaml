@@ -256,6 +256,22 @@ intents:
           - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampes|lumières|lumière) [en] [blanc] {casa_blanc}"
           - "{casa_piece} [en] [blanc] {casa_blanc}"
 
+  # Un palier de blanc vers le chaud ou vers le froid, sur les lampes
+  # allumées : « plus chaud », « lampes cuisine plus froides », « réchauffe
+  # le salon ».
+  PieceBlancPas:
+    data:
+      - sentences:
+          - "[(mets|mettre|passe|passer)] [les|la] [(lampe|lampes|lumière|lumières)] [de|du|de la|des|dans|dans la|dans le] [{casa_piece}] (plus|un peu plus) {casa_sens} [[(dans|à|au|de|du|de la|dans la|dans le)] [la|le] {casa_piece}]"
+      - sentences:
+          - "(réchauffe|réchauffer) [les|la] [(lampe|lampes|lumière|lumières)] [(de|du|de la|des|dans|dans la|dans le|le|la)] [{casa_piece}]"
+        slots:
+          casa_sens: "chaud"
+      - sentences:
+          - "(refroidis|refroidir) [les|la] [(lampe|lampes|lumière|lumières)] [(de|du|de la|des|dans|dans la|dans le|le|la)] [{casa_piece}]"
+        slots:
+          casa_sens: "froid"
+
 lists:
   # out en français, relu par Home Assistant après le micro ; la traduction
   # en zone vit dans packages/lumieres.yaml. La douche est sa propre zone
@@ -298,14 +314,29 @@ lists:
       - in: "couloir"
         out: "couloir"
 
+  # Les six paliers du blanc, de 20 % en 20 % : chaud, doux, neutre,
+  # clair, frais, froid (packages/lumieres.yaml).
   casa_blanc:
+    values:
+      - in: "(chaud|chaude|chauds|chaudes)"
+        out: "chaud"
+      - in: "(doux|douce|douces)"
+        out: "doux"
+      - in: "(neutre|neutres)"
+        out: "neutre"
+      - in: "(clair|claire|clairs|claires)"
+        out: "clair"
+      - in: "(frais|fraîche|fraîches|fraiche|fraiches)"
+        out: "frais"
+      - in: "(froid|froide|froids|froides)"
+        out: "froid"
+
+  casa_sens:
     values:
       - in: "(chaud|chaude|chauds|chaudes)"
         out: "chaud"
       - in: "(froid|froide|froids|froides)"
         out: "froid"
-      - in: "(neutre|neutres)"
-        out: "neutre"
 
   casa_etat_off:
     values:

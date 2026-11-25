@@ -133,6 +133,60 @@ script:
         target:
           entity_id: "{{ autres }}"
 
+  # Le blanc d'une pièce, toutes ses lampes au MÊME blanc. Une pièce mêle des
+  # Hue couleur (jusqu'à 2000 K) et des White Ambiance (2202 K au plus
+  # chaud) : chacune à son propre extrême, elles ne se ressembleraient pas.
+  # L'échelle va donc de l'extrême COMMUN chaud (le plus chaud que toutes
+  # savent faire) à l'extrême commun froid, lus dans leurs attributs, et une
+  # position de 0 à 100 % s'y place. Les lampes couleur quittent du même
+  # coup leur teinte ; la luminosité ne bouge pas.
+  #
+  # `position` : un palier absolu, et toutes les lampes s'allument.
+  # `pas` : ±20 depuis le palier le plus proche de la moyenne des lampes
+  # allumées (neutre si aucune n'est en blanc), sur elles seules.
+  #
+  # Rien que des entity_id et des nombres dans les variables : un objet
+  # d'état y deviendrait du texte, et le script ne ferait plus rien.
+  lumiere_blanc:
+    alias: Lumières · un blanc pour toute la pièce
+    icon: mdi:thermometer-lines
+    mode: restart
+    fields:
+      zone: { description: La zone, ou « maison », example: kitchen }
+      mot: { description: Le mot de la pièce, cherché aussi dans le nom des lampes, example: cuisine }
+      position: { description: Le palier, de 0 (chaud) à 100 (froid), example: 40 }
+      pas: { description: Un palier relatif, -20 plus chaud, 20 plus froid, example: -20 }
+    variables:
+      z: "{{ zone | default('bedroom') }}"
+      m: "{{ mot | default('') | trim }}"
+      toutes: >-
+        {{ (states.light | map(attribute='entity_id') | list if z == 'maison'
+            else area_entities(z) + ((states.light | map(attribute='entity_id') | select('search', m) | list) if m else []))
+           | select('match', 'light[.]') | reject('search', '_led_ring$')
+           | select('has_value') | unique | list }}
+      # Celles qui savent faire du blanc ; pour un pas, allumées seulement.
+      ids: >-
+        {{ expand(toutes) | selectattr('attributes.min_color_temp_kelvin', 'number')
+           | selectattr('state', 'in', ['on'] if pas is defined else ['on', 'off'])
+           | map(attribute='entity_id') | list }}
+      chaud: "{{ expand(ids) | map(attribute='attributes.min_color_temp_kelvin') | max | default(2700) | int }}"
+      froid: "{{ expand(ids) | map(attribute='attributes.max_color_temp_kelvin') | min | default(6500) | int }}"
+      cible_pos: >-
+        {%- if pas is defined -%}
+          {%- set k = expand(ids) | map(attribute='attributes.color_temp_kelvin') | select('number') | list -%}
+          {%- set ici = ((((k | sum / k | count) - chaud) / [froid - chaud, 1] | max * 5) | round(0) * 20) if k else 40 -%}
+          {{ [[ici + pas | int, 0] | max, 100] | min }}
+        {%- else -%}
+          {{ [[position | default(40) | int, 0] | max, 100] | min }}
+        {%- endif -%}
+    sequence:
+      - condition: template
+        value_template: "{{ ids | count > 0 and froid >= chaud }}"
+      - service: light.turn_on
+        target: { entity_id: "{{ ids }}" }
+        data:
+          color_temp_kelvin: "{{ (chaud + (froid - chaud) * cible_pos | int / 100) | round(0) | int }}"
+
 # Aucun `speech` nulle part : l'assistant ne confirme pas ce qui se voit. La
 # règle du dépôt, posée le 22 septembre 2026, vaut ici comme pour les
 # ambiances et la musique.
@@ -481,34 +535,30 @@ intent_script:
           Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
         {%- endif -%}
 
-  # « Lampe cuisine chaude » : toutes les lampes de la pièce au MÊME blanc.
-  # Une pièce mêle des Hue couleur (jusqu'à 2000 K) et des White Ambiance
-  # (2202 K au plus chaud) : chacune à son propre extrême, elles ne se
-  # ressembleraient pas. On prend donc l'extrême COMMUN — le plus chaud que
-  # toutes savent faire, ou le plus froid —, lu dans leurs attributs. Les
-  # lampes couleur quittent du même coup leur teinte. La luminosité ne bouge
-  # pas ; une lampe éteinte s'allume, puisqu'on demande de la lumière.
-  # Sans pièce dite, celle du satellite.
+  # LES BLANCS, en six paliers de 20 % entre le plus chaud et le plus froid
+  # que toutes les lampes de la pièce savent faire (script.lumiere_blanc) :
+  #
+  #     chaud 0 % · doux 20 % · neutre 40 % · clair 60 % · frais 80 % · froid 100 %
+  #
+  # « Lampe cuisine chaude », « lumières salon neutres » : toute la pièce à
+  # ce palier, lampes éteintes comprises. Sans pièce dite, celle du satellite.
   PieceBlanc:
     action:
-      - variables:
+      - service: script.lumiere_blanc
+        data:
           zone: >-
             {{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece | default(''), preferred_area_id | default('bedroom')) }}
-          mot: "{{ (casa_piece | default('')).split(' ') | last if casa_piece is defined else '-' }}"
-          cible: >-
-            {{ (states.light | map(attribute='entity_id') | list if zone == 'maison'
-                else area_entities(zone) + (states.light | map(attribute='entity_id') | select('search', mot) | list))
-               | select('match', 'light[.]') | reject('search', '_led_ring$')
-               | select('has_value') | unique | list }}
-          blancs: "{{ expand(cible) | selectattr('attributes.min_color_temp_kelvin', 'number') | list }}"
-          kelvin: >-
-            {%- set chaud = blancs | map(attribute='attributes.min_color_temp_kelvin') | max -%}
-            {%- set froid = blancs | map(attribute='attributes.max_color_temp_kelvin') | min -%}
-            {{ chaud if casa_blanc == 'chaud' else froid if casa_blanc == 'froid'
-               else [[4000, chaud] | max, froid] | min }}
-      - condition: template
-        value_template: "{{ blancs | count > 0 }}"
-      - service: light.turn_on
-        target: { entity_id: "{{ blancs | map(attribute='entity_id') | list }}" }
+          mot: "{{ (casa_piece | default('')).split(' ') | last if casa_piece is defined else '' }}"
+          position: "{{ {'chaud': 0, 'doux': 20, 'neutre': 40, 'clair': 60, 'frais': 80, 'froid': 100}.get(casa_blanc, 40) }}"
+
+  # « Plus chaud », « lampes cuisine plus froides », « réchauffe le salon » :
+  # un palier de 20 % depuis là où sont les lampes ALLUMÉES, sans en allumer
+  # d'autres — comme « augmente la lumière ».
+  PieceBlancPas:
+    action:
+      - service: script.lumiere_blanc
         data:
-          color_temp_kelvin: "{{ kelvin | int }}"
+          zone: >-
+            {{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece | default(''), preferred_area_id | default('bedroom')) }}
+          mot: "{{ (casa_piece | default('')).split(' ') | last if casa_piece is defined else '' }}"
+          pas: "{{ -20 if casa_sens == 'chaud' else 20 }}"
