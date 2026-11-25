@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useMaison } from "../maison";
 import { useNavigation } from "../navigation";
-import { LIGHTS, REVEIL, REVEILLE } from "../config";
+import { REVEIL, REVEILLE } from "../config";
+import { usePieces, type Piece } from "../pieces";
 import { runScript, setBoolean, setNumber, setSelect, setTime } from "../ha";
 import { useTexte } from "../useTexte";
 import { usePlaylists } from "../bibliotheque";
@@ -16,38 +17,52 @@ import {
 // 255 caractères pour la courbe : une douzaine de points y tiennent large.
 const MAX_POINTS = 12;
 
-// Une lumière du lever, et le moment où elle entre, en pourcentage du lever.
-// Le texte de input_text.reveil_lumieres : « light.chambre,light.chambre_bandeau@26 »
-// — la lampe dès le début, le bandeau à 26 %, puis les deux sur la même courbe.
-// Sans @, dès le début. Le Pi (packages/reveil.yaml) lit le texte de la
-// même façon.
-export type Lampe = { id: string; p: number };
+// Une lumière du lever, le moment où elle entre, en pourcentage du lever, et
+// son intensité maximale. Le texte de input_text.reveil_lumieres :
+// « light.chambre,light.chambre_bandeau@26,zone:couloir@50*40 » — la lampe
+// dès le début, le bandeau à 26 %, tout le couloir à mi-lever et à 40 % de la
+// courbe. Sans @, dès le début ; sans *, 100 %. `zone:` est une pièce
+// entière, dont le Pi prend les lampes au moment du lever. Le Pi
+// (packages/reveil.yaml) lit le texte de la même façon.
+export type Lampe = { id: string; p: number; f: number };
 
 // Le lever et le coucher partagent leurs éditeurs ; seuls les mots et le
 // sens d'un moment changent — celui où une lampe entre, ou celui où elle
 // s'éteint.
 export type Sens = "lever" | "coucher";
 
+const borne = (n: number, min: number, max: number, defaut: number) =>
+  Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : defaut;
+
 // Sans réglage, le Pi lève light.chambre seule : l'app montre la même chose.
 // Le coucher, lui, prend alors les lampes allumées : `defaut` vide.
-export function lireLampes(brut: string, defaut: Lampe[] = [{ id: "light.chambre", p: 0 }]): Lampe[] {
+export function lireLampes(brut: string, defaut: Lampe[] = [{ id: "light.chambre", p: 0, f: 100 }]): Lampe[] {
   const l: Lampe[] = [];
   for (const morceau of brut.split(",")) {
-    const [id, p] = morceau.split("@").map((s) => s.trim());
-    if (!id.startsWith("light.") || l.some((x) => x.id === id)) continue;
-    const n = Number(p ?? 0);
-    l.push({ id, p: Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0 });
+    const [avant, f] = morceau.split("*").map((s) => s.trim());
+    const [id, p] = avant.split("@").map((s) => s.trim());
+    if (!(id.startsWith("light.") || id.startsWith("zone:")) || l.some((x) => x.id === id)) continue;
+    l.push({ id, p: borne(Number(p ?? 0), 0, 100, 0), f: borne(Number(f ?? 100), 1, 100, 100) });
   }
   return l.length ? l : defaut;
 }
 
-// L'ordre de Pièces, pour que le texte ne change pas selon l'ordre des clics.
+// Triées, pour que le texte ne change pas selon l'ordre des clics.
 export function ecrireLampes(l: Lampe[]): string {
-  const rang = (id: string) => (LIGHTS.includes(id) ? LIGHTS.indexOf(id) : LIGHTS.length);
   return [...l]
-    .sort((a, b) => rang(a.id) - rang(b.id))
-    .map((x) => (x.p > 0 ? `${x.id}@${x.p}` : x.id))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((x) => `${x.id}${x.p > 0 ? `@${x.p}` : ""}${x.f < 100 ? `*${x.f}` : ""}`)
     .join(",");
+}
+
+// Le nom d'une lumière du lever : celui de la lampe, ou « Couloir (toute la
+// pièce) ».
+export function nomLampe(id: string, entities: HassEntities, pieces: Piece[]): string {
+  if (id.startsWith("zone:")) {
+    const z = id.slice(5);
+    return `${pieces.find((p) => p.id === z)?.nom ?? z} (toute la pièce)`;
+  }
+  return entities[id]?.attributes.friendly_name ?? id;
 }
 
 const Chevron = ({ droite }: { droite?: boolean }) => (
@@ -203,6 +218,7 @@ export function Reveil() {
 // « Je suis debout » —, chacune avec la réponse actuelle en résumé.
 export function ReglagesReveil() {
   const { entities, fautes } = useMaison();
+  const pieces = usePieces(entities);
   const { playlists } = usePlaylists();
   const [lumieresBrut, ecrireLumieres] = useTexte(REVEIL.lumieres);
   const [courbeBrut, ecrireCourbeBrut] = useTexte(REVEIL.courbe);
@@ -275,7 +291,7 @@ export function ReglagesReveil() {
           <NoteFaute entite={entiteFautive} message={fautes[entiteFautive]} />
         </Carte>
       )}
-      <Depliable id="reveil-lampes" titre="Les lumières du lever" resume={lampes.map((l) => nom(l.id)).join(", ")}>
+      <Depliable id="reveil-lampes" titre="Les lumières du lever" resume={lampes.map((l) => nomLampe(l.id, entities, pieces)).join(", ")}>
         <Lampes sens="lever" lampes={lampes} points={points} onChange={changerLampes} />
       </Depliable>
       <Depliable id="reveil-courbe" titre="La courbe"
@@ -292,17 +308,24 @@ export function ReglagesReveil() {
   );
 }
 
-// Les lumières qui se lèvent. Au moins une : la dernière cochée ne se
-// décoche pas, sinon le Pi retomberait sur light.chambre sans qu'on l'ait
-// choisi.
+// Les lumières qui se lèvent, rangées par pièce : chaque lampe, ou la pièce
+// entière d'un coup (« zone: », dont le Pi prend les lampes au moment du
+// lever — une lampe ajoutée plus tard à la pièce suit). Au moins une au
+// lever : la dernière cochée ne se décoche pas, sinon le Pi retomberait sur
+// light.chambre sans qu'on l'ait choisi.
 //
-// Chacune entre à un moment de la courbe : le début, ou l'un de ses points.
-// Une lampe qui entre s'allume en fondu, depuis le noir, jusqu'à là où en est
-// la courbe, puis suit la même montée que les autres.
+// Chacune a deux réglages fins :
+//   - son MOMENT : le début, ou l'un des points de la courbe. Une lampe qui
+//     entre s'allume en fondu, depuis le noir, jusqu'à là où en est la
+//     courbe, puis suit la même montée que les autres ;
+//   - son INTENSITÉ MAXIMALE : une fraction de la courbe, pour que le couloir
+//     ou le salon accompagnent la chambre sans l'éblouir.
 //
 // Au coucher, le moment est celui où la lampe s'éteint, 0 voulant dire
 // « jusqu'à la fin » ; et aucune lampe cochée est permis : le Pi prend alors
 // celles qui sont allumées.
+const FRACTIONS = [100, 80, 60, 40, 25, 10];
+
 export function Lampes({ sens, lampes, points, onChange }: {
   sens: Sens;
   lampes: Lampe[];
@@ -310,7 +333,8 @@ export function Lampes({ sens, lampes, points, onChange }: {
   onChange: (l: Lampe[]) => void;
 }) {
   const { entities } = useMaison();
-  const nom = (id: string) => entities[id]?.attributes.friendly_name ?? id;
+  const pieces = usePieces(entities).filter((p) => p.lumieres.length > 0);
+  const nom = (id: string) => nomLampe(id, entities, pieces);
   const lever = sens === "lever";
   // Pas la fin : une lampe qui n'entrerait qu'à la fin ne se lèverait pas,
   // et une qui s'éteindrait à la fin, c'est « jusqu'à la fin ».
@@ -319,49 +343,71 @@ export function Lampes({ sens, lampes, points, onChange }: {
     label: j === 0 ? (lever ? "dès le début" : "jusqu'à la fin")
       : `${lever ? "au" : "s'éteint au"} point ${j} · ${Math.round(pt.p)} %`,
   }));
-  const echelonne = lampes.length > 1 || lampes.some((l) => l.p > 0);
+  const basculer = (id: string) => {
+    const dedans = lampes.some((l) => l.id === id);
+    if (dedans) {
+      if (lever && lampes.length === 1) return;
+      onChange(lampes.filter((l) => l.id !== id));
+    } else onChange([...lampes, { id, p: 0, f: 100 }]);
+  };
+  const regler = (id: string, r: Partial<Lampe>) => onChange(lampes.map((x) => (x.id === id ? { ...x, ...r } : x)));
+  const puce = (id: string, texte: string) => {
+    const dedans = lampes.some((l) => l.id === id);
+    const seule = lever && dedans && lampes.length === 1;
+    return (
+      <button key={id} className="chip" aria-pressed={dedans} disabled={seule}
+              title={seule ? "il faut au moins une lumière" : undefined} onClick={() => basculer(id)}>
+        {texte}
+      </button>
+    );
+  };
+  // Une lampe que plus aucune pièce ne montre — renommée, retirée — reste
+  // décochable plutôt que de rester invisible dans le texte.
+  const connues = new Set(pieces.flatMap((p) => [`zone:${p.id}`, ...p.lumieres]));
+  const orphelines = lampes.filter((l) => !connues.has(l.id));
   return (
     <div className="sous">
-      <div className="chips">
-        {LIGHTS.map((id) => {
-          const dedans = lampes.some((l) => l.id === id);
-          const seule = lever && dedans && lampes.length === 1;
-          return (
-            <button
-              key={id}
-              className="chip"
-              aria-pressed={dedans}
-              disabled={seule}
-              title={seule ? "il faut au moins une lumière" : undefined}
-              onClick={() => onChange(dedans ? lampes.filter((l) => l.id !== id) : [...lampes, { id, p: 0 }])}
-            >
-              {nom(id)}
-            </button>
-          );
-        })}
-      </div>
+      {pieces.map((p) => {
+        const entiere = lampes.some((l) => l.id === `zone:${p.id}`);
+        return (
+          <div key={p.id}>
+            <p className="row-meta">{p.nom}</p>
+            <div className="chips">
+              {p.id !== "sans" && puce(`zone:${p.id}`, p.lumieres.length > 1 ? "Toute la pièce" : "La pièce")}
+              {!entiere && p.lumieres.map((id) => puce(id, entities[id]?.attributes.friendly_name ?? id))}
+            </div>
+          </div>
+        );
+      })}
+      {orphelines.length > 0 && <div className="chips">{orphelines.map((l) => puce(l.id, nom(l.id)))}</div>}
       {!lever && lampes.length === 0 && (
         <p className="row-meta">Aucune choisie : celles qui sont allumées au moment du coucher, jusqu'à la fin.</p>
       )}
-      {echelonne && (
+      {lampes.length > 0 && (
         <>
           <p className="row-meta">
-            {lever ? "Chacune entre à son moment, puis toutes suivent la même courbe."
-              : "Toutes suivent la même courbe ; chacune s'éteint à son moment."}
+            {lever ? "Chacune entre à son moment, puis toutes suivent la même courbe, chacune jusqu'à son intensité."
+              : "Toutes suivent la même courbe, chacune à son intensité ; chacune s'éteint à son moment."}
           </p>
           {lampes.map((l) => (
-            <label className="entree" key={l.id}>
-              <span>{nom(l.id)}</span>
-              <select
-                value={l.p}
-                onChange={(e) => onChange(lampes.map((x) => (x.id === l.id ? { ...x, p: Number(e.target.value) } : x)))}
-              >
-                {moments.map((m) => <option key={m.p} value={m.p}>{m.label}</option>)}
-                {/* Un moment qui ne tombe plus sur un point — le point a été
-                    retiré — reste visible plutôt que de sauter au début. */}
-                {!moments.some((m) => m.p === l.p) && <option value={l.p}>à {l.p} %</option>}
-              </select>
-            </label>
+            <div className="sous" key={l.id}>
+              <label className="entree">
+                <span>{nom(l.id)}</span>
+                <select value={l.p} onChange={(e) => regler(l.id, { p: Number(e.target.value) })}>
+                  {moments.map((m) => <option key={m.p} value={m.p}>{m.label}</option>)}
+                  {/* Un moment qui ne tombe plus sur un point — le point a été
+                      retiré — reste visible plutôt que de sauter au début. */}
+                  {!moments.some((m) => m.p === l.p) && <option value={l.p}>à {l.p} %</option>}
+                </select>
+              </label>
+              <label className="entree">
+                <span className="row-meta">intensité</span>
+                <select value={l.f} onChange={(e) => regler(l.id, { f: Number(e.target.value) })}>
+                  {FRACTIONS.map((f) => <option key={f} value={f}>{f === 100 ? "toute la courbe" : `${f} % de la courbe`}</option>)}
+                  {!FRACTIONS.includes(l.f) && <option value={l.f}>{l.f} % de la courbe</option>}
+                </select>
+              </label>
+            </div>
           ))}
         </>
       )}

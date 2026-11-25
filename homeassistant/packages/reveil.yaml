@@ -92,9 +92,19 @@ input_number:
 
 input_text:
   # Les lumières qui se lèvent, séparées par des virgules, chacune avec le
-  # moment où elle entre — « light.chambre,light.chambre_wiz_1@26 » : la
-  # lampe dès le début, la WiZ à 26 % du lever, puis les deux sur la même
+  # moment où elle entre — « light.chambre,light.chambre_bandeau@26 » : la
+  # lampe dès le début, le bandeau à 26 % du lever, puis les deux sur la même
   # courbe. Sans @, dès le début. Vide : light.chambre seule.
+  #
+  # Depuis novembre 2026, deux ajouts :
+  #   - une PIÈCE ENTIÈRE, « zone:couloir » : toutes les lampes de la zone,
+  #     calculées au moment du lever. 255 caractères ne tiendraient pas les
+  #     cinq Hue du couloir et les six LED du salon une par une ;
+  #   - une INTENSITÉ MAXIMALE, « *40 » : la lampe suit la courbe à 40 % de
+  #     son intensité — le couloir accompagne la chambre sans l'éblouir.
+  #     Sans *, 100 %.
+  # « light.chambre,zone:couloir@50*40 » : la lampe de chevet dès le début,
+  # le couloir à mi-lever, à 40 %.
   reveil_lumieres:
     name: Réveil · lumières
     icon: mdi:lightbulb-group
@@ -251,18 +261,33 @@ script:
       sens: lever
       source_lumieres: input_text.reveil_lumieres
       source_courbe: input_text.reveil_courbe
-      lampes_defaut: [{ id: light.chambre, p: 0 }]
+      lampes_defaut: [{ id: light.chambre, p: 0, f: 100 }]
       courbe_defaut: ["0,1,k2000", "100,78,k4000"]
       minutes: "{{ [duree | default(states('input_number.reveil_duree')) | int(20), 1] | max }}"
-      # [{'id': 'light.chambre', 'p': 0}, {'id': 'light.chambre_wiz_1', 'p': 26}]
+      # [{'id': 'light.chambre', 'p': 0, 'f': 100}, {'id': 'light.x', 'p': 26, 'f': 40}]
+      # Une pièce (« zone:couloir ») devient ses lampes, sans l'anneau du
+      # Voice PE ni les injoignables. Une lampe nommée garde SES réglages
+      # même si sa pièce est choisie aussi : le tri passe les « light. »
+      # avant les « zone: », et une lampe déjà vue n'est pas reprise.
       lampes: &courbe_lampes >-
-        {%- set ns = namespace(l=[]) -%}
-        {%- for m in states(source_lumieres).split(',') -%}
-          {%- set x = m.split('@') | map('trim') | list -%}
+        {%- set ns = namespace(l=[], ids=[]) -%}
+        {%- for m in states(source_lumieres).split(',') | map('trim') | sort -%}
+          {%- set y = m.split('*') | map('trim') | list -%}
+          {%- set x = y[0].split('@') | map('trim') | list -%}
+          {%- set p = x[1] | float(0) if x | count > 1 else 0 -%}
+          {%- set f = y[1] | float(100) if y | count > 1 else 100 -%}
           {%- if x[0] is match('light[.]') -%}
-            {%- set p = x[1] | float(0) if x | count > 1 else 0 -%}
-            {%- set ns.l = ns.l + [{'id': x[0], 'p': [[p, 0] | max, 100] | min}] -%}
+            {%- set cibles = [x[0]] -%}
+          {%- elif x[0] is match('zone:') -%}
+            {%- set cibles = area_entities(x[0][5:]) | select('match', 'light[.]')
+                  | reject('search', '_led_ring$') | select('has_value') | list -%}
+          {%- else -%}
+            {%- set cibles = [] -%}
           {%- endif -%}
+          {%- for c in cibles if c not in ns.ids -%}
+            {%- set ns.ids = ns.ids + [c] -%}
+            {%- set ns.l = ns.l + [{'id': c, 'p': [[p, 0] | max, 100] | min, 'f': [[f, 1] | max, 100] | min}] -%}
+          {%- endfor -%}
         {%- endfor -%}
         {{- ns.l if ns.l else lampes_defaut -}}
       points: &courbe_points >-
@@ -330,6 +355,7 @@ script:
                 # celles dont le moment n'est pas encore passé — 0 voulant
                 # dire « jusqu'à la fin ».
                 pr: "{{ (repeat.index - 1) / marches * 100 }}"
+                encore: "{{ repeat.index <= marches }}"
                 parties: >-
                   {{ [] if sens == 'lever' else lampes | selectattr('p', 'gt', 0)
                      | selectattr('p', 'le', pr | float) | map(attribute='id') | list }}
@@ -368,30 +394,40 @@ script:
                   target: { entity_id: "{{ parties }}" }
                   data: { transition: "{{ pas_s }}" }
             # Aucune lampe encore entrée : la marche passe sans rien allumer.
+            # Les lampes actives vont par intensité maximale : un ordre par
+            # groupe, chacun à sa fraction de la courbe — jamais sous 1 %,
+            # qui l'éteindrait.
+            - repeat:
+                for_each: >-
+                  {{ lampes | selectattr('id', 'in', actives) | map(attribute='f') | unique | list }}
+                sequence:
+                  - variables:
+                      groupe: >-
+                        {{ lampes | selectattr('id', 'in', actives) | selectattr('f', 'eq', repeat.item)
+                           | map(attribute='id') | list }}
+                      lum: "{{ [(etape.b * repeat.item / 100) | round(1), 1] | max }}"
+                  - if:
+                      - condition: template
+                        value_template: "{{ etape.k is not none }}"
+                    then:
+                      - service: light.turn_on
+                        target: { entity_id: "{{ groupe }}" }
+                        data:
+                          brightness_pct: "{{ lum }}"
+                          color_temp_kelvin: "{{ etape.k }}"
+                          transition: "{{ pas_s }}"
+                    else:
+                      - service: light.turn_on
+                        target: { entity_id: "{{ groupe }}" }
+                        data:
+                          brightness_pct: "{{ lum }}"
+                          rgb_color: "{{ etape.rgb }}"
+                          transition: "{{ pas_s }}"
+            # `encore`, calculé avant la boucle des groupes : la décision ne
+            # dépend pas du `repeat` intérieur.
             - if:
                 - condition: template
-                  value_template: "{{ actives | count > 0 }}"
-              then:
-                - if:
-                    - condition: template
-                      value_template: "{{ etape.k is not none }}"
-                  then:
-                    - service: light.turn_on
-                      target: { entity_id: "{{ actives }}" }
-                      data:
-                        brightness_pct: "{{ etape.b }}"
-                        color_temp_kelvin: "{{ etape.k }}"
-                        transition: "{{ pas_s }}"
-                  else:
-                    - service: light.turn_on
-                      target: { entity_id: "{{ actives }}" }
-                      data:
-                        brightness_pct: "{{ etape.b }}"
-                        rgb_color: "{{ etape.rgb }}"
-                        transition: "{{ pas_s }}"
-            - if:
-                - condition: template
-                  value_template: "{{ repeat.index <= marches }}"
+                  value_template: "{{ encore }}"
               then:
                 - delay:
                     seconds: "{{ pas_s }}"
@@ -609,7 +645,7 @@ script:
         {%- for e in expand(area_entities('bedroom') | select('match', 'light[.]')
                               | reject('search', '_led_ring$') | list)
               if e.state == 'on' -%}
-          {%- set ns.l = ns.l + [{'id': e.entity_id, 'p': 0}] -%}
+          {%- set ns.l = ns.l + [{'id': e.entity_id, 'p': 0, 'f': 100}] -%}
         {%- endfor -%}
         {{ ns.l }}
       courbe_defaut: ["0,60,k2700", "100,1,k2000"]

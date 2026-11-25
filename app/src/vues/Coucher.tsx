@@ -7,7 +7,8 @@ import { usePlaylists } from "../bibliotheque";
 import { plafond } from "../ambiances";
 import { Carte, Curseur, Depliable, NoteFaute, OptionsPlaylists } from "../ui";
 import { COUCHER_DEFAUT, degradeCourbe, ecrireCourbe, lireCourbe, type Point } from "../couleur";
-import { Courbe, Lampes, ecrireLampes, lireLampes, type Lampe } from "./Reveil";
+import { Courbe, Lampes, ecrireLampes, lireLampes, nomLampe, type Lampe } from "./Reveil";
+import { usePieces } from "../pieces";
 
 const heureDe = (iso: string) =>
   new Date(iso).toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" });
@@ -104,6 +105,7 @@ export function Coucher() {
 // carte repliée par question.
 export function ReglagesCoucher() {
   const { entities, fautes } = useMaison();
+  const pieces = usePieces(entities);
   const { playlists } = usePlaylists();
   const [lumieresBrut, ecrireLumieres] = useTexte(COUCHER.lumieres);
   const [courbeBrut, ecrireCourbeBrut] = useTexte(COUCHER.courbe);
@@ -155,7 +157,7 @@ export function ReglagesCoucher() {
         </Carte>
       )}
       <Depliable id="coucher-lampes" titre="Les lumières du coucher"
-                 resume={lampes.length ? lampes.map((l) => nom(l.id)).join(", ") : "celles qui sont allumées"}>
+                 resume={lampes.length ? lampes.map((l) => nomLampe(l.id, entities, pieces)).join(", ") : "celles qui sont allumées"}>
         <Lampes sens="coucher" lampes={lampes} points={points} onChange={changerLampes} />
       </Depliable>
       <Depliable id="coucher-courbe" titre="La courbe"

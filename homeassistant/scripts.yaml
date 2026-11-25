@@ -228,12 +228,24 @@ mood_calin:
 mood_off:
   alias: Tout éteindre
   sequence:
+    # ABSOLUMENT TOUT, d'abord ce qui rallumerait : un lever ou un coucher en
+    # cours repose ses lampes toutes les 30 s, et sa musique remonte. Arrêtés
+    # avant que tout s'éteigne, minuteurs compris — le bonjour du matin ne
+    # parle plus dans une maison qu'on vient d'éteindre.
+    - service: script.turn_off
+      target:
+        entity_id: [script.reveil, script.reveil_musique, script.coucher, script.coucher_musique]
+      continue_on_error: true
+    - service: timer.cancel
+      target: { entity_id: [timer.reveil_bonjour, timer.coucher] }
+      continue_on_error: true
     - service: scene.turn_on
       target: { entity_id: scene.tout_eteindre }
     # Toutes les lumières, pas seulement celles de la scène. scene.tout_eteindre
     # appartient à Home Assistant et ne connaît que ce qu'on y a mis : les deux
     # WiZ, ajoutées à la chambre après coup, n'y étaient pas, et Tout éteindre
     # les laissait allumées. Même logique que media_stop juste en dessous.
+    # `all` : toutes les pièces, couloir, douche et salle de bain comprises.
     - service: light.turn_off
       target: { entity_id: all }
     - service: media_player.media_stop
