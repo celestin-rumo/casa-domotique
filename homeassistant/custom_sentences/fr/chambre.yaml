@@ -1,17 +1,9 @@
-# La chambre : sa température, et l'aération. Les intents sont traités par
-# intent_script dans packages/chambre.yaml.
+# La chambre : l'aération. Les intents sont traités par intent_script dans
+# packages/chambre.yaml. Sa température se demande comme celle des autres
+# pièces (TemperaturePiece, meteo.yaml).
 language: "fr"
 
 intents:
-  TemperatureChambre:
-    data:
-      - sentences:
-          - "(quelle température|combien) (fait-il|il fait|fait il) [dans la chambre]"
-          - "[c'est quoi |quelle est ][la] température [de|dans] [la chambre]"
-          - "il fait (chaud|froid|combien) [dans la chambre]"
-          - "température [chambre]"
-          - "[quelle est |c'est quoi ][l'] humidité [de|dans] [la chambre]"
-
   Aerer:
     data:
       - sentences:

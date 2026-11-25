@@ -7,6 +7,31 @@ intents:
     data:
       - sentences:
           - "(quel temps|quelle météo) [fait-il|fera-t-il|il fait|il fera|est prévu|est prévue] [aujourd'hui|ce matin|pour aujourd'hui|dehors]"
-          - "[c'est quoi |quelle est |donne-moi |dis-moi ][la] météo [du jour|d'aujourd'hui|de la journée|pour aujourd'hui]"
+          - "[c'est quoi |quelle est |donne-moi |donne moi |dis-moi |dis moi ][la] météo [du jour|d'aujourd'hui|de la journée|pour aujourd'hui]"
           - "(est-ce qu'il|il) va pleuvoir [aujourd'hui]"
           - "[les ]prévisions (du jour|de la journée|d'aujourd'hui)"
+
+  # La température d'une pièce, lue sur son capteur. Sans pièce, celle du
+  # satellite qui a entendu ; « partout » ou « la maison », toutes celles
+  # qui en ont un. Réponse : packages/meteo.yaml.
+  TemperaturePiece:
+    data:
+      - sentences:
+          - "[(donne-moi|donne moi|dis-moi|dis moi|c'est quoi|quelle est)] la température [(dans|à|au|de|du)] [la|le|l'] {casa_piece}"
+          - "quelle (température|est la température) (fait-il|il fait|fait il|y a-t-il|il y a) [(dans|à|au)] [la|le|l'] {casa_piece}"
+          - "(il fait|fait-il|fait il) combien [de degrés] [(dans|à|au)] [la|le|l'] {casa_piece}"
+          - "combien (de degrés|il fait|fait-il|fait il) [(dans|à|au)] [la|le|l'] {casa_piece}"
+          - "[(donne-moi|donne moi|dis-moi|dis moi|c'est quoi|quelle est)] la température [ici|de la pièce]"
+          - "quelle température (fait-il|il fait|fait il) [ici]"
+          - "(il fait|fait-il|fait il) combien [de degrés] [ici]"
+          - "combien (fait-il|il fait|fait il) [ici]"
+          - "il fait (chaud|froid) [ici|[(dans|à|au)] [la|le|l'] {casa_piece}]"
+          - "température [{casa_piece}]"
+          - "[quelle est |c'est quoi ](l'humidité|humidité) [[(de|dans|à|au|du)] [la|le|l'] {casa_piece}]"
+      # Dehors : la température actuelle de MétéoSuisse.
+      - sentences:
+          - "[(donne-moi|donne moi|dis-moi|dis moi|c'est quoi|quelle est)] la température (dehors|extérieure|à l'extérieur)"
+          - "quelle température (fait-il|il fait|fait il) (dehors|à l'extérieur)"
+          - "(il fait|fait-il|fait il) combien [de degrés] (dehors|à l'extérieur)"
+        slots:
+          casa_piece: "dehors"
