@@ -152,10 +152,18 @@ script:
     icon: mdi:thermometer-lines
     mode: restart
     fields:
-      zone: { description: La zone, ou « maison », example: kitchen }
-      mot: { description: Le mot de la pièce, cherché aussi dans le nom des lampes, example: cuisine }
-      position: { description: Le palier, de 0 (chaud) à 100 (froid), example: 40 }
-      pas: { description: Un palier relatif, -20 plus chaud, 20 plus froid, example: -20 }
+      zone:
+        description: "La zone, ou « maison »"
+        example: kitchen
+      mot:
+        description: "Le mot de la pièce, cherché aussi dans le nom des lampes"
+        example: cuisine
+      position:
+        description: "Le palier, de 0 (chaud) à 100 (froid)"
+        example: 40
+      pas:
+        description: "Un palier relatif : -20 plus chaud, 20 plus froid"
+        example: -20
     variables:
       z: "{{ zone | default('bedroom') }}"
       m: "{{ mot | default('') | trim }}"
