@@ -101,3 +101,36 @@ intent_script:
     # La règle du dépôt : on se tait quand l'effet est perceptible, on parle
     # quand il ne l'est pas. L'heure du réveil se confirme donc toujours
     # (packages/reveil.yaml), et la météo répond, évidemment.
+
+  # LES AMBIANCES D'UNE PIÈCE : les scènes de Home Assistant rangées dans sa
+  # zone (« Bain normal » dans la salle de bain, « Tamisé chill » au salon).
+  # Les ambiances ci-dessus, avec leur musique, restent les ambiances
+  # générales ; celles-ci ne touchent qu'aux lampes de leur pièce.
+  #
+  # Rien n'est listé ici : le mot dit (casa_scene) est cherché dans le NOM des
+  # scènes de la pièce, sans casse. « normal » dit dans la douche trouve
+  # « douche normal », dans la salle de bain « Bain normal ». La pièce est
+  # celle dite, sinon celle du satellite. Une scène créée dans l'app répond
+  # donc d'elle-même, pourvu que son nom contienne un mot de casa_scene.
+  AmbiancePiece:
+    action:
+      - variables:
+          zone: >-
+            {{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece | default(''), preferred_area_id | default('bedroom')) }}
+          scene: >-
+            {{ ((states.scene | map(attribute='entity_id') | list) if zone == 'maison'
+                else area_entities(zone) | select('match', 'scene[.]') | list)
+               | expand | selectattr('name', 'search', casa_scene | default('-'), true)
+               | map(attribute='entity_id') | first | default('') }}
+      - condition: template
+        value_template: "{{ scene != '' }}"
+      - service: scene.turn_on
+        target: { entity_id: "{{ scene }}" }
+    # Muet quand l'ambiance existe ; sinon, dire ce qui manque.
+    speech:
+      text: >-
+        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece | default(''), preferred_area_id | default('bedroom')) -%}
+        {%- set scenes = ((states.scene | map(attribute='entity_id') | list) if zone == 'maison' else area_entities(zone) | select('match', 'scene[.]') | list) | expand | selectattr('name', 'search', casa_scene | default('-'), true) | list -%}
+        {%- if scenes | count == 0 -%}
+          Pas d'ambiance {{ casa_scene | default('') }} {{ ('au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece) if casa_piece is defined else 'ici' }}.
+        {%- endif -%}

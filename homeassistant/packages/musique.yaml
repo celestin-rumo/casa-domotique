@@ -16,7 +16,13 @@
 #                                                  'media_player.ma_chambre')
 #
 # Une pièce absente de la table retombe sur la chambre. Une enceinte ajoutée
-# ailleurs s'y ajoute, dans les quatre intents.
+# ailleurs s'y ajoute, dans chaque intent.
+#
+# UNE PIÈCE PEUT ÊTRE DITE (novembre 2026) : « arrête la musique au salon »,
+# « remets la musique dans la chambre », « coupe la musique partout ». Le mot
+# (casa_piece, custom_sentences/fr/lumieres.yaml) l'emporte alors sur le
+# satellite, et « partout » vise les deux enceintes. Une pièce sans enceinte
+# — la cuisine — le dit.
 #
 # Les entity_id viennent de Music Assistant, renommés sur le Pi le 17
 # novembre 2026 : `media_player.ma_chambre` est la WiiM de la chambre (avant
@@ -36,57 +42,75 @@ intent_script:
   ArreterMusique:
     action:
       - variables:
-          e: >-
-            {{ {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
-                                                           'media_player.ma_chambre') }}
+          enceintes: >-
+            {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+            {%- set p = casa_piece | default('') -%}
+            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
+          joignables: "{{ enceintes | reject('is_state', ['unknown', 'unavailable']) | list }}"
       - if:
           - condition: template
-            value_template: "{{ states(e) not in ['unknown', 'unavailable'] }}"
+            value_template: "{{ joignables | count > 0 }}"
         then:
           - service: media_player.media_pause
-            target: { entity_id: "{{ e }}" }
+            target: { entity_id: "{{ joignables }}" }
     speech:
       text: >-
-        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
-        {%- if states(e) in ['unknown', 'unavailable'] -%}
+        {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+        {%- set p = casa_piece | default('') -%}
+        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
+        {%- if not e -%}
+          Pas d'enceinte {{ 'au ' ~ p if p in ['bureau', 'couloir'] else 'dans la ' ~ p }}.
+        {%- elif e | reject('is_state', ['unknown', 'unavailable']) | list | count == 0 -%}
           L'enceinte ne répond pas.
         {%- endif -%}
 
   ReprendreMusique:
     action:
       - variables:
-          e: >-
-            {{ {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
-                                                           'media_player.ma_chambre') }}
+          enceintes: >-
+            {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+            {%- set p = casa_piece | default('') -%}
+            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
+          joignables: "{{ enceintes | reject('is_state', ['unknown', 'unavailable']) | list }}"
       - if:
           - condition: template
-            value_template: "{{ states(e) not in ['unknown', 'unavailable'] }}"
+            value_template: "{{ joignables | count > 0 }}"
         then:
           - service: media_player.media_play
-            target: { entity_id: "{{ e }}" }
+            target: { entity_id: "{{ joignables }}" }
     speech:
       text: >-
-        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
-        {%- if states(e) in ['unknown', 'unavailable'] -%}
+        {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+        {%- set p = casa_piece | default('') -%}
+        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
+        {%- if not e -%}
+          Pas d'enceinte {{ 'au ' ~ p if p in ['bureau', 'couloir'] else 'dans la ' ~ p }}.
+        {%- elif e | reject('is_state', ['unknown', 'unavailable']) | list | count == 0 -%}
           L'enceinte ne répond pas.
         {%- endif -%}
 
   MusiqueSuivante:
     action:
       - variables:
-          e: >-
-            {{ {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
-                                                           'media_player.ma_chambre') }}
+          enceintes: >-
+            {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+            {%- set p = casa_piece | default('') -%}
+            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
+          joignables: "{{ enceintes | reject('is_state', ['unknown', 'unavailable']) | list }}"
       - if:
           - condition: template
-            value_template: "{{ states(e) not in ['unknown', 'unavailable'] }}"
+            value_template: "{{ joignables | count > 0 }}"
         then:
           - service: media_player.media_next_track
-            target: { entity_id: "{{ e }}" }
+            target: { entity_id: "{{ joignables }}" }
     speech:
       text: >-
-        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
-        {%- if states(e) in ['unknown', 'unavailable'] -%}
+        {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+        {%- set p = casa_piece | default('') -%}
+        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
+        {%- if not e -%}
+          Pas d'enceinte {{ 'au ' ~ p if p in ['bureau', 'couloir'] else 'dans la ' ~ p }}.
+        {%- elif e | reject('is_state', ['unknown', 'unavailable']) | list | count == 0 -%}
           L'enceinte ne répond pas.
         {%- endif -%}
 

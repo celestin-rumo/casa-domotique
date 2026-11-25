@@ -22,38 +22,42 @@
 # candidats, et c'est celui du dépôt qui gagne — constaté sur le Pi pour
 # « éteins la musique ». L'effet est le même, une pause. « pause » seul
 # reste au moteur intégré.
+# UNE PIÈCE PEUT SUIVRE chaque ordre : « arrête la musique au salon »,
+# « remets la musique dans la chambre », « coupe la musique partout ». Sans
+# elle, c'est l'enceinte de la pièce du satellite (packages/musique.yaml).
+# casa_piece est la liste de custom_sentences/fr/lumieres.yaml.
 language: "fr"
 
 intents:
   ArreterMusique:
     data:
       - sentences:
-          - "(éteins|éteindre|coupe|couper) la musique"
-          - "(stop|stoppe|stopper) [la] musique"
-          - "(arrête|arrêter|arrete) [la] musique"
-          - "(éteins|coupe) le son"
-          - "plus de musique"
+          - "(éteins|éteindre|coupe|couper) la musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(stop|stoppe|stopper) [la] musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(arrête|arrêter|arrete) [la] musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(éteins|coupe) le son [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "plus de musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
           # Sans verbe.
-          - "[la] musique (stop|off|coupée)"
-          - "pas de musique"
+          - "[la] musique (stop|off|coupée) [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "pas de musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
 
   ReprendreMusique:
     data:
       - sentences:
-          - "(remets|remettre|relance|relancer|rallume) la musique"
-          - "(remets|relance) le son"
-          - "continue la musique"
-          - "[la] musique (on|play|encore)"
-          - "(lance|lancer|joue|play) [la] musique"
+          - "(remets|remettre|relance|relancer|rallume) la musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(remets|relance) le son [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "continue la musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "[la] musique (on|play|encore) [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(lance|lancer|joue|play) [la] musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
 
   MusiqueSuivante:
     data:
       - sentences:
-          - "(chanson|morceau|titre) suivant[e]"
-          - "(passe|passer) (au suivant|à la suivante)"
-          - "(passe|change) de (chanson|morceau|titre)"
-          - "suivant[e]"
-          - "(chanson|morceau|titre) d'après"
+          - "(chanson|morceau|titre) suivant[e] [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(passe|passer) (au suivant|à la suivante) [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(passe|change) de (chanson|morceau|titre) [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "suivant[e] [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(chanson|morceau|titre) d'après [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
 
   # « Qu'est-ce qui joue ? » : le titre et l'artiste, packages/musique.yaml.
   QuiJoue:

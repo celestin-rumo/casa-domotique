@@ -23,7 +23,44 @@ intents:
           - "{casa_ambiance}"
           - "{casa_ambiance} (dans|à) [la] chambre"
 
+  # Les ambiances d'UNE pièce : ses scènes, trouvées par un mot de leur nom
+  # (packages/ambiances.yaml). La pièce est facultative : sans elle, c'est
+  # celle du satellite qui a entendu.
+  AmbiancePiece:
+    data:
+      - sentences:
+          - "(mets|mettre|lance|lancer|passe|active) [l'ambiance|ambiance|la scène|scène] {casa_scene} [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(ambiance|scène) {casa_scene} [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "{casa_scene} [(dans|à|au)] [la|le|l'] {casa_piece}"
+      # « Tamisé » seul est l'ordre de tamiser (lumieres.yaml), qui marche
+      # partout. Précédé d'« ambiance », c'est la scène de ce nom — « douche
+      # tamisé », « Tamisé film » au salon. Le mot est donc fixé ici plutôt
+      # que mis dans casa_scene, où il se battrait avec le tamisage.
+      - sentences:
+          - "(mets|mettre|lance|lancer|active) (l'ambiance|ambiance|la scène|scène) (tamisé|tamisée) [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(ambiance|scène) (tamisé|tamisée) [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+        slots:
+          casa_scene: "tamisé"
+
 lists:
+  # Un mot cherché dans le nom des scènes de la pièce ; out est ce mot-là.
+  # Pour qu'une nouvelle ambiance réponde à la voix, lui donner un nom qui en
+  # contient un — ou ajouter ici le mot de son nom.
+  casa_scene:
+    values:
+      - in: "(normal|normale)"
+        out: "normal"
+      - in: "chill"
+        out: "chill"
+      - in: "film"
+        out: "film"
+      - in: "(sexy|sexy rose|bain sexy)"
+        out: "sexy"
+      - in: "(nightly|nuit)"
+        out: "nightly"
+      - in: "(light|lights|lumière chaude)"
+        out: "light"
+
   casa_ambiance:
     values:
       # « cinéma » reviendra avec la TV : le mot ne sert à rien tant que

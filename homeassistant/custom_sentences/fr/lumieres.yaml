@@ -88,6 +88,10 @@ intents:
           - "(mets|mettre) en (veilleuse|tamisé)"
           - "(tamise|tamiser) {casa_lampe}"
           - "{casa_lampe} (tamisé|tamisée|tamisés|tamisées)"
+          # Dans une pièce nommée, ou partout : « tamise le salon »,
+          # « tamise les lampes de la douche », « salon tamisé ».
+          - "(tamise|tamiser) [les lampes|les lumières|la lumière] [de|du|de la|des|dans|dans la|dans le|au] [la|le|l'] {casa_piece}"
+          - "{casa_piece} (tamisé|tamisée|tamisés|tamisées)"
 
   # Le geste du soir : tout ce qui est allumé descend au plancher, d'un coup,
   # sans passer par des paliers.
@@ -98,6 +102,8 @@ intents:
           - "(mets|mettre) [tout] au minimum"
           - "(tamise|tamiser) {casa_lampe} (beaucoup|à fond)"
           - "{casa_lampe} [au] minimum"
+          - "(tamise|tamiser) [les lampes|les lumières|la lumière] [de|du|de la|des|dans|dans la|dans le|au] [la|le|l'] {casa_piece} (beaucoup|à fond|au maximum)"
+          - "(tamise|tamiser) (beaucoup|à fond) [les lampes|les lumières|la lumière] [de|du|de la|des|dans|dans la|dans le|au] [la|le|l'] {casa_piece}"
 
   # La luminosité d'une lampe précise, avec le verbe « mets » qui manque au
   # micro. « pourcent » reste facultatif : on le dit rarement en entier.
@@ -247,6 +253,11 @@ lists:
         out: "bureau"
       - in: "couloir"
         out: "couloir"
+      # Toutes les pièces d'un coup : « éteins les lampes partout »,
+      # « tamise toute la maison ». Pas une zone, packages/lumieres.yaml
+      # en fait toutes les lampes.
+      - in: "(partout|maison|toute la maison)"
+        out: "maison"
 
   casa_etat_off:
     values:

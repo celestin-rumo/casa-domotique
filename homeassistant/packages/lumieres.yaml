@@ -76,10 +76,13 @@ script:
         bandeau: light.chambre_bandeau
         lampe chambre: light.chambre
       mot: "{{ lampe | default('') | trim }}"
-      # Aucun mot, ou « les lampes » : toute la pièce.
+      # Aucun mot, ou « les lampes » : toute la pièce. « maison » : toutes les
+      # lampes, toutes pièces confondues (« tamise partout »).
+      zone: "{{ piece | default('bedroom') }}"
       candidates: >-
         {{ [mots[mot]] if mot in mots else
-           area_entities(piece | default('bedroom')) | select('match', 'light[.]')
+           (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone))
+           | select('match', 'light[.]')
            | reject('search', '_led_ring$') | select('has_value') | list }}
       allumees: >-
         {{ expand(candidates) | selectattr('state', 'eq', 'on')
@@ -167,6 +170,10 @@ intent_script:
   # Tamiser n'est plus un synonyme de baisser : c'est le grand pas, celui du
   # soir, quand on veut passer de la lumière de travail à la veilleuse d'un
   # seul mot.
+  #
+  # Les deux tamisages marchent dans TOUTES les pièces : la pièce dite
+  # (« tamise le salon », « tamise beaucoup partout »), sinon celle du
+  # satellite. Même table mot → zone que les intents Piece* plus bas.
   Tamise:
     action:
       - service: script.turn_on
@@ -175,7 +182,8 @@ intent_script:
           variables:
             pas: -30
             lampe: "{{ casa_lampe | default('') }}"
-            piece: "{{ preferred_area_id | default('bedroom') }}"
+            piece: >-
+              {{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece | default(''), preferred_area_id | default('bedroom')) }}
 
   # « Tamise beaucoup » ne descend pas d'un cran : il va droit au plancher.
   # D'où une cible absolue plutôt qu'un pas, sur tout ce qui est allumé.
@@ -187,7 +195,8 @@ intent_script:
           variables:
             cible: 7
             lampe: "{{ casa_lampe | default('') }}"
-            piece: "{{ preferred_area_id | default('bedroom') }}"
+            piece: >-
+              {{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece | default(''), preferred_area_id | default('bedroom')) }}
 
   # « Mets bandeau à 100 pourcent ». Home Assistant comprend déjà la phrase,
   # mais le micro ne connaît, pour la luminosité, que « règle » et « allume » :
@@ -357,12 +366,14 @@ intent_script:
   # ses lampes sont celles de la zone, calculées comme partout ailleurs.
   # Une pièce sans lampe le dit, au lieu de se taire : depuis le 17 novembre
   # 2026, la cuisine n'en a plus (ses six lampes sont celles du salon).
+  # « maison » (« éteins les lampes partout ») n'est pas une zone : toutes les
+  # lampes, sans l'anneau des Voice PE.
   PieceEteindre:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
+          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') }}"
           cible: >-
-            {{ area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$')
+            {{ (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone)) | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list if zone else [] }}
       - condition: template
         value_template: "{{ cible | count > 0 }}"
@@ -370,8 +381,8 @@ intent_script:
         target: { entity_id: "{{ cible }}" }
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
-        {%- if not zone or area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
+        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') -%}
+        {%- if not zone or (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone)) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
           Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
         {%- endif -%}
 
@@ -380,9 +391,9 @@ intent_script:
   PieceAllumer:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
+          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') }}"
           cible: >-
-            {{ area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$')
+            {{ (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone)) | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list if zone else [] }}
           niveau: "{{ casa_pourcent | default(0) | int(0) }}"
       - condition: template
@@ -400,17 +411,17 @@ intent_script:
             target: { entity_id: "{{ cible }}" }
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
-        {%- if not zone or area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
+        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') -%}
+        {%- if not zone or (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone)) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
           Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
         {%- endif -%}
 
   PieceCouleur:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') }}"
+          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') }}"
           cible: >-
-            {{ area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$')
+            {{ (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone)) | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list if zone else [] }}
           teintes:
             rouge: red
@@ -429,7 +440,7 @@ intent_script:
           color_name: "{{ teintes[casa_couleur] }}"
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir'}.get(casa_piece, '') -%}
-        {%- if not zone or area_entities(zone) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
+        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') -%}
+        {%- if not zone or (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone)) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
           Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
         {%- endif -%}
