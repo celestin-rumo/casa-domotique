@@ -212,6 +212,11 @@ intents:
   # lampe de chevet seule (casa_lampe), et les deux lectures se battraient.
   PieceEteindre:
     data:
+      # Plusieurs pièces d'un coup, éteintes ensemble : « éteins couloir et
+      # cuisine », « éteins les lampes du salon, du couloir et de la
+      # cuisine ». Sans le mot « lampes », ce sont bien les lampes.
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) [les lampes|les lumières|la lumière] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece} [,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_2} [[,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_3}]"
       - sentences:
           - "(éteins|éteindre|coupe|couper) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} {casa_etat_off}"
@@ -222,6 +227,9 @@ intents:
 
   PieceAllumer:
     data:
+      # Plusieurs pièces : « allume salon et couloir ».
+      - sentences:
+          - "(allume|allumer) [les lampes|les lumières|la lumière] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece} [,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_2} [[,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_3}]"
       - sentences:
           - "(allume|allumer) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} (allumées|allumé|on)"

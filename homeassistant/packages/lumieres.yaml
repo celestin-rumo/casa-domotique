@@ -373,33 +373,58 @@ intent_script:
   # dans leur nom : les six « led cuisine » sont rangées au salon (novembre
   # 2026), et « éteins lampe cuisine » doit pourtant les éteindre. Le mot est
   # le dernier de la pièce : « bain » pour la salle de bain.
+  # Une, deux ou trois pièces d'un coup : « éteins couloir et cuisine »
+  # (casa_piece, casa_piece_2, casa_piece_3), éteintes par un seul ordre,
+  # donc ensemble. Une pièce sans lampe le dit, sans empêcher les autres.
   PieceEteindre:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') }}"
           cible: >-
-            {{ (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone) + (states.light | map(attribute='entity_id') | select('search', casa_piece.split(' ') | last) | list)) | select('match', 'light[.]') | reject('search', '_led_ring$')
-               | select('has_value') | unique | list if zone else [] }}
+            {%- set t = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'} -%}
+            {%- set ns = namespace(l=[]) -%}
+            {%- for p in [casa_piece, casa_piece_2 | default(''), casa_piece_3 | default('')] if p -%}
+              {%- set z = t.get(p, '') -%}
+              {%- if z == 'maison' -%}
+                {%- set ns.l = ns.l + (states.light | map(attribute='entity_id') | list) -%}
+              {%- elif z -%}
+                {%- set ns.l = ns.l + area_entities(z) + (states.light | map(attribute='entity_id') | select('search', p.split(' ') | last) | list) -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ ns.l | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | unique | list }}
       - condition: template
         value_template: "{{ cible | count > 0 }}"
       - service: light.turn_off
         target: { entity_id: "{{ cible }}" }
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') -%}
-        {%- if not zone or (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone) + (states.light | map(attribute='entity_id') | select('search', casa_piece.split(' ') | last) | list)) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | unique | list | count == 0 -%}
-          Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
-        {%- endif -%}
+        {%- set t = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'} -%}
+        {%- set ns = namespace(m=[]) -%}
+        {%- for p in [casa_piece, casa_piece_2 | default(''), casa_piece_3 | default('')] if p -%}
+          {%- set z = t.get(p, '') -%}
+          {%- set l = (states.light | map(attribute='entity_id') | list) if z == 'maison' else (area_entities(z) + (states.light | map(attribute='entity_id') | select('search', p.split(' ') | last) | list)) if z else [] -%}
+          {%- if l | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
+            {%- set ns.m = ns.m + ['Pas de lampe ' ~ ('au ' ~ p if p in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ p) ~ '.'] -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{ ns.m | join(' ') }}
 
   # Avec un niveau s'il est dit (« lampes salon 50 »), sinon chaque lampe
   # reprend sa dernière luminosité.
   PieceAllumer:
     action:
       - variables:
-          zone: "{{ {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') }}"
           cible: >-
-            {{ (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone) + (states.light | map(attribute='entity_id') | select('search', casa_piece.split(' ') | last) | list)) | select('match', 'light[.]') | reject('search', '_led_ring$')
-               | select('has_value') | unique | list if zone else [] }}
+            {%- set t = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'} -%}
+            {%- set ns = namespace(l=[]) -%}
+            {%- for p in [casa_piece, casa_piece_2 | default(''), casa_piece_3 | default('')] if p -%}
+              {%- set z = t.get(p, '') -%}
+              {%- if z == 'maison' -%}
+                {%- set ns.l = ns.l + (states.light | map(attribute='entity_id') | list) -%}
+              {%- elif z -%}
+                {%- set ns.l = ns.l + area_entities(z) + (states.light | map(attribute='entity_id') | select('search', p.split(' ') | last) | list) -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ ns.l | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | unique | list }}
           niveau: "{{ casa_pourcent | default(0) | int(0) }}"
       - condition: template
         value_template: "{{ cible | count > 0 }}"
@@ -416,10 +441,16 @@ intent_script:
             target: { entity_id: "{{ cible }}" }
     speech:
       text: >-
-        {%- set zone = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'}.get(casa_piece, '') -%}
-        {%- if not zone or (states.light | map(attribute='entity_id') | list if zone == 'maison' else area_entities(zone) + (states.light | map(attribute='entity_id') | select('search', casa_piece.split(' ') | last) | list)) | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | unique | list | count == 0 -%}
-          Pas de lampe {{ 'au ' ~ casa_piece if casa_piece in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ casa_piece }}.
-        {%- endif -%}
+        {%- set t = {'cuisine': 'kitchen', 'salon': 'living_room', 'chambre': 'bedroom', 'salle de bain': 'salle_de_bain_principale', 'douche': 'douche', 'bureau': 'bureau', 'couloir': 'couloir', 'maison': 'maison'} -%}
+        {%- set ns = namespace(m=[]) -%}
+        {%- for p in [casa_piece, casa_piece_2 | default(''), casa_piece_3 | default('')] if p -%}
+          {%- set z = t.get(p, '') -%}
+          {%- set l = (states.light | map(attribute='entity_id') | list) if z == 'maison' else (area_entities(z) + (states.light | map(attribute='entity_id') | select('search', p.split(' ') | last) | list)) if z else [] -%}
+          {%- if l | select('match', 'light[.]') | reject('search', '_led_ring$') | select('has_value') | list | count == 0 -%}
+            {%- set ns.m = ns.m + ['Pas de lampe ' ~ ('au ' ~ p if p in ['salon', 'bureau', 'couloir'] else 'dans la ' ~ p) ~ '.'] -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{ ns.m | join(' ') }}
 
   PieceCouleur:
     action:
