@@ -215,12 +215,17 @@ intents:
       - sentences:
           - "(éteins|éteindre|coupe|couper) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} {casa_etat_off}"
+          # « Lampe » au singulier, comme on le dit : « éteins lampe salon ».
+          # Pas pour la chambre, où « lampe chambre » est la lampe de chevet
+          # seule (casa_lampe) : d'où casa_piece_lampe, sans elle.
+          - "(éteins|éteindre|coupe|couper) [la] lampe [de|du|de la|dans|dans la|dans le] {casa_piece_lampe:casa_piece}"
 
   PieceAllumer:
     data:
       - sentences:
           - "(allume|allumer) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} (allumées|allumé|on)"
+          - "(allume|allumer) [la] lampe [de|du|de la|dans|dans la|dans le] {casa_piece_lampe:casa_piece}"
       # « Lampes salon 50 », « mets les lumières de la cuisine à 30 pourcent ».
       - sentences:
           - "[(mets|mettre|passe|passer|allume|règle)] [les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} [à] {casa_pourcent} [pourcent|pour cent]"
@@ -258,6 +263,22 @@ lists:
       # en fait toutes les lampes.
       - in: "(partout|maison|toute la maison)"
         out: "maison"
+
+  # casa_piece sans la chambre, pour « lampe » au singulier.
+  casa_piece_lampe:
+    values:
+      - in: "cuisine"
+        out: "cuisine"
+      - in: "salon"
+        out: "salon"
+      - in: "(salle de bain|salle de bains|bain)"
+        out: "salle de bain"
+      - in: "douche"
+        out: "douche"
+      - in: "bureau"
+        out: "bureau"
+      - in: "couloir"
+        out: "couloir"
 
   casa_etat_off:
     values:
