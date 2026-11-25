@@ -238,6 +238,16 @@ intents:
           # La couleur avant la pièce : « lampe rose chambre ».
           - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampe|lampes|lumière|lumières) [en] {casa_couleur} [(dans|à|de|du|de la|dans la|dans le)] [la|le] {casa_piece}"
 
+  # « Lampe cuisine chaude », « lumières salon froides », « lampes chaudes »
+  # (la pièce du satellite) : toutes au même blanc, packages/lumieres.yaml.
+  PieceBlanc:
+    data:
+      - sentences:
+          - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampe|lampes|lumière|lumières) [de|du|de la|des|dans|dans la|dans le] {casa_piece} [en] [blanc] {casa_blanc}"
+          - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampe|lampes|lumière|lumières) [en] [blanc] {casa_blanc} [(dans|à|au|de|du|de la|dans la|dans le)] [la|le] {casa_piece}"
+          - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampes|lumières|lumière) [en] [blanc] {casa_blanc}"
+          - "{casa_piece} [en] [blanc] {casa_blanc}"
+
 lists:
   # out en français, relu par Home Assistant après le micro ; la traduction
   # en zone vit dans packages/lumieres.yaml. La douche est sa propre zone
@@ -279,6 +289,15 @@ lists:
         out: "bureau"
       - in: "couloir"
         out: "couloir"
+
+  casa_blanc:
+    values:
+      - in: "(chaud|chaude|chauds|chaudes)"
+        out: "chaud"
+      - in: "(froid|froide|froids|froides)"
+        out: "froid"
+      - in: "(neutre|neutres)"
+        out: "neutre"
 
   casa_etat_off:
     values:

@@ -58,7 +58,9 @@ lists:
         out: "sexy"
       - in: "(nightly|nuit)"
         out: "nightly"
-      - in: "(light|lights|lumière chaude)"
+      # « lumière chaude » n'en est plus : c'est le blanc chaud de toute la
+      # pièce (PieceBlanc, lumieres.yaml).
+      - in: "(light|lights)"
         out: "light"
 
   casa_ambiance:
