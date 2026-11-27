@@ -136,10 +136,16 @@ intent_script:
         {%- endmacro -%}
         {#- La moyenne des capteurs de la zone pour une classe, '' sans capteur. -#}
         {%- macro mesure(z, classe='temperature') -%}
-          {%- set v = area_entities(z) | select('match', 'sensor[.]') | expand
+          {#- La cuisine, ouverte sur le salon, prend son capteur s'il lui en manque un. -#}
+          {%- set zs = [z] + (['living_room'] if z == 'kitchen' else []) -%}
+          {%- set ns2 = namespace(v=[]) -%}
+          {%- for zz in zs if not ns2.v -%}
+            {%- set ns2.v = area_entities(zz) | select('match', 'sensor[.]') | expand
                 | selectattr('attributes.device_class', 'defined')
                 | selectattr('attributes.device_class', 'eq', classe)
                 | map(attribute='state') | map('float', none) | reject('none') | list -%}
+          {%- endfor -%}
+          {%- set v = ns2.v -%}
           {{- (v | sum / v | count) if v else '' -}}
         {%- endmacro -%}
         {%- set p = casa_piece | default('') -%}
@@ -148,7 +154,7 @@ intent_script:
           {{ "Il fait " ~ degres(x) ~ " degrés dehors." if x is not none else "Je n'ai pas la température de MétéoSuisse pour le moment." }}
         {%- elif p == 'maison' -%}
           {%- set ns = namespace(l=[]) -%}
-          {%- for z in noms if mesure(z) != '' -%}
+          {%- for z in noms if z != 'kitchen' and mesure(z) != '' -%}
             {%- set ns.l = ns.l + [degres(mesure(z) | float) ~ ' ' ~ lieu(z)] -%}
           {%- endfor -%}
           {%- if ns.l -%}

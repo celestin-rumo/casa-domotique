@@ -12,7 +12,7 @@
 #
 # La table est répétée dans chaque intent, à l'identique :
 #
-#     {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
+#     {'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''),
 #                                                  'media_player.ma_chambre')
 #
 # Une pièce absente de la table retombe sur la chambre. Une enceinte ajoutée
@@ -43,9 +43,9 @@ intent_script:
     action:
       - variables:
           enceintes: >-
-            {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+            {%- set t = {'salon': ['media_player.ma_salon'], 'cuisine': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
             {%- set p = casa_piece | default('') -%}
-            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
+            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
           joignables: "{{ enceintes | reject('is_state', ['unknown', 'unavailable']) | list }}"
       - if:
           - condition: template
@@ -55,9 +55,9 @@ intent_script:
             target: { entity_id: "{{ joignables }}" }
     speech:
       text: >-
-        {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+        {%- set t = {'salon': ['media_player.ma_salon'], 'cuisine': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
         {%- set p = casa_piece | default('') -%}
-        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
+        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
         {%- if not e -%}
           Pas d'enceinte {{ 'au ' ~ p if p in ['bureau', 'couloir'] else 'dans la ' ~ p }}.
         {%- elif e | reject('is_state', ['unknown', 'unavailable']) | list | count == 0 -%}
@@ -68,9 +68,9 @@ intent_script:
     action:
       - variables:
           enceintes: >-
-            {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+            {%- set t = {'salon': ['media_player.ma_salon'], 'cuisine': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
             {%- set p = casa_piece | default('') -%}
-            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
+            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
           joignables: "{{ enceintes | reject('is_state', ['unknown', 'unavailable']) | list }}"
       - if:
           - condition: template
@@ -80,9 +80,9 @@ intent_script:
             target: { entity_id: "{{ joignables }}" }
     speech:
       text: >-
-        {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+        {%- set t = {'salon': ['media_player.ma_salon'], 'cuisine': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
         {%- set p = casa_piece | default('') -%}
-        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
+        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
         {%- if not e -%}
           Pas d'enceinte {{ 'au ' ~ p if p in ['bureau', 'couloir'] else 'dans la ' ~ p }}.
         {%- elif e | reject('is_state', ['unknown', 'unavailable']) | list | count == 0 -%}
@@ -93,9 +93,9 @@ intent_script:
     action:
       - variables:
           enceintes: >-
-            {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+            {%- set t = {'salon': ['media_player.ma_salon'], 'cuisine': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
             {%- set p = casa_piece | default('') -%}
-            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
+            {{ t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) }}
           joignables: "{{ enceintes | reject('is_state', ['unknown', 'unavailable']) | list }}"
       - if:
           - condition: template
@@ -105,9 +105,9 @@ intent_script:
             target: { entity_id: "{{ joignables }}" }
     speech:
       text: >-
-        {%- set t = {'salon': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
+        {%- set t = {'salon': ['media_player.ma_salon'], 'cuisine': ['media_player.ma_salon'], 'chambre': ['media_player.ma_chambre'], 'maison': ['media_player.ma_chambre', 'media_player.ma_salon']} -%}
         {%- set p = casa_piece | default('') -%}
-        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
+        {%- set e = t[p] if p in t else ([] if p else [{'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre')]) -%}
         {%- if not e -%}
           Pas d'enceinte {{ 'au ' ~ p if p in ['bureau', 'couloir'] else 'dans la ' ~ p }}.
         {%- elif e | reject('is_state', ['unknown', 'unavailable']) | list | count == 0 -%}
@@ -119,7 +119,7 @@ intent_script:
   QuiJoue:
     speech:
       text: >-
-        {%- set e = {'living_room': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
+        {%- set e = {'living_room': 'media_player.ma_salon', 'kitchen': 'media_player.ma_salon'}.get(preferred_area_id | default(''), 'media_player.ma_chambre') -%}
         {%- set titre = state_attr(e, 'media_title') -%}
         {%- set artiste = state_attr(e, 'media_artist') -%}
         {%- if states(e) in ['unknown', 'unavailable'] -%}

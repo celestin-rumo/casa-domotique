@@ -133,15 +133,27 @@ intents:
   #
   # Les deux LED WiZ, et les tournures « allume led », sont parties avec le
   # déménagement de novembre 2026.
+  # Sans pièce, celle du Voice PE qui a entendu ; celui du salon couvre
+  # aussi la cuisine, ouverte sur lui (packages/lumieres.yaml).
   LampesOff:
     data:
       - sentences:
-          - "(éteins|éteindre|coupe|couper) les lampes"
+          - "(éteins|éteindre|coupe|couper) (les lampes|les lumières|la lumière|lumière|lumières|lampes)"
+      # « Lampe » au singulier : dans la chambre, la lampe de chevet seule,
+      # comme « éteins lampe chambre » ; ailleurs, les lampes de la pièce.
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) [la] lampe"
+        slots:
+          casa_seule: "oui"
 
   LampesOn:
     data:
       - sentences:
-          - "(allume|allumer) les lampes"
+          - "(allume|allumer) (les lampes|les lumières|la lumière|lumière|lumières|lampes)"
+      - sentences:
+          - "(allume|allumer) [la] lampe"
+        slots:
+          casa_seule: "oui"
 
   # « Allume tout » : les lampes de la pièce. Le pendant de « tout
   # éteindre », moins la musique : allumer ne relance rien. Pas l'anneau du

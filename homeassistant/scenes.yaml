@@ -34,12 +34,13 @@
   entities:
     light.chambre: { state: "on", brightness: 210, color_temp_kelvin: 4200 }
     light.chambre_bandeau: { state: "off" }
-# Presque rien de la lampe, le bandeau porte la pièce.
+# La lampe tamisée à 20 %, le bandeau orangé porte la pièce. Les valeurs du
+# Pi au 27 novembre 2026, lampe baissée de 56 à 20 % ce jour-là.
 - id: chillos
   name: Chillos
   entities:
-    light.chambre: { state: "on", brightness: 8, color_temp_kelvin: 2200 }
-    light.chambre_bandeau: { state: "on", brightness: 25, color_temp_kelvin: 2200 }
+    light.chambre: { state: "on", brightness: 51, color_temp_kelvin: 2237 }
+    light.chambre_bandeau: { state: "on", brightness: 128, rgb_color: [255, 129, 27] }
 # Le rouge rosé est au bandeau, derrière le lit ; la lampe reste chaude et
 # basse. Les deux en rouge donneraient une chambre de laboratoire photo, pas
 # une ambiance — c'est le blanc ambré de la lampe qui fait tenir la couleur.

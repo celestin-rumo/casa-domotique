@@ -32,7 +32,7 @@ intents:
   ArreterMusique:
     data:
       - sentences:
-          - "(éteins|éteindre|coupe|couper) la musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
+          - "(éteins|éteindre|coupe|couper) [la] musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
           - "(stop|stoppe|stopper) [la] musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
           - "(arrête|arrêter|arrete) [la] musique [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"
           - "(éteins|coupe) le son [[(dans|à|au|de|du)] [la|le|l'] {casa_piece}]"

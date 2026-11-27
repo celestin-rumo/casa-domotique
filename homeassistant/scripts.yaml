@@ -86,9 +86,16 @@ play_playlist:
           target: { entity_id: "{{ player }}" }
           data: { shuffle: "{{ aleatoire | bool }}" }
           continue_on_error: true
+    # UNE DEUXIÈME CHANCE. Le 26 novembre 2026 à 21 h, Câlin a allumé la
+    # chambre mais pas la musique : la WiiM revenait d'une journée hors
+    # ligne, et Music Assistant a répondu « Retries exhausted ». Deux minutes
+    # plus tard, la même lecture passait. D'où un premier essai qui a le
+    # droit d'échouer, dix secondes pour voir l'enceinte jouer, puis un
+    # second, qui lui échoue pour de bon — l'app le dit alors.
     - service: music_assistant.play_media
       target: { entity_id: "{{ player }}" }
-      data:
+      continue_on_error: true
+      data: &lecture
         media_id: "{{ media_id }}"
         media_type: playlist
         # REMPLACER la file, pas s'y glisser. Sans ce réglage, Music
@@ -97,6 +104,15 @@ play_playlist:
         # « marchait mal », constaté le 17 novembre 2026.
         enqueue: replace
         radio_mode: "{{ radio_mode | default(false) }}"
+    - wait_template: "{{ expand(player) | selectattr('state', 'eq', 'playing') | list | count > 0 }}"
+      timeout: "00:00:10"
+    - if:
+        - condition: template
+          value_template: "{{ not wait.completed }}"
+      then:
+        - service: music_assistant.play_media
+          target: { entity_id: "{{ player }}" }
+          data: *lecture
     # Ce qui joue, nom ou adresse, pour l'écran Écoute : l'enceinte ne dit que
     # le morceau, jamais la playlist (packages/playlists.yaml). Un Pi qui n'a
     # pas encore redémarré depuis l'ajout de ce réglage joue quand même.
