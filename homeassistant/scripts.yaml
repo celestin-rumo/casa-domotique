@@ -255,17 +255,25 @@ mood_off:
     - service: timer.cancel
       target: { entity_id: [timer.reveil_bonjour, timer.coucher] }
       continue_on_error: true
+    # LA MUSIQUE D'ABORD, et rien n'arrête la suite. Les 26 novembre 2026 à
+    # 6 h 48 et 21 h 45, une lampe Zigbee n'a pas répondu (« device did not
+    # respond ») : le script s'est arrêté sur l'erreur, et la musique, coupée
+    # en dernier, a continué. Chaque étape a donc droit à l'échec, et ce qui
+    # s'entend passe avant ce qui se voit.
+    - service: media_player.media_stop
+      target: { entity_id: all }
+      continue_on_error: true
     - service: scene.turn_on
       target: { entity_id: scene.tout_eteindre }
+      continue_on_error: true
     # Toutes les lumières, pas seulement celles de la scène. scene.tout_eteindre
     # appartient à Home Assistant et ne connaît que ce qu'on y a mis : les deux
     # WiZ, ajoutées à la chambre après coup, n'y étaient pas, et Tout éteindre
-    # les laissait allumées. Même logique que media_stop juste en dessous.
+    # les laissait allumées. Même logique que media_stop, plus haut.
     # `all` : toutes les pièces, couloir, douche et salle de bain comprises.
     - service: light.turn_off
       target: { entity_id: all }
-    - service: media_player.media_stop
-      target: { entity_id: all }
+      continue_on_error: true
     - *ambiance_confirmee
 
 # LES AMBIANCES AJOUTÉES DEPUIS L'APP : six places, une par script, qui

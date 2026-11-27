@@ -138,12 +138,22 @@ intents:
   LampesOff:
     data:
       - sentences:
-          - "(éteins|éteindre|coupe|couper) (les lampes|les lumières|la lumière|lumière|lumières|lampes|la lampe|lampe)"
+          - "(éteins|éteindre|coupe|couper) (les lampes|les lumières|la lumière|lumière|lumières|lampes)"
+      # « Lampe » au singulier : dans la chambre, la lampe de chevet seule,
+      # comme « éteins lampe chambre » ; ailleurs, les lampes de la pièce.
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) [la] lampe"
+        slots:
+          casa_seule: "oui"
 
   LampesOn:
     data:
       - sentences:
-          - "(allume|allumer) (les lampes|les lumières|la lumière|lumière|lumières|lampes|la lampe|lampe)"
+          - "(allume|allumer) (les lampes|les lumières|la lumière|lumière|lumières|lampes)"
+      - sentences:
+          - "(allume|allumer) [la] lampe"
+        slots:
+          casa_seule: "oui"
 
   # « Allume tout » : les lampes de la pièce. Le pendant de « tout
   # éteindre », moins la musique : allumer ne relance rien. Pas l'anneau du
@@ -199,6 +209,18 @@ intents:
     data:
       - sentences:
           - "[le|la|l'] {casa_lampe} {casa_etat}"
+      # Avec le verbe, pour les lampes nommées : « éteins bandeau », « éteins
+      # le bandeau », « éteins lampe chambre » — la lampe seule, d'où qu'on
+      # parle. Ne plus compter sur l'ordre intégré, qui ne connaît « bandeau »
+      # que par un alias du registre.
+      - sentences:
+          - "(éteins|éteindre|coupe|couper) [le|la|l'] {casa_lampe_nom:casa_lampe}"
+        slots:
+          casa_etat: "éteint"
+      - sentences:
+          - "(allume|allumer) [le|la|l'] {casa_lampe_nom:casa_lampe}"
+        slots:
+          casa_etat: "allumé"
 
   # UNE PIÈCE NOMMÉE : « éteins lampes cuisine », « allume les lumières du
   # salon », « lampe rose chambre ». La pièce dite l'emporte sur celle du
@@ -209,9 +231,9 @@ intents:
   # « douche » ni « lampes cuisine » sans article. casa_piece porte les mots
   # qu'on dit vraiment ; packages/lumieres.yaml les traduit en zones.
   #
-  # Avec un verbe, « éteins lampe chambre » est la pièce entière, comme pour
-  # toutes les autres. Sans verbe (« lampe chambre à 50 », « tamise lampe
-  # chambre »), c'est encore la lampe de chevet seule, par casa_lampe.
+  # « lampe » au singulier n'entre que dans la tournure couleur-puis-pièce
+  # (« lampe rose chambre ») : partout ailleurs, « lampe chambre » est la
+  # lampe de chevet seule (casa_lampe), et les deux lectures se battraient.
   PieceEteindre:
     data:
       # Plusieurs pièces d'un coup, éteintes ensemble : « éteins couloir et
@@ -223,10 +245,9 @@ intents:
           - "(éteins|éteindre|coupe|couper) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} {casa_etat_off}"
           # « Lampe » au singulier, comme on le dit : « éteins lampe salon ».
-          # La chambre comprise : depuis le 27 novembre 2026, sa lampe de
-          # chevet est une lampe comme les autres, et « éteins lampe
-          # chambre » éteint toute la chambre.
-          - "(éteins|éteindre|coupe|couper) [la] lampe [de|du|de la|dans|dans la|dans le] {casa_piece}"
+          # Pas pour la chambre, où « lampe chambre » est la lampe de chevet
+          # seule (casa_lampe) : d'où casa_piece_lampe, sans elle.
+          - "(éteins|éteindre|coupe|couper) [la] lampe [de|du|de la|dans|dans la|dans le] {casa_piece_lampe:casa_piece}"
 
   PieceAllumer:
     data:
@@ -236,7 +257,7 @@ intents:
       - sentences:
           - "(allume|allumer) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} (allumées|allumé|on)"
-          - "(allume|allumer) [la] lampe [de|du|de la|dans|dans la|dans le] {casa_piece}"
+          - "(allume|allumer) [la] lampe [de|du|de la|dans|dans la|dans le] {casa_piece_lampe:casa_piece}"
       # « Lampes salon 50 », « mets les lumières de la cuisine à 30 pourcent ».
       - sentences:
           - "[(mets|mettre|passe|passer|allume|règle)] [les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} [à] {casa_pourcent} [pourcent|pour cent]"
@@ -300,6 +321,31 @@ lists:
       # en fait toutes les lampes.
       - in: "(partout|maison|toute la maison)"
         out: "maison"
+
+  # Les lampes appelées par leur nom, pour « éteins bandeau » : casa_lampe
+  # sans « les lampes », qui est LampesOff.
+  casa_lampe_nom:
+    values:
+      - in: "(bandeau|flux gradient|gradient)"
+        out: "bandeau"
+      - in: "(lampe chambre|lampe de la chambre|lampe de chevet)"
+        out: "lampe chambre"
+
+  # casa_piece sans la chambre, pour « lampe » au singulier.
+  casa_piece_lampe:
+    values:
+      - in: "cuisine"
+        out: "cuisine"
+      - in: "salon"
+        out: "salon"
+      - in: "(salle de bain|salle de bains|bain)"
+        out: "salle de bain"
+      - in: "douche"
+        out: "douche"
+      - in: "bureau"
+        out: "bureau"
+      - in: "couloir"
+        out: "couloir"
 
   # Les six paliers du blanc, de 20 % en 20 % : chaud, doux, neutre,
   # clair, frais, froid (packages/lumieres.yaml).

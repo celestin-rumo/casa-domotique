@@ -312,8 +312,11 @@ intent_script:
   LampesOff:
     action:
       - variables:
+          # « éteins lampe » (casa_seule) dans la chambre : la lampe de
+          # chevet seule, comme « éteins lampe chambre ».
           cible: >-
-            {{ (area_entities(preferred_area_id | default('bedroom')) + (area_entities('kitchen') if (preferred_area_id | default('bedroom')) == 'living_room' else []))
+            {{ ['light.chambre'] if casa_seule is defined and preferred_area_id | default('bedroom') == 'bedroom' else
+               (area_entities(preferred_area_id | default('bedroom')) + (area_entities('kitchen') if (preferred_area_id | default('bedroom')) == 'living_room' else []))
                | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list }}
       - condition: template
@@ -324,8 +327,11 @@ intent_script:
   LampesOn:
     action:
       - variables:
+          # « allume lampe » (casa_seule) dans la chambre : la lampe de
+          # chevet seule, comme « allume lampe chambre ».
           cible: >-
-            {{ (area_entities(preferred_area_id | default('bedroom')) + (area_entities('kitchen') if (preferred_area_id | default('bedroom')) == 'living_room' else []))
+            {{ ['light.chambre'] if casa_seule is defined and preferred_area_id | default('bedroom') == 'bedroom' else
+               (area_entities(preferred_area_id | default('bedroom')) + (area_entities('kitchen') if (preferred_area_id | default('bedroom')) == 'living_room' else []))
                | select('match', 'light[.]') | reject('search', '_led_ring$')
                | select('has_value') | list }}
       - condition: template
