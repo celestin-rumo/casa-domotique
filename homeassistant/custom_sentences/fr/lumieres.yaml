@@ -237,10 +237,21 @@ intents:
   PieceEteindre:
     data:
       # Plusieurs pièces d'un coup, éteintes ensemble : « éteins couloir et
-      # cuisine », « éteins les lampes du salon, du couloir et de la
-      # cuisine ». Sans le mot « lampes », ce sont bien les lampes.
+      # cuisine », « éteins les lampes du salon et de la cuisine », « éteins
+      # chambre, douche et couloir ». Sans le mot « lampes », ce sont bien
+      # les lampes.
+      #
+      # PEU D'ARTICLES, ET C'EST VOULU. Speech-to-Phrase apprend chaque
+      # tournure possible, et les options se MULTIPLIENT : la première
+      # version, avec dix articles facultatifs devant chacune des trois
+      # pièces, faisait 885 millions de phrases à elle seule. Le micro mettait
+      # alors 7 à 14 secondes par phrase et en laissait tomber la plupart
+      # (27 novembre 2026). Avant d'ajouter une option ici, compter.
       - sentences:
-          - "(éteins|éteindre|coupe|couper) [les lampes|les lumières|la lumière] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece} [,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_2} [[,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_3}]"
+          - "(éteins|éteindre|coupe|couper) [les lampes|les lumières] [la|le] {casa_piece} et [la|le] {casa_piece:casa_piece_2}"
+          - "(éteins|éteindre|coupe|couper) (les lampes|les lumières) (du|de la) {casa_piece} et (du|de la) {casa_piece:casa_piece_2}"
+          - "(éteins|éteindre|coupe|couper) [les lampes|les lumières] {casa_piece} [et] {casa_piece:casa_piece_2} et {casa_piece:casa_piece_3}"
+          - "(éteins|éteindre|coupe|couper) [les lampes|les lumières] (la|le) {casa_piece} [et] (la|le) {casa_piece:casa_piece_2} et (la|le) {casa_piece:casa_piece_3}"
       - sentences:
           - "(éteins|éteindre|coupe|couper) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} {casa_etat_off}"
@@ -253,7 +264,10 @@ intents:
     data:
       # Plusieurs pièces : « allume salon et couloir ».
       - sentences:
-          - "(allume|allumer) [les lampes|les lumières|la lumière] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece} [,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_2} [[,] [et] [le|la|les|du|de la|des|dans|dans la|dans le|au] {casa_piece:casa_piece_3}]"
+          - "(allume|allumer) [les lampes|les lumières] [la|le] {casa_piece} et [la|le] {casa_piece:casa_piece_2}"
+          - "(allume|allumer) (les lampes|les lumières) (du|de la) {casa_piece} et (du|de la) {casa_piece:casa_piece_2}"
+          - "(allume|allumer) [les lampes|les lumières] {casa_piece} [et] {casa_piece:casa_piece_2} et {casa_piece:casa_piece_3}"
+          - "(allume|allumer) [les lampes|les lumières] (la|le) {casa_piece} [et] (la|le) {casa_piece:casa_piece_2} et (la|le) {casa_piece:casa_piece_3}"
       - sentences:
           - "(allume|allumer) [les|la] (lampes|lumières|lumière) [de|du|de la|des|dans|dans la|dans le] {casa_piece}"
           - "[les] (lampes|lumières) [de|du|de la|dans|dans la|dans le] {casa_piece} (allumées|allumé|on)"
@@ -275,9 +289,9 @@ intents:
   PieceBlanc:
     data:
       - sentences:
-          - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampe|lampes|lumière|lumières) [de|du|de la|des|dans|dans la|dans le] {casa_piece} [en] [blanc] {casa_blanc}"
-          - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampe|lampes|lumière|lumières) [en] [blanc] {casa_blanc} [(dans|à|au|de|du|de la|dans la|dans le)] [la|le] {casa_piece}"
-          - "[(mets|mettre|passe|passer|allume|allumer)] [les|la] (lampes|lumières|lumière) [en] [blanc] {casa_blanc}"
+          - "[(mets|passe|allume)] [les] (lampe|lampes|lumières) [(du|de la|dans la|dans le|au)] {casa_piece} [en] [blanc] {casa_blanc}"
+          - "[(mets|passe|allume)] [les] (lampe|lampes|lumières) [en] [blanc] {casa_blanc} [(dans la|dans le|au)] {casa_piece}"
+          - "[(mets|passe|allume)] [les] (lampes|lumières|la lumière) [en] [blanc] {casa_blanc}"
           - "{casa_piece} [en] [blanc] {casa_blanc}"
 
   # Un palier de blanc vers le chaud ou vers le froid, sur les lampes
@@ -286,13 +300,16 @@ intents:
   PieceBlancPas:
     data:
       - sentences:
-          - "[(mets|mettre|passe|passer)] [les|la] [(lampe|lampes|lumière|lumières)] [de|du|de la|des|dans|dans la|dans le] [{casa_piece}] (plus|un peu plus) {casa_sens} [[(dans|à|au|de|du|de la|dans la|dans le)] [la|le] {casa_piece}]"
+          - "(plus|un peu plus) {casa_sens}"
+          - "[les] (lampe|lampes|lumières) {casa_piece} (plus|un peu plus) {casa_sens}"
+          - "{casa_piece} (plus|un peu plus) {casa_sens}"
+          - "(plus|un peu plus) {casa_sens} (dans la|dans le|au) {casa_piece}"
       - sentences:
-          - "(réchauffe|réchauffer) [les|la] [(lampe|lampes|lumière|lumières)] [(de|du|de la|des|dans|dans la|dans le|le|la)] [{casa_piece}]"
+          - "(réchauffe|réchauffer) [(les lampes|les lumières|la lumière)] [(la|le|du|de la|dans la|dans le|au)] [{casa_piece}]"
         slots:
           casa_sens: "chaud"
       - sentences:
-          - "(refroidis|refroidir) [les|la] [(lampe|lampes|lumière|lumières)] [(de|du|de la|des|dans|dans la|dans le|le|la)] [{casa_piece}]"
+          - "(refroidis|refroidir) [(les lampes|les lumières|la lumière)] [(la|le|du|de la|dans la|dans le|au)] [{casa_piece}]"
         slots:
           casa_sens: "froid"
 
